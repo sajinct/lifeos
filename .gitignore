@@ -6,6 +6,7 @@
 src/app/core/supabase/config.ts
 supabase/.temp/
 supabase/.branches/
+**/supabase/.temp/
 
 # Compiled output
 /dist

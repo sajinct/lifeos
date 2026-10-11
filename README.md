@@ -26,7 +26,9 @@ This is **Phase 1 plus an initial Phase 2 slice**, not the complete fifteen-modu
 
 ## Connect and deploy
 
-Follow [operations and deployment](docs/operations.md) to apply Supabase migrations, configure the public project URL/key and Auth redirects, and enable GitHub Pages. Supabase remains disconnected by choice; the public deployment runs in demo mode until the public project configuration is supplied.
+The production app uses Supabase for real accounts and private records. Public connection values are configured as GitHub Actions repository variables. Create an account, verify your email, and create a workspace to start saving records. The optional demo remains available with session-only sample data.
+
+Follow [operations and deployment](docs/operations.md) for configuration, migrations, and recovery. Production Auth settings are tracked in `config/production/supabase/config.toml`; local development configuration remains in `supabase/config.toml`.
 
 Never include a secret/service-role key in a frontend build. Environment values become public browser assets. `.env.example` documents the two public variables; it is not automatically loaded.
 

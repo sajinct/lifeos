@@ -21,8 +21,15 @@ npm start
 `.env.example` describes variables; it is not automatically loaded. Only a publishable key or legacy anon JWT is permitted by the build script. A secret or service-role key is rejected. Frontend build variables are visible in public assets, even when sourced from GitHub Secrets.
 
 4. Configure Auth's Site URL and redirect allowlist for the exact development/staging/production origins and base paths, including the `?flow=recovery` reset redirect. The code exchanges a PKCE `code` in the URL before entering hash routing. Verification/reset links should be opened in the same browser that initiated them.
-5. Enable email confirmation, configure SMTP for production, sign up, verify your email, and sign in. A profile is created by a trigger. Create a workspace in Settings. The schema does not insert demo records into real accounts.
-6. Workspace owners can add an existing account by profile UUID in Settings. This intentionally does not send email invitations or expose a searchable profile directory. Viewer access is read-only; private records are invisible to other members, including the workspace owner. Finance accounts and ledger entries remain private.
+
+The scoped production configuration is tracked separately. After reviewing the diff, apply it to the intended project:
+
+```text
+npx supabase config diff --project-ref YOUR_PROJECT_REF --workdir config/production
+npx supabase config push --project-ref YOUR_PROJECT_REF --workdir config/production
+```
+
+This declares the LifeOS production and local Auth redirect URLs, email signup and confirmation. Undeclared remote settings remain unchanged. Do not push the local development config as production Auth configuration. 5. Enable email confirmation, configure SMTP for production, sign up, verify your email, and sign in. A profile is created by a trigger. Create a workspace in Settings. The schema does not insert demo records into real accounts. 6. Workspace owners can add an existing account by profile UUID in Settings. This intentionally does not send email invitations or expose a searchable profile directory. Viewer access is read-only; private records are invisible to other members, including the workspace owner. Finance accounts and ledger entries remain private.
 
 ## Environments and migrations
 
@@ -47,7 +54,7 @@ npm run build
 node scripts/verify-build.mjs
 ```
 
-Security tests execute the unchanged application migration in PGlite's real PostgreSQL engine with platform Auth/Storage schema shims. They exercise RLS, grants, ownership, viewers, links, transfers, idempotent reminders and Storage policy logic. They do not replace a cloud smoke test: before production, verify real email signup/reset, two-user isolation, signed downloads and the actual Supabase Storage API in staging. Live credentials and cloud provisioning were not supplied with this project.
+Security tests execute the application migration in PGlite's real PostgreSQL engine with platform Auth/Storage schema shims. They exercise RLS, grants, ownership, viewers, links, transfers, idempotent reminders, preservation of unrelated platform function permissions, and Storage policy logic. They do not replace a cloud smoke test: verify real email signup/reset, two-user isolation, signed downloads and the actual Supabase Storage API in staging. The production schema and Auth redirects have been configured; real email verification and password entry are completed by the account owner.
 
 ## Private files
 

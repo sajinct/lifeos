@@ -45,8 +45,8 @@ $$;
 create function private.can_edit(w uuid, o uuid, v public.record_visibility) returns boolean language sql stable set search_path = '' as $$
   select private.can_write(w) and (o = (select auth.uid()) or (v = 'workspace' and private.is_owner(w)));
 $$;
-revoke all on all functions in schema private from public;
-grant execute on all functions in schema private to authenticated;
+revoke all on function private.is_member(uuid), private.can_write(uuid), private.is_owner(uuid), private.can_read(uuid,uuid,public.record_visibility), private.can_edit(uuid,uuid,public.record_visibility) from public;
+grant execute on function private.is_member(uuid), private.can_write(uuid), private.is_owner(uuid), private.can_read(uuid,uuid,public.record_visibility), private.can_edit(uuid,uuid,public.record_visibility) to authenticated;
 
 create function private.new_profile() returns trigger language plpgsql security definer set search_path = '' as $$
 begin
@@ -311,7 +311,9 @@ begin
   update public.reminders r set delivered_at = now() where delivered_at is null and exists(select 1 from public.notifications n where n.reminder_id = r.id);
   return total;
 end; $$;
-revoke all on all functions in schema public from public,anon,authenticated;
+-- Keep Supabase platform functions and any unrelated application functions unchanged.
+revoke all on function public.create_workspace(text,public.workspace_kind), public.set_workspace_member(uuid,uuid,public.member_role), public.remove_workspace_member(uuid,uuid), public.record_transaction(uuid,uuid,text,numeric,text,text,date), public.transfer_funds(uuid,uuid,uuid,numeric,uuid), public.deliver_due_reminders() from public,anon,authenticated;
+revoke all on function private.new_profile(), private.touch_updated_at(), private.validate_links(), private.log_activity() from public,anon,authenticated;
 grant execute on function public.create_workspace(text,public.workspace_kind), public.set_workspace_member(uuid,uuid,public.member_role), public.remove_workspace_member(uuid,uuid), public.record_transaction(uuid,uuid,text,numeric,text,text,date), public.transfer_funds(uuid,uuid,uuid,numeric,uuid) to authenticated;
 grant execute on function public.deliver_due_reminders() to service_role;
 

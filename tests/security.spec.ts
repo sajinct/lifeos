@@ -44,7 +44,8 @@ beforeAll(async () => {
     create table storage.objects(id uuid default gen_random_uuid() primary key,bucket_id text,name text);
     alter table storage.objects enable row level security;grant select,insert,delete on storage.objects to authenticated;
     create function storage.foldername(text) returns text[] language sql immutable as $$ select (string_to_array($1,'/'))[1:array_length(string_to_array($1,'/'),1)-1] $$;
-    grant execute on function storage.foldername(text) to public;`);
+    grant execute on function storage.foldername(text) to public;
+    create function public.platform_probe() returns integer language sql as $$ select 1 $$;`);
   await db.exec(readFileSync('supabase/migrations/202610110001_foundation.sql', 'utf8'));
   await db.query('insert into auth.users(id) values($1),($2),($3)', [A, B, C]);
   await asUser(A);
@@ -73,6 +74,12 @@ afterAll(async () => {
   await db?.close();
 });
 describe('Actual PostgreSQL RLS and permission boundaries', () => {
+  it('preserves unrelated platform function permissions', async () => {
+    await db.exec('reset role;set role anon');
+    expect(
+      (await db.query<{ value: number }>('select public.platform_probe() as value')).rows[0].value,
+    ).toBe(1);
+  });
   it('supports settings upserts without permitting another user’s settings', async () => {
     await asUser(A);
     for (const widget of ['tasks', 'goals'])
