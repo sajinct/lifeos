@@ -41,7 +41,9 @@ Create a GitHub repository for this folder, push to `main`, and select **GitHub 
 
 The default base path is `/REPOSITORY_NAME/`. Override with `PAGES_BASE_PATH` for account-level Pages (use `/`). For a custom domain, set `CUSTOM_DOMAIN` to the hostname; the workflow uses `/` and emits `CNAME`. Configure GitHub's domain verification, DNS and HTTPS in Pages settings. Add the resulting origin/base path and reset URL to Supabase Auth. Hash URLs such as `/lifeos/#/tasks` support refresh/direct navigation without a server fallback. Auth callbacks arrive at the index document as `?code=...` and are handled before routing.
 
-Production command: `npm run build -- --base-href=/lifeos/`. Output: `dist/lifeos/browser`. Do not upload source files or a Supabase service-role credential to Pages. No application API server is deployed.
+This deployment uses `CUSTOM_DOMAIN=lifeos.sajinct.com` and a root base path. Changing the custom domain in GitHub Pages settings alone does not rebuild the frontend: update the Actions variable and run the deployment workflow too. The build verifier requires `/` and a matching `CNAME` when a custom domain is configured. Production Auth redirects include `https://lifeos.sajinct.com/` and `https://lifeos.sajinct.com/?flow=recovery`.
+
+Production command: `npm run build -- --base-href=/`. Output: `dist/lifeos/browser`. Do not upload source files or a Supabase service-role credential to Pages. No application API server is deployed.
 
 ## Verification
 

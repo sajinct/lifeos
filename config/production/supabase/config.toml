@@ -1,8 +1,10 @@
 # Only explicitly declared Auth settings are pushed. Local settings remain in supabase/config.toml.
 project_id = "lifeos-production"
 [auth]
-site_url = "https://sajinct.github.io/lifeos/"
+site_url = "https://lifeos.sajinct.com/"
 additional_redirect_urls = [
+  "https://lifeos.sajinct.com/",
+  "https://lifeos.sajinct.com/?flow=recovery",
   "https://sajinct.github.io/lifeos/",
   "https://sajinct.github.io/lifeos/?flow=recovery",
   "http://127.0.0.1:4200/",
