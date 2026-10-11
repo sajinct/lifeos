@@ -54,6 +54,8 @@ npm run build
 node scripts/verify-build.mjs
 ```
 
+After linking a cloud project, run `npx supabase db query --linked --file supabase/tests/cloud-smoke.sql` to check the real profile trigger, workspace isolation, viewer restrictions, and transfer atomicity/idempotency. The script rolls back all synthetic identities and records; it does not send emails or create passwords. It was verified against the connected production schema.
+
 Security tests execute the application migration in PGlite's real PostgreSQL engine with platform Auth/Storage schema shims. They exercise RLS, grants, ownership, viewers, links, transfers, idempotent reminders, preservation of unrelated platform function permissions, and Storage policy logic. They do not replace a cloud smoke test: verify real email signup/reset, two-user isolation, signed downloads and the actual Supabase Storage API in staging. The production schema and Auth redirects have been configured; real email verification and password entry are completed by the account owner.
 
 ## Private files
