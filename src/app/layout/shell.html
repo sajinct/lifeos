@@ -1,0 +1,203 @@
+<a class="skip-link" href="#main">Skip to content</a>
+@if (ui.sidebarOpen()) {
+  <button
+    class="nav-backdrop"
+    (click)="ui.sidebarOpen.set(false)"
+    aria-label="Close navigation"
+  ></button>
+}
+<aside
+  class="sidebar"
+  [class.mobile-open]="ui.sidebarOpen()"
+  [class.compact]="ui.compact()"
+  [attr.inert]="ui.mobile() && !ui.sidebarOpen() ? '' : null"
+>
+  <button class="icon-button nav-close" (click)="ui.sidebarOpen.set(false)" aria-label="Close menu">
+    <app-icon name="close" />
+  </button>
+  <a routerLink="/" class="brand"
+    ><span class="brand-mark">L<span></span></span
+    ><span
+      >Life<span class="brand-light">OS</span><small>YOUR PERSONAL OPERATING SYSTEM</small></span
+    ></a
+  >
+  <div class="workspace-switch">
+    <span class="workspace-icon"><app-icon name="family" /></span>
+    <div>
+      <small>WORKSPACE</small
+      ><select
+        aria-label="Workspace"
+        [value]="store.workspace()?.id ?? ''"
+        (change)="switch($event)"
+      >
+        @for (w of store.workspaces(); track w.id) {
+          <option [value]="w.id">{{ w.name }}</option>
+        } @empty {
+          <option value="">Create your workspace</option>
+        }
+      </select>
+    </div>
+  </div>
+  <nav aria-label="Main navigation">
+    <p class="nav-label">WORKSPACE</p>
+    @for (item of primary; track item.path) {
+      <a
+        [routerLink]="item.path"
+        [attr.aria-label]="item.name"
+        routerLinkActive="active"
+        [routerLinkActiveOptions]="{ exact: true }"
+        (click)="ui.sidebarOpen.set(false)"
+        ><app-icon [name]="item.icon" /><span>{{ item.name }}</span>
+        @if (item.path === '/inbox' && store.pending().length) {
+          <span class="nav-count">{{ store.pending().length }}</span>
+        }
+      </a>
+    }
+    <p class="nav-label">YOUR LIFE</p>
+    @for (item of life; track item.path) {
+      <a
+        [routerLink]="item.path"
+        [attr.aria-label]="item.name"
+        routerLinkActive="active"
+        (click)="ui.sidebarOpen.set(false)"
+        ><app-icon [name]="item.icon" /><span>{{ item.name }}</span></a
+      >
+    }
+    <p class="nav-label">INSIGHTS</p>
+    <a routerLink="/reports" routerLinkActive="active" (click)="ui.sidebarOpen.set(false)"
+      ><app-icon name="chart" />Reports & exports</a
+    >
+  </nav>
+  <div class="sidebar-bottom">
+    <div class="sidebar-tip">
+      <span class="tip-star">✧</span><strong>A little more organized.</strong>
+      <p>A lot more room for life.</p>
+      <a routerLink="/goals">Make space for your goals <span>↗</span></a>
+    </div>
+    <a class="settings-link" routerLink="/settings" routerLinkActive="active"
+      ><app-icon name="settings" />Settings</a
+    >
+    <div class="sidebar-profile">
+      <span class="avatar">{{ store.name().slice(0, 1).toUpperCase() }}</span>
+      <div>
+        <strong>{{ store.name() }}</strong
+        ><small>{{ auth.demo() ? 'Demo account' : 'Personal account' }}</small>
+      </div>
+      <button class="icon-button" (click)="logout()" aria-label="Sign out" title="Sign out">
+        <app-icon name="logout" />
+      </button>
+    </div>
+  </div>
+</aside>
+<div
+  class="main-shell"
+  [class.compact-shell]="ui.compact()"
+  [attr.inert]="ui.mobile() && ui.sidebarOpen() ? '' : null"
+>
+  <header class="topbar">
+    <div class="topbar-left">
+      <button
+        class="icon-button nav-toggle"
+        (click)="ui.toggleSidebar()"
+        aria-label="Toggle navigation"
+      >
+        <app-icon name="menu" /></button
+      ><span class="breadcrumb">My workspace <span>/</span> <strong>LifeOS</strong></span>
+    </div>
+    <div class="topbar-actions">
+      <button
+        class="search-trigger"
+        aria-label="Search records and commands"
+        (click)="ui.searchOpen.set(true)"
+      >
+        <app-icon name="search" /><span>Search anything...</span><kbd>⌘ K</kbd></button
+      ><span class="topbar-divider"></span
+      ><button
+        class="icon-button"
+        (click)="ui.toggleTheme()"
+        [attr.aria-label]="ui.dark() ? 'Use light theme' : 'Use dark theme'"
+      >
+        <app-icon [name]="ui.dark() ? 'sun' : 'moon'" />
+      </button>
+      <div class="notification-wrap">
+        <button
+          class="icon-button notification-button"
+          (click)="notices.set(!notices())"
+          aria-label="Notifications"
+          [attr.aria-expanded]="notices()"
+        >
+          <app-icon name="bell" />
+          @if (unread()) {
+            <i></i>
+          }
+        </button>
+        @if (notices()) {
+          <div class="notification-panel">
+            <h3>Notifications</h3>
+            @for (n of store.notifications(); track n.id) {
+              <button (click)="read(n.id)" [class.muted]="n.read_at">
+                {{ n.title }}<small>{{ n.read_at ? 'Read' : 'Mark as read' }}</small>
+              </button>
+            } @empty {
+              <p>You’re all caught up.</p>
+            }
+          </div>
+        }
+      </div>
+      <span class="avatar small">{{ store.name().slice(0, 1).toUpperCase() }}</span>
+    </div>
+  </header>
+  @if (!ui.online()) {
+    <div class="status-banner">
+      You’re offline. Cached screens are available; reconnect to save changes.
+    </div>
+  }
+  @if (auth.demo()) {
+    <div class="demo-banner">
+      <span
+        ><i></i>Demo workspace
+        <span class="demo-explanation">· Sample data, changes last for this session</span></span
+      ><a routerLink="/auth">Connect your account <app-icon name="arrow" /></a>
+    </div>
+  }
+  <main id="main" tabindex="-1">
+    @if (store.loading()) {
+      <div class="loading-bar" role="status" aria-label="Loading workspace"></div>
+    }
+    @if (store.error()) {
+      <div class="error-banner" role="alert">
+        {{ store.error() }}<button (click)="store.initialize()">Try again</button>
+      </div>
+    }
+    @if (!store.loading() && !store.workspace() && !store.error() && router.url !== '/settings') {
+      <div class="onboarding">
+        <span class="eyebrow">A FRESH START</span>
+        <h1>Make room for your life.</h1>
+        <p>Create your first workspace to start organizing your tasks, finances, and projects.</p>
+        <a routerLink="/settings" class="button primary"
+          >Create a workspace <app-icon name="arrow"
+        /></a>
+      </div>
+    } @else {
+      <router-outlet />
+    }
+  </main>
+  <footer class="app-footer">
+    <span><span class="footer-dot"></span> A little more clarity. A little more life.</span
+    ><span>Made for your everyday.</span>
+  </footer>
+</div>
+@if (ui.capture(); as kind) {
+  <app-capture-dialog [kind]="kind" />
+}
+@if (ui.searchOpen()) {
+  <app-search-dialog />
+}
+@if (ui.toast()) {
+  <div class="toast" role="status">
+    <app-icon name="check" />{{ ui.toast()
+    }}<button (click)="ui.toast.set('')" class="icon-button" aria-label="Dismiss notification">
+      <app-icon name="close" />
+    </button>
+  </div>
+}

@@ -1,0 +1,448 @@
+<section class="page-heading">
+  <div>
+    <span class="eyebrow">YOUR PERSONAL WORKSPACE</span>
+    <h1>{{ names[page] }}</h1>
+    <p>{{ descriptions[page] }}</p>
+  </div>
+  <div class="heading-actions">
+    @if (page === 'reports') {
+      <button class="button subtle" (click)="store.download('csv')">
+        <app-icon name="download" />Finance CSV</button
+      ><button class="button primary" (click)="store.download('json')">
+        <app-icon name="download" />Export workspace
+      </button>
+    } @else {
+      <button
+        class="button primary"
+        (click)="ui.capture.set(kinds[page])"
+        [disabled]="!store.writable()"
+      >
+        <app-icon name="plus" />Add {{ kinds[page] }}
+      </button>
+    }
+  </div>
+</section>
+@if (page !== 'reports') {
+  <div class="records-toolbar">
+    <div class="filter-search">
+      <app-icon name="search" /><input
+        aria-label="Filter records"
+        placeholder="Find something…"
+        [value]="search()"
+        (input)="search.set($any($event.target).value)"
+      />
+    </div>
+    @if (page === 'tasks' || page === 'inbox') {
+      <select
+        aria-label="Task status filter"
+        [value]="filter()"
+        (change)="filter.set($any($event.target).value)"
+      >
+        <option value="all">All statuses</option>
+        <option value="todo">To do</option>
+        <option value="in_progress">In progress</option>
+        <option value="done">Completed</option>
+      </select>
+      <div class="segmented">
+        <button [class.selected]="view() === 'list'" (click)="view.set('list')">List</button
+        ><button [class.selected]="view() === 'board'" (click)="view.set('board')">Board</button>
+      </div>
+    }
+    @if (page === 'finance') {
+      <button
+        class="button subtle"
+        (click)="ui.capture.set('account')"
+        [disabled]="!store.writable()"
+      >
+        Add account</button
+      ><button
+        class="button subtle"
+        (click)="ui.capture.set('income')"
+        [disabled]="!store.writable()"
+      >
+        Add income</button
+      ><button
+        class="button subtle"
+        (click)="transferOpen.set(!transferOpen())"
+        [disabled]="!store.writable()"
+      >
+        <app-icon name="repeat" />Transfer
+      </button>
+    }
+  </div>
+}
+@switch (page) {
+  @case ('tasks') {
+    @if (view() === 'board') {
+      <div class="kanban">
+        @for (statusName of statuses; track statusName) {
+          <section>
+            <h2>
+              {{
+                statusName === 'todo'
+                  ? 'To do'
+                  : statusName === 'in_progress'
+                    ? 'In progress'
+                    : 'Completed'
+              }}<span class="count-pill">{{ column(statusName).length }}</span>
+            </h2>
+            @for (task of column(statusName); track task.id) {
+              <article class="panel kanban-card">
+                <span [class]="'priority ' + task.priority">{{ task.priority }}</span>
+                <h3>{{ task.title }}</h3>
+                <small
+                  >{{ store.projectTitle(task.project_id) }} ·
+                  {{ task.due_date | date: 'd MMM' }}</small
+                ><select
+                  aria-label="Change task status"
+                  [value]="task.status"
+                  (change)="status(task, $event)"
+                  [disabled]="!store.canEdit(task)"
+                >
+                  <option value="todo">To do</option>
+                  <option value="in_progress">In progress</option>
+                  <option value="done">Completed</option>
+                </select>
+              </article>
+            } @empty {
+              <p class="empty-state">Room for your next task.</p>
+            }
+          </section>
+        }
+      </div>
+    } @else {
+      <ng-container [ngTemplateOutlet]="taskList" />
+    }
+  }
+  @case ('inbox') {
+    <ng-container [ngTemplateOutlet]="taskList" />
+  }
+  @case ('projects') {
+    <div class="record-cards">
+      @for (p of projects(); track p.id) {
+        <article class="panel record-card">
+          <span [class]="'icon-tile ' + p.color"><app-icon name="project" /></span
+          ><span class="record-privacy"
+            ><app-icon [name]="p.visibility === 'private' ? 'lock' : 'family'" />{{
+              p.visibility
+            }}</span
+          >
+          <h2>{{ p.title }}</h2>
+          <p>{{ p.description }}</p>
+          <div class="project-progress">
+            <div class="bar-track">
+              <i [class]="'bar-fill ' + p.color" [style.width.%]="store.projectProgress(p)"></i>
+            </div>
+            <strong>{{ store.projectProgress(p) }}%</strong>
+          </div>
+          <div class="record-meta">
+            <span>{{ p.status }}</span
+            ><span>{{ p.due_date ? (p.due_date | date: 'd MMM yyyy') : 'No deadline' }}</span>
+          </div>
+          <div class="linked-tasks">
+            @for (t of store.tasks(); track t.id) {
+              @if (t.project_id === p.id) {
+                <div>
+                  <button
+                    class="task-checkbox"
+                    [class.checked]="t.status === 'done'"
+                    [disabled]="!store.canEdit(t)"
+                    (click)="toggle(t)"
+                    [attr.aria-label]="'Toggle ' + t.title"
+                  >
+                    @if (t.status === 'done') {
+                      <app-icon name="check" />
+                    }</button
+                  >{{ t.title }}
+                </div>
+              }
+            }
+          </div>
+        </article>
+      } @empty {
+        <div class="empty-state panel">Start a project, then connect its tasks and notes.</div>
+      }
+    </div>
+  }
+  @case ('notes') {
+    <div class="record-cards">
+      @for (n of notes(); track n.id) {
+        <article class="panel record-card note-card">
+          <span class="eyebrow">{{ store.projectTitle(n.project_id) }}</span>
+          <h2>{{ n.title }}</h2>
+          <p class="note-body">{{ n.body }}</p>
+          <div class="record-meta">
+            <span>{{ n.updated_at | date: 'd MMM yyyy' }}</span
+            ><button
+              class="icon-button"
+              (click)="delete(n)"
+              [disabled]="!store.canEdit(n)"
+              [attr.aria-label]="'Delete ' + n.title"
+            >
+              <app-icon name="trash" />
+            </button>
+          </div>
+        </article>
+      } @empty {
+        <div class="empty-state panel">Capture a thought. Give it a place to grow.</div>
+      }
+    </div>
+  }
+  @case ('goals') {
+    <div class="record-cards">
+      @for (g of goals(); track g.id) {
+        <article class="panel record-card goal-card">
+          <div [class]="'goal-ring ' + g.color" [style.--progress]="store.progress(g) + '%'">
+            <span>{{ store.progress(g) }}<small>%</small></span>
+          </div>
+          <h2>{{ g.title }}</h2>
+          <p>{{ g.current }} of {{ g.target }} {{ g.unit }}</p>
+          <label
+            >Update your progress<input
+              inputmode="decimal"
+              [value]="g.current"
+              (change)="goalProgress(g, $event)"
+              [disabled]="!store.canEdit(g)" /></label
+          ><small>{{
+            g.due_date ? 'Target: ' + (g.due_date | date: 'd MMM yyyy') : 'At your own pace'
+          }}</small>
+        </article>
+      } @empty {
+        <div class="empty-state panel">Set a goal and start with one small step.</div>
+      }
+    </div>
+  }
+  @case ('calendar') {
+    <div class="calendar-layout">
+      <section class="panel full-calendar">
+        <div class="panel-heading">
+          <button class="icon-button" (click)="shift(-1)" aria-label="Previous month">
+            <span>←</span>
+          </button>
+          <h2>{{ month() | date: 'MMMM yyyy' }}</h2>
+          <button class="icon-button" (click)="shift(1)" aria-label="Next month">
+            <span>→</span>
+          </button>
+        </div>
+        <div class="calendar-day-names">
+          @for (day of ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']; track day) {
+            <span>{{ day }}</span>
+          }
+        </div>
+        <div class="calendar-days">
+          @for (day of days(); track day.date) {
+            <button
+              [class.outside]="!day.current"
+              [class.today]="day.today"
+              [class.selected]="day.date === selectedDate()"
+              (click)="selectedDate.set(day.date)"
+              [attr.aria-label]="day.date + '; ' + day.events + ' events'"
+            >
+              <strong>{{ day.day }}</strong>
+              @if (day.events) {
+                <span class="calendar-event-dot"></span>
+              }
+            </button>
+          }
+        </div>
+      </section>
+      <section class="panel agenda">
+        <div class="panel-heading">
+          <h2>{{ selectedDate() | date: 'EEEE, d MMM' }}</h2>
+        </div>
+        @for (e of events(); track e.id) {
+          <div [class]="'agenda-event ' + e.color">
+            <small>{{ e.starts_at | date: 'h:mm a' }} – {{ e.ends_at | date: 'h:mm a' }}</small>
+            <h3>{{ e.title }}</h3>
+            <p>{{ e.location }}</p>
+          </div>
+        } @empty {
+          <p class="empty-state">Nothing on the calendar. Make it a good day.</p>
+        }
+      </section>
+    </div>
+  }
+  @case ('finance') {
+    <div class="stats-grid finance-stats">
+      <div class="stat-card">
+        <span>Account balance · {{ store.currency() }}</span
+        ><strong class="stat-value">{{ store.money(store.balance()) }}</strong>
+      </div>
+      <div class="stat-card">
+        <span>This month’s income</span
+        ><strong class="stat-value green-text">{{ store.money(store.income()) }}</strong>
+      </div>
+      <div class="stat-card">
+        <span>This month’s expenses</span
+        ><strong class="stat-value orange-text">{{ store.money(store.expenses()) }}</strong>
+      </div>
+    </div>
+    <div class="account-chips">
+      @for (a of store.accounts(); track a.id) {
+        <div class="panel">
+          <span class="icon-tile green"><app-icon name="wallet" /></span>
+          <div>
+            <strong>{{ a.name }}</strong
+            ><small>{{ balance(a) }}</small>
+          </div>
+        </div>
+      } @empty {
+        <p class="empty-state">Create an account to start tracking your money.</p>
+      }
+    </div>
+    @if (transferOpen()) {
+      <form class="panel transfer-form" [formGroup]="transferForm" (ngSubmit)="transfer()">
+        <h2>Transfer between accounts</h2>
+        <p>Both entries are recorded together. Matching currencies required.</p>
+        <div class="form-row">
+          <label
+            >From<select formControlName="source">
+              <option value="">Choose account</option>
+              @for (a of store.accounts(); track a.id) {
+                <option [value]="a.id">{{ a.name }} · {{ a.currency }}</option>
+              }
+            </select></label
+          ><label
+            >To<select formControlName="destination">
+              <option value="">Choose account</option>
+              @for (a of store.accounts(); track a.id) {
+                <option [value]="a.id">{{ a.name }} · {{ a.currency }}</option>
+              }
+            </select></label
+          ><label
+            >Amount<input formControlName="amount" inputmode="decimal" placeholder="0.00"
+          /></label>
+        </div>
+        @if (error()) {
+          <p class="form-error" role="alert">{{ error() }}</p>
+        }
+        <button type="submit" class="button primary" [disabled]="busy()">
+          {{ busy() ? 'Transferring…' : 'Record transfer' }}
+        </button>
+      </form>
+    }
+    <section class="panel">
+      <div class="panel-heading">
+        <h2>Recent transactions</h2>
+        <button class="text-button" (click)="store.download('csv')">
+          <app-icon name="download" />Export CSV
+        </button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Transaction</th>
+              <th>Category</th>
+              <th>Date</th>
+              <th>Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (t of transactions(); track t.id) {
+              <tr>
+                <td>
+                  <strong>{{ t.title }}</strong
+                  ><small>{{ t.kind.replace('_', ' ') }}</small>
+                </td>
+                <td>{{ t.category }}</td>
+                <td>{{ t.booked_on | date: 'd MMM yyyy' }}</td>
+                <td [class.green-text]="t.kind === 'income' || t.kind === 'transfer_in'">
+                  {{ t.kind === 'income' || t.kind === 'transfer_in' ? '+' : '−'
+                  }}{{ t.amount | number: '1.2-2' }}
+                  <small>{{ accountCurrency(t.account_id) }}</small>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="4" class="empty-state">Your transactions will appear here.</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  }
+  @case ('reports') {
+    <div class="record-cards">
+      <article class="panel record-card">
+        <span class="icon-tile purple"><app-icon name="chart" /></span>
+        <h2>Your month in money</h2>
+        <p>
+          {{ store.money(store.income()) }} earned.<br />{{
+            store.money(store.expenses())
+          }}
+          spent.<br />{{ store.money(store.income() - store.expenses()) }} net savings.
+        </p>
+        <button class="button subtle" (click)="store.download('csv')">
+          <app-icon name="download" />Download financial report
+        </button>
+      </article>
+      <article class="panel record-card">
+        <span class="icon-tile green"><app-icon name="task" /></span>
+        <h2>Your progress</h2>
+        <p>
+          {{ store.tasks().length - store.pending().length }} tasks completed.<br />{{
+            store.pending().length
+          }}
+          tasks ahead.<br />{{ store.projects().length }} projects in your workspace.
+        </p>
+      </article>
+      <article class="panel record-card">
+        <span class="icon-tile blue"><app-icon name="download" /></span>
+        <h2>Take your data with you</h2>
+        <p>
+          Export all loaded productivity records and the complete visible financial ledger as JSON.
+          File uploads are backed up separately.
+        </p>
+        <button class="button primary" (click)="store.download('json')">Export workspace</button>
+      </article>
+    </div>
+    <p class="form-hint">
+      Productivity views include the newest 500 records per module. See the backup guide for a
+      complete database backup.
+    </p>
+  }
+}
+<ng-template #taskList
+  ><section class="panel">
+    <div class="panel-heading">
+      <h2>{{ tasks().length }} tasks <span class="muted">· A little at a time</span></h2>
+    </div>
+    @for (t of tasks(); track t.id) {
+      <div class="task-row full-task-row" [class.completed]="t.status === 'done'">
+        <button
+          class="task-checkbox"
+          [class.checked]="t.status === 'done'"
+          [disabled]="!store.canEdit(t)"
+          (click)="toggle(t)"
+          [attr.aria-label]="'Toggle ' + t.title"
+        >
+          @if (t.status === 'done') {
+            <app-icon name="check" />
+          }
+        </button>
+        <div class="task-info">
+          <strong>{{ t.title }}</strong
+          ><small
+            >{{ store.projectTitle(t.project_id) }} ·
+            {{ t.due_date ? (t.due_date | date: 'd MMM yyyy') : 'No due date' }}</small
+          >
+        </div>
+        <span [class]="'priority ' + t.priority">{{ t.priority }}</span
+        ><select
+          aria-label="Task status"
+          [value]="t.status"
+          (change)="status(t, $event)"
+          [disabled]="!store.canEdit(t)"
+        >
+          <option value="todo">To do</option>
+          <option value="in_progress">In progress</option>
+          <option value="done">Done</option>
+        </select>
+      </div>
+    } @empty {
+      <div class="empty-state">A clear list. Add a task to get started.</div>
+    }
+  </section></ng-template
+>

@@ -1,0 +1,23 @@
+{
+  "name": "LifeOS — Your personal operating system",
+  "short_name": "LifeOS",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "theme_color": "#7759db",
+  "background_color": "#f7f8fa",
+  "icons": [
+    {
+      "sizes": "192x192",
+      "purpose": "any maskable",
+      "type": "image/png",
+      "src": "icons/icon-192.png"
+    },
+    {
+      "sizes": "512x512",
+      "purpose": "any maskable",
+      "type": "image/png",
+      "src": "icons/icon-512.png"
+    }
+  ]
+}

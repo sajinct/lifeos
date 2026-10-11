@@ -1,0 +1,290 @@
+<section class="page-heading">
+  <div>
+    <div class="date-line">
+      <span class="status-dot"></span>{{ now | date: 'EEEE, d MMMM yyyy' }}
+    </div>
+    <h1>{{ greeting }}, {{ store.name().split(' ')[0] }} <span class="greeting-sun">☀</span></h1>
+    <p>Here’s what’s happening in your world today.</p>
+  </div>
+  <div class="heading-actions">
+    <a routerLink="/settings" class="button subtle"><app-icon name="settings" />Customize</a
+    ><button class="button primary" (click)="ui.capture.set('task')" [disabled]="!store.writable()">
+      <app-icon name="plus" />Quick add
+    </button>
+  </div>
+</section>
+<div class="overview-strip">
+  <div class="overview-message">
+    <span class="icon-tile purple"><app-icon name="spark" /></span>
+    <div>
+      <strong>A fresh day. A little progress.</strong
+      ><span
+        >You have {{ store.pending().length }} things on your list. Let’s make room for what
+        matters.</span
+      >
+    </div>
+  </div>
+  <a routerLink="/tasks">Let’s get started <app-icon name="arrow" /></a>
+</div>
+<section class="stats-grid" aria-label="At a glance">
+  <a routerLink="/tasks" class="stat-card"
+    ><div class="stat-label">
+      Tasks to do <span class="icon-tile purple"><app-icon name="task" /></span>
+    </div>
+    <div class="stat-value">
+      {{ store.pending().length }}<span class="stat-caption">on your list</span>
+    </div>
+    <div class="stat-foot">
+      <span class="green-text"><app-icon name="check" />{{ completedToday() }} completed</span
+      ><span>today</span>
+    </div></a
+  ><a routerLink="/finance" class="stat-card"
+    ><div class="stat-label">
+      Account balance <span class="icon-tile green"><app-icon name="wallet" /></span>
+    </div>
+    <div class="stat-value money-stat">{{ store.money(store.balance()) }}</div>
+    <div class="stat-foot">
+      <span class="green-text"><app-icon name="trend" />{{ store.accounts().length }} accounts</span
+      ><span>{{ store.currency() }}</span>
+    </div></a
+  ><a routerLink="/projects" class="stat-card"
+    ><div class="stat-label">
+      Active projects <span class="icon-tile blue"><app-icon name="project" /></span>
+    </div>
+    <div class="stat-value">
+      {{ activeProjects().length }}<span class="stat-caption">in motion</span>
+    </div>
+    <div class="stat-foot">
+      <span class="purple-text">One step at a time</span><app-icon name="arrow" /></div></a
+  ><a routerLink="/goals" class="stat-card"
+    ><div class="stat-label">
+      Personal goals <span class="icon-tile orange"><app-icon name="goal" /></span>
+    </div>
+    <div class="stat-value">
+      {{ store.goals().length }}<span class="stat-caption">to work toward</span>
+    </div>
+    <div class="stat-foot">
+      <span class="orange-text">Small steps. Big things.</span><app-icon name="arrow" /></div
+  ></a>
+</section>
+<div class="dashboard-grid">
+  @if (shown('tasks')) {
+    <section class="panel tasks-panel">
+      <div class="panel-heading">
+        <h2>
+          <app-icon name="task" />Your focus today
+          <span class="count-pill">{{ totalToday() }}</span>
+        </h2>
+        <a routerLink="/tasks">View all <app-icon name="chevron" /></a>
+      </div>
+      <div class="tabs">
+        <button [class.selected]="taskFilter() === 'today'" (click)="taskFilter.set('today')">
+          Today</button
+        ><button [class.selected]="taskFilter() === 'all'" (click)="taskFilter.set('all')">
+          All tasks</button
+        ><span>{{ completedToday() }} of {{ totalToday() }} completed</span>
+      </div>
+      <div class="task-list">
+        @for (task of todayTasks(); track task.id) {
+          <div class="task-row" [class.completed]="task.status === 'done'">
+            <button
+              class="task-checkbox"
+              [class.checked]="task.status === 'done'"
+              (click)="toggle(task)"
+              [disabled]="!store.canEdit(task)"
+              [attr.aria-label]="(task.status === 'done' ? 'Reopen ' : 'Complete ') + task.title"
+            >
+              @if (task.status === 'done') {
+                <app-icon name="check" />
+              }
+            </button>
+            <div class="task-info">
+              <strong>{{ task.title }}</strong
+              ><small
+                ><span
+                  class="project-dot"
+                  [class]="'project-dot ' + (task.project_id ? 'purple' : 'gray')"
+                ></span
+                >{{ store.projectTitle(task.project_id) }}</small
+              >
+            </div>
+            <span class="priority" [class]="'priority ' + task.priority">{{ task.priority }}</span>
+          </div>
+        } @empty {
+          <div class="empty-state">A clear day. Add a task to set your focus.</div>
+        }
+      </div>
+      <button class="panel-add" (click)="ui.capture.set('task')" [disabled]="!store.writable()">
+        <app-icon name="plus" />Add a task
+      </button>
+    </section>
+  }
+  @if (shown('calendar')) {
+    <section class="panel calendar-panel">
+      <div class="panel-heading">
+        <h2><app-icon name="calendar" />Today’s schedule</h2>
+        <a routerLink="/calendar" aria-label="Open calendar"><app-icon name="up" /></a>
+      </div>
+      <div class="week-strip">
+        @for (day of monthDays; track $index) {
+          <div [class.today]="day.today">
+            <small>{{ day.name }}</small
+            ><strong>{{ day.date }}</strong
+            ><span></span>
+          </div>
+        }
+      </div>
+      <div class="event-list">
+        @for (event of dayEvents(); track event.id) {
+          <div class="event-row">
+            <span class="event-time"
+              >{{ event.starts_at | date: 'h:mm'
+              }}<small>{{ event.starts_at | date: 'a' }}</small></span
+            >
+            <div class="event-info" [class]="'event-info ' + event.color">
+              <strong>{{ event.title }}</strong
+              ><small
+                >{{ event.location || 'Personal event' }}
+                <span
+                  >· {{ event.starts_at | date: 'h:mm' }}–{{ event.ends_at | date: 'h:mm a' }}</span
+                ></small
+              >
+            </div>
+          </div>
+        } @empty {
+          <div class="empty-state">Room to breathe. Nothing scheduled today.</div>
+        }
+      </div>
+      <button class="panel-add" (click)="ui.capture.set('event')" [disabled]="!store.writable()">
+        <app-icon name="plus" />Add an event
+      </button>
+    </section>
+  }
+  @if (shown('finance')) {
+    <section class="panel finance-panel">
+      <div class="panel-heading">
+        <h2><app-icon name="wallet" />Money, at a glance</h2>
+        <a routerLink="/finance">{{ now | date: 'MMMM' }} <app-icon name="chevron" /></a>
+      </div>
+      <div class="finance-summary">
+        <div>
+          <span><i class="dot green"></i>Income</span
+          ><strong>{{ store.money(store.income()) }}</strong>
+        </div>
+        <div>
+          <span><i class="dot orange"></i>Expenses</span
+          ><strong>{{ store.money(store.expenses()) }}</strong>
+        </div>
+        <div>
+          <span><i class="dot purple"></i>Net savings</span
+          ><strong class="purple-text">{{ store.money(store.income() - store.expenses()) }}</strong>
+        </div>
+      </div>
+      <div class="spending-chart">
+        <div class="spending-title"><strong>Where it’s going</strong><span>This month</span></div>
+        @for (category of categories(); track category.label) {
+          <div class="spending-row">
+            <span>{{ category.label }}</span>
+            <div class="bar-track">
+              <i
+                [style.width.%]="store.expenses() ? (category.value / store.expenses()) * 100 : 0"
+                [class]="'bar-fill category-' + $index"
+              ></i>
+            </div>
+            <strong>{{ store.money(category.value) }}</strong>
+          </div>
+        } @empty {
+          <p class="empty-state">Your first expense will appear here.</p>
+        }
+      </div>
+      <div class="panel-bottom">
+        <span><app-icon name="lock" />Your finances, just for you.</span
+        ><button
+          class="text-button"
+          (click)="ui.capture.set('expense')"
+          [disabled]="!store.writable()"
+        >
+          <app-icon name="plus" />Add expense
+        </button>
+      </div>
+    </section>
+  }
+  @if (shown('projects')) {
+    <section class="panel projects-panel">
+      <div class="panel-heading">
+        <h2><app-icon name="project" />Projects in motion</h2>
+        <a routerLink="/projects">View all <app-icon name="chevron" /></a>
+      </div>
+      <div class="project-list">
+        @for (project of activeProjects().slice(0, 3); track project.id) {
+          <a class="project-row" routerLink="/projects"
+            ><span [class]="'icon-tile ' + project.color"><app-icon name="project" /></span>
+            <div class="project-info">
+              <strong>{{ project.title }}</strong
+              ><small>{{ project.description }}</small>
+              <div class="project-progress">
+                <div class="bar-track">
+                  <i
+                    [class]="'bar-fill ' + project.color"
+                    [style.width.%]="store.projectProgress(project)"
+                  ></i>
+                </div>
+                <span>{{ store.projectProgress(project) }}%</span>
+              </div>
+            </div>
+            <app-icon name="chevron"
+          /></a>
+        } @empty {
+          <div class="empty-state">Every great project starts with an idea.</div>
+        }
+      </div>
+      <button class="panel-add" (click)="ui.capture.set('project')" [disabled]="!store.writable()">
+        <app-icon name="plus" />Start a project
+      </button>
+    </section>
+  }
+  @if (shown('goals')) {
+    <section class="panel goals-panel">
+      <div class="panel-heading">
+        <h2><app-icon name="goal" />A little closer to your goals</h2>
+        <a routerLink="/goals">View all <app-icon name="chevron" /></a>
+      </div>
+      <div class="goals-grid">
+        @for (goal of store.goals().slice(0, 3); track goal.id) {
+          <a routerLink="/goals" class="mini-goal"
+            ><div
+              [class]="'goal-ring ' + goal.color"
+              [style.--progress]="store.progress(goal) + '%'"
+            >
+              <span>{{ store.progress(goal) }}<small>%</small></span>
+            </div>
+            <div>
+              <strong>{{ goal.title }}</strong
+              ><small>{{ goal.current }} / {{ goal.target }} {{ goal.unit }}</small>
+            </div></a
+          >
+        } @empty {
+          <div class="empty-state">Give a little direction to your everyday.</div>
+        }
+      </div>
+    </section>
+  }
+  @if (shown('activity')) {
+    <section class="panel activity-panel">
+      <div class="panel-heading">
+        <h2><app-icon name="clock" />Little things, lately</h2>
+        <app-icon name="spark" />
+      </div>
+      <div class="activity-list">
+        @for (item of store.activity().slice(0, 3); track item.id) {
+          <div>
+            <span class="activity-dot"></span><strong>{{ item.title }}</strong
+            ><small>{{ item.created_at | date: 'h:mm a' }}</small>
+          </div>
+        } @empty {
+          <p class="empty-state">Your progress will show up here.</p>
+        }
+      </div>
+    </section>
+  }
+</div>

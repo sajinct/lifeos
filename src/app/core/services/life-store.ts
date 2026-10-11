@@ -1,0 +1,652 @@
+import { Injectable, computed, inject, signal } from '@angular/core';
+import { AuthService } from '../auth/auth';
+import { Backend } from '../supabase/client';
+import {
+  Account,
+  Activity,
+  ALL_WIDGETS,
+  CalendarEvent,
+  Capture,
+  Goal,
+  Member,
+  Note,
+  Notification,
+  OwnedRecord,
+  Profile,
+  Project,
+  Task,
+  Transaction,
+  Workspace,
+  WorkspaceKind,
+} from '../models/domain';
+import { demoData } from './demo';
+import { accountBalance, csv, localDate, parseMoney } from '../../shared/utilities/finance';
+@Injectable({ providedIn: 'root' })
+export class LifeStore {
+  readonly auth = inject(AuthService);
+  private readonly backend = inject(Backend);
+  readonly profile = signal<Profile | null>(null);
+  readonly workspaces = signal<Workspace[]>([]);
+  readonly workspace = signal<Workspace | null>(null);
+  readonly members = signal<Member[]>([]);
+  readonly tasks = signal<Task[]>([]);
+  readonly projects = signal<Project[]>([]);
+  readonly events = signal<CalendarEvent[]>([]);
+  readonly notes = signal<Note[]>([]);
+  readonly goals = signal<Goal[]>([]);
+  readonly accounts = signal<Account[]>([]);
+  readonly transactions = signal<Transaction[]>([]);
+  readonly activity = signal<Activity[]>([]);
+  readonly notifications = signal<Notification[]>([]);
+  readonly widgets = signal(ALL_WIDGETS);
+  readonly loading = signal(false);
+  readonly error = signal('');
+  private generation = 0;
+  private readonly demoCache = new Map<string, ReturnType<typeof demoData>>();
+  readonly currency = computed(() => this.profile()?.currency ?? 'INR');
+  readonly name = computed(() => this.profile()?.display_name || 'there');
+  readonly pending = computed(() => this.tasks().filter((t) => t.status !== 'done'));
+  readonly monthlyEntries = computed(() =>
+    this.transactions().filter(
+      (t) =>
+        t.booked_on.startsWith(localDate().slice(0, 7)) &&
+        this.accounts().some((a) => a.id === t.account_id && a.currency === this.currency()),
+    ),
+  );
+  readonly income = computed(
+    () =>
+      this.monthlyEntries()
+        .filter((t) => t.kind === 'income')
+        .reduce((sum, t) => sum + Math.round(Number(t.amount) * 100), 0) / 100,
+  );
+  readonly expenses = computed(
+    () =>
+      this.monthlyEntries()
+        .filter((t) => t.kind === 'expense')
+        .reduce((sum, t) => sum + Math.round(Number(t.amount) * 100), 0) / 100,
+  );
+  readonly balance = computed(
+    () =>
+      this.accounts()
+        .filter((a) => a.currency === this.currency())
+        .reduce((sum, a) => sum + Math.round(accountBalance(a, this.transactions()) * 100), 0) /
+      100,
+  );
+  readonly writable = computed(
+    () =>
+      this.auth.demo() ||
+      this.members().some((m) => m.user_id === this.auth.user()?.id && m.role !== 'viewer'),
+  );
+  readonly owner = computed(
+    () => this.auth.demo() || this.workspace()?.owner_id === this.auth.user()?.id,
+  );
+  canEdit(row: OwnedRecord) {
+    return (
+      this.writable() &&
+      (row.owner_id === (this.auth.demo() ? 'demo-user' : this.auth.user()?.id) ||
+        (row.visibility === 'workspace' && this.owner()))
+    );
+  }
+  async initialize() {
+    this.clear();
+    if (this.auth.demo()) {
+      this.seedDemo();
+      return;
+    }
+    this.loading.set(true);
+    const run = this.generation;
+    try {
+      const client = this.backend.requireClient();
+      const [p, w, s] = await Promise.all([
+        client.from('profiles').select('*').single(),
+        client.from('workspaces').select('*').order('created_at'),
+        client.from('app_settings').select('*').maybeSingle(),
+      ]);
+      if (p.error) throw p.error;
+      if (w.error) throw w.error;
+      if (s.error) throw s.error;
+      if (run !== this.generation) return;
+      this.profile.set(p.data);
+      this.workspaces.set(w.data);
+      this.widgets.set(s.data?.dashboard_widgets ?? ALL_WIDGETS);
+      if (w.data[0]) await this.switchWorkspace(w.data[0]);
+    } catch (e) {
+      this.error.set(this.message(e));
+    } finally {
+      this.loading.set(false);
+    }
+  }
+  private seedDemo() {
+    const d = demoData();
+    this.profile.set({
+      id: 'demo-user',
+      display_name: 'Alex',
+      currency: 'INR',
+      timezone: 'Asia/Kolkata',
+    });
+    const w: Workspace = {
+      id: 'demo',
+      name: 'Personal workspace',
+      kind: 'personal',
+      owner_id: 'demo-user',
+    };
+    this.workspaces.set([w]);
+    this.workspace.set(w);
+    this.members.set([{ workspace_id: 'demo', user_id: 'demo-user', role: 'owner' }]);
+    this.tasks.set(d.tasks);
+    this.projects.set(d.projects);
+    this.events.set(d.events);
+    this.notes.set(d.notes);
+    this.goals.set(d.goals);
+    this.accounts.set(d.accounts);
+    this.transactions.set(d.transactions);
+    this.activity.set(d.activity);
+  }
+  private clearRecords() {
+    this.tasks.set([]);
+    this.projects.set([]);
+    this.events.set([]);
+    this.notes.set([]);
+    this.goals.set([]);
+    this.accounts.set([]);
+    this.transactions.set([]);
+    this.activity.set([]);
+    this.members.set([]);
+    this.notifications.set([]);
+  }
+  clear() {
+    this.generation++;
+    this.demoCache.clear();
+    this.clearRecords();
+    this.workspace.set(null);
+    this.workspaces.set([]);
+    this.profile.set(null);
+    this.error.set('');
+    this.widgets.set(ALL_WIDGETS);
+  }
+  async switchWorkspace(w: Workspace) {
+    const run = ++this.generation;
+    if (this.auth.demo() && this.workspace())
+      this.demoCache.set(this.workspace()!.id, {
+        tasks: this.tasks(),
+        projects: this.projects(),
+        events: this.events(),
+        notes: this.notes(),
+        goals: this.goals(),
+        accounts: this.accounts(),
+        transactions: this.transactions(),
+        activity: this.activity(),
+      });
+    this.clearRecords();
+    this.workspace.set(w);
+    this.loading.set(true);
+    this.error.set('');
+    if (this.auth.demo()) {
+      const d = this.demoCache.get(w.id);
+      if (d) {
+        this.tasks.set(d.tasks);
+        this.projects.set(d.projects);
+        this.events.set(d.events);
+        this.notes.set(d.notes);
+        this.goals.set(d.goals);
+        this.accounts.set(d.accounts);
+        this.transactions.set(d.transactions);
+        this.activity.set(d.activity);
+      }
+      this.members.set([{ workspace_id: w.id, user_id: 'demo-user', role: 'owner' }]);
+      this.loading.set(false);
+      return;
+    }
+    try {
+      const c = this.backend.requireClient();
+      const [t, p, e, n, g, a, x, l, m, notifications] = await Promise.all([
+        c
+          .from('tasks')
+          .select('*')
+          .eq('workspace_id', w.id)
+          .order('created_at', { ascending: false })
+          .limit(500),
+        c
+          .from('projects')
+          .select('*')
+          .eq('workspace_id', w.id)
+          .order('created_at', { ascending: false })
+          .limit(500),
+        c
+          .from('calendar_events')
+          .select('*')
+          .eq('workspace_id', w.id)
+          .order('starts_at', { ascending: false })
+          .limit(500),
+        c
+          .from('notes')
+          .select('*')
+          .eq('workspace_id', w.id)
+          .order('updated_at', { ascending: false })
+          .limit(500),
+        c
+          .from('goals')
+          .select('*')
+          .eq('workspace_id', w.id)
+          .order('created_at', { ascending: false })
+          .limit(500),
+        c.from('accounts').select('*').eq('workspace_id', w.id).order('created_at').limit(500),
+        c
+          .from('transactions')
+          .select('*')
+          .eq('workspace_id', w.id)
+          .order('created_at')
+          .order('id')
+          .range(0, 499),
+        c
+          .from('activity_logs')
+          .select('*')
+          .eq('workspace_id', w.id)
+          .order('created_at', { ascending: false })
+          .limit(30),
+        c.from('workspace_members').select('*').eq('workspace_id', w.id),
+        c
+          .from('notifications')
+          .select('*')
+          .eq('workspace_id', w.id)
+          .order('created_at', { ascending: false })
+          .limit(50),
+      ]);
+      for (const result of [t, p, e, n, g, a, x, l, m, notifications])
+        if (result.error) throw result.error;
+      // Finance needs the complete visible ledger; page rather than silently truncating balances.
+      const ledger = [...(x.data ?? [])];
+      for (let offset = 500; x.data?.length === 500; offset += 500) {
+        const page = await c
+          .from('transactions')
+          .select('*')
+          .eq('workspace_id', w.id)
+          .order('created_at')
+          .order('id')
+          .range(offset, offset + 499);
+        if (page.error) throw page.error;
+        ledger.push(...page.data);
+        if (page.data.length < 500) break;
+      }
+      if (run !== this.generation) return;
+      this.tasks.set(t.data ?? []);
+      this.projects.set(p.data ?? []);
+      this.events.set(e.data ?? []);
+      this.notes.set(n.data ?? []);
+      this.goals.set(g.data ?? []);
+      this.accounts.set(a.data ?? []);
+      this.transactions.set(ledger);
+      this.activity.set(l.data ?? []);
+      this.members.set(m.data ?? []);
+      this.notifications.set(notifications.data ?? []);
+    } catch (e) {
+      if (run === this.generation) this.error.set(this.message(e));
+    } finally {
+      if (run === this.generation) this.loading.set(false);
+    }
+  }
+  async createWorkspace(name: string, kind: WorkspaceKind) {
+    if (!name.trim()) throw new Error('Enter a workspace name.');
+    let w: Workspace;
+    if (this.auth.demo())
+      w = { id: crypto.randomUUID(), name: name.trim(), kind, owner_id: 'demo-user' };
+    else {
+      const { data, error } = await this.backend
+        .requireClient()
+        .rpc('create_workspace', { workspace_name: name.trim(), workspace_type: kind });
+      if (error) throw error;
+      w = { id: data, name: name.trim(), kind, owner_id: this.auth.user()!.id };
+    }
+    this.workspaces.update((list) => [...list, w]);
+    await this.switchWorkspace(w);
+  }
+  async saveProfile(name: string, currency: string) {
+    const p = this.profile();
+    if (!p) return;
+    if (!this.auth.demo()) {
+      const { error } = await this.backend
+        .requireClient()
+        .from('profiles')
+        .update({ display_name: name, currency })
+        .eq('id', p.id);
+      if (error) throw error;
+    }
+    this.profile.set({ ...p, display_name: name, currency });
+  }
+  async saveWidgets(widgets: string[]) {
+    if (!this.auth.demo()) {
+      const { error } = await this.backend
+        .requireClient()
+        .from('app_settings')
+        .upsert({ id: this.auth.user()!.id, dashboard_widgets: widgets }, { onConflict: 'id' });
+      if (error) throw error;
+    }
+    this.widgets.set(widgets);
+  }
+  async setMember(id: string, role: 'editor' | 'viewer') {
+    if (this.auth.demo())
+      throw new Error('Membership changes require a connected Supabase account.');
+    const { error } = await this.backend
+      .requireClient()
+      .rpc('set_workspace_member', { w: this.workspace()!.id, member_id: id, member_access: role });
+    if (error) throw error;
+    await this.switchWorkspace(this.workspace()!);
+  }
+  async removeMember(id: string) {
+    const { error } = await this.backend
+      .requireClient()
+      .rpc('remove_workspace_member', { w: this.workspace()!.id, member_id: id });
+    if (error) throw error;
+    await this.switchWorkspace(this.workspace()!);
+  }
+  async toggleTask(task: Task) {
+    if (!this.canEdit(task)) throw new Error('You cannot edit this task.');
+    const status = task.status === 'done' ? 'todo' : 'done';
+    if (!this.auth.demo()) {
+      const { error } = await this.backend
+        .requireClient()
+        .from('tasks')
+        .update({ status })
+        .eq('id', task.id);
+      if (error) throw error;
+    }
+    this.tasks.update((list) => list.map((t) => (t.id === task.id ? { ...t, status } : t)));
+    this.log(`${status === 'done' ? 'Completed' : 'Reopened'} “${task.title}”`);
+  }
+  async setTaskStatus(task: Task, status: Task['status']) {
+    if (!this.canEdit(task)) throw new Error('You cannot edit this task.');
+    if (!this.auth.demo()) {
+      const { error } = await this.backend
+        .requireClient()
+        .from('tasks')
+        .update({ status })
+        .eq('id', task.id);
+      if (error) throw error;
+    }
+    this.tasks.update((list) => list.map((t) => (t.id === task.id ? { ...t, status } : t)));
+  }
+  async updateGoal(goal: Goal, value: string) {
+    if (!this.canEdit(goal) || !/^\d+(\.\d{1,2})?$/.test(value))
+      throw new Error('Enter a valid non-negative progress value.');
+    const current = Number(value);
+    if (!this.auth.demo()) {
+      const { error } = await this.backend
+        .requireClient()
+        .from('goals')
+        .update({ current })
+        .eq('id', goal.id);
+      if (error) throw error;
+    }
+    this.goals.update((list) => list.map((g) => (g.id === goal.id ? { ...g, current } : g)));
+  }
+  async deleteNote(note: Note) {
+    if (!this.canEdit(note)) throw new Error('You cannot delete this note.');
+    if (!this.auth.demo()) {
+      const { error } = await this.backend.requireClient().from('notes').delete().eq('id', note.id);
+      if (error) throw error;
+    }
+    this.notes.update((list) => list.filter((n) => n.id !== note.id));
+  }
+  private base(): OwnedRecord {
+    if (!this.workspace() || !this.writable())
+      throw new Error('Select a workspace with edit permission.');
+    return {
+      id: crypto.randomUUID(),
+      workspace_id: this.workspace()!.id,
+      owner_id: this.auth.demo() ? 'demo-user' : this.auth.user()!.id,
+      visibility: 'private',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+  }
+  async add(input: Capture) {
+    const title = input.title.trim();
+    if (!title || title.length > 200) throw new Error('Enter a title of 1–200 characters.');
+    const b = { ...this.base(), visibility: input.visibility };
+    const c = this.backend.client;
+    const check = (error: { message: string } | null) => {
+      if (error) throw new Error(error.message);
+    };
+    switch (input.kind) {
+      case 'task': {
+        const row: Task = {
+          ...b,
+          title,
+          status: 'todo',
+          priority: input.priority,
+          due_date: input.date || null,
+          project_id: input.project_id || null,
+        };
+        if (!this.auth.demo()) check((await c!.from('tasks').insert(row)).error);
+        this.tasks.update((v) => [row, ...v]);
+        break;
+      }
+      case 'project': {
+        const row: Project = {
+          ...b,
+          title,
+          description: input.body,
+          status: 'active',
+          color: 'purple',
+          due_date: input.date || null,
+        };
+        if (!this.auth.demo()) check((await c!.from('projects').insert(row)).error);
+        this.projects.update((v) => [row, ...v]);
+        break;
+      }
+      case 'note': {
+        const row: Note = { ...b, title, body: input.body, project_id: input.project_id || null };
+        if (!this.auth.demo()) check((await c!.from('notes').insert(row)).error);
+        this.notes.update((v) => [row, ...v]);
+        break;
+      }
+      case 'goal': {
+        const row: Goal = {
+          ...b,
+          title,
+          target: parseMoney(input.amount),
+          current: 0,
+          unit: input.category,
+          due_date: input.date || null,
+          color: 'purple',
+        };
+        if (!this.auth.demo()) check((await c!.from('goals').insert(row)).error);
+        this.goals.update((v) => [row, ...v]);
+        break;
+      }
+      case 'event': {
+        if (!input.date || !input.time || !input.end_time)
+          throw new Error('Choose a date, start time and end time.');
+        const starts_at = new Date(`${input.date}T${input.time}`).toISOString();
+        const ends_at = new Date(`${input.date}T${input.end_time}`).toISOString();
+        if (ends_at <= starts_at) throw new Error('End time must be later than start time.');
+        const row: CalendarEvent = {
+          ...b,
+          title,
+          starts_at,
+          ends_at,
+          location: input.body,
+          project_id: input.project_id || null,
+          color: 'purple',
+        };
+        if (!this.auth.demo()) check((await c!.from('calendar_events').insert(row)).error);
+        this.events.update((v) =>
+          [...v, row].sort((a, b) => a.starts_at.localeCompare(b.starts_at)),
+        );
+        break;
+      }
+      case 'account': {
+        const row: Account = {
+          ...b,
+          name: title,
+          currency: this.currency(),
+          opening_balance: input.amount ? parseMoney(input.amount) : 0,
+        };
+        if (!this.auth.demo()) check((await c!.from('accounts').insert(row)).error);
+        this.accounts.update((v) => [...v, row]);
+        break;
+      }
+      case 'income':
+      case 'expense': {
+        const account = this.accounts().find(
+          (a) => a.id === input.account_id && a.owner_id === b.owner_id,
+        );
+        if (!account) throw new Error('Choose an account you own.');
+        const row: Transaction = {
+          ...b,
+          visibility: 'private',
+          title,
+          account_id: account.id,
+          amount: parseMoney(input.amount),
+          kind: input.kind,
+          category: input.category,
+          booked_on: input.date || localDate(),
+          transfer_id: null,
+          project_id: null,
+        };
+        if (!this.auth.demo()) {
+          const { data, error } = await c!.rpc('record_transaction', {
+            w: b.workspace_id,
+            account: account.id,
+            transaction_title: title,
+            transaction_amount: row.amount,
+            transaction_kind: row.kind,
+            transaction_category: row.category,
+            transaction_date: row.booked_on,
+          });
+          check(error);
+          row.id = data!;
+        }
+        this.transactions.update((v) => [...v, row]);
+        break;
+      }
+    }
+    this.log(`Added ${input.kind} · ${title}`);
+  }
+  async transfer(source: string, destination: string, amount: string, requestId: string) {
+    const value = parseMoney(amount);
+    if (source === destination) throw new Error('Choose two different accounts.');
+    const owned = this.accounts().filter(
+      (a) => a.owner_id === (this.auth.demo() ? 'demo-user' : this.auth.user()?.id),
+    );
+    const a = owned.find((a) => a.id === source),
+      b = owned.find((a) => a.id === destination);
+    if (!a || !b || a.currency !== b.currency)
+      throw new Error('Choose accounts you own with matching currencies.');
+    if (!this.auth.demo()) {
+      const { error } = await this.backend.requireClient().rpc('transfer_funds', {
+        w: this.workspace()!.id,
+        source_account: source,
+        destination_account: destination,
+        transfer_amount: value,
+        request_id: requestId,
+      });
+      if (error) throw error;
+      await this.switchWorkspace(this.workspace()!);
+    } else if (!this.transactions().some((t) => t.transfer_id === requestId)) {
+      const base = this.base();
+      this.transactions.update((v) => [
+        ...v,
+        {
+          ...base,
+          id: crypto.randomUUID(),
+          title: 'Account transfer',
+          account_id: source,
+          amount: value,
+          kind: 'transfer_out',
+          category: 'Transfer',
+          booked_on: localDate(),
+          transfer_id: requestId,
+          project_id: null,
+        },
+        {
+          ...base,
+          id: crypto.randomUUID(),
+          title: 'Account transfer',
+          account_id: destination,
+          amount: value,
+          kind: 'transfer_in',
+          category: 'Transfer',
+          booked_on: localDate(),
+          transfer_id: requestId,
+          project_id: null,
+        },
+      ]);
+    }
+  }
+  async markRead(n: Notification) {
+    const read_at = new Date().toISOString();
+    if (!this.auth.demo()) {
+      const { error } = await this.backend
+        .requireClient()
+        .from('notifications')
+        .update({ read_at })
+        .eq('id', n.id);
+      if (error) throw error;
+    }
+    this.notifications.update((v) => v.map((x) => (x.id === n.id ? { ...x, read_at } : x)));
+  }
+  private log(title: string) {
+    this.activity.update((v) => [{ ...this.base(), title }, ...v].slice(0, 30));
+  }
+  money(value: number) {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: this.currency(),
+      maximumFractionDigits: 0,
+    }).format(value);
+  }
+  progress(goal: Goal) {
+    return Math.min(100, Math.round((Number(goal.current) / Number(goal.target)) * 100));
+  }
+  projectProgress(project: Project) {
+    const tasks = this.tasks().filter((t) => t.project_id === project.id);
+    return tasks.length
+      ? Math.round((tasks.filter((t) => t.status === 'done').length / tasks.length) * 100)
+      : 0;
+  }
+  projectTitle(id: string | null) {
+    return this.projects().find((p) => p.id === id)?.title ?? 'Personal';
+  }
+  download(format: 'json' | 'csv') {
+    const records = {
+      workspace: this.workspace(),
+      tasks: this.tasks(),
+      projects: this.projects(),
+      events: this.events(),
+      notes: this.notes(),
+      goals: this.goals(),
+      accounts: this.accounts(),
+      transactions: this.transactions(),
+    };
+    const text =
+      format === 'json'
+        ? JSON.stringify(records, null, 2)
+        : csv(
+            this.transactions().map((t) => ({
+              date: t.booked_on,
+              title: t.title,
+              kind: t.kind,
+              amount: t.amount,
+              currency: this.accounts().find((a) => a.id === t.account_id)?.currency,
+              category: t.category,
+              account: this.accounts().find((a) => a.id === t.account_id)?.name,
+            })),
+          );
+    const url = URL.createObjectURL(
+      new Blob([text], { type: format === 'json' ? 'application/json' : 'text/csv;charset=utf-8' }),
+    );
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `lifeos-${localDate()}.${format}`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  message(error: unknown) {
+    return error instanceof Error
+      ? error.message
+      : typeof error === 'object' && error !== null && 'message' in error
+        ? String(error.message)
+        : 'Something went wrong. Please try again.';
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "name": "lifeos",
+  "version": "0.0.0",
+  "scripts": {
+    "ng": "ng",
+    "start": "node scripts/configure.mjs && node scripts/run.mjs ng serve --host 127.0.0.1",
+    "build": "node scripts/configure.mjs && node scripts/run.mjs ng build",
+    "watch": "ng build --watch --configuration development",
+    "test": "node scripts/run.mjs ng test --watch=false",
+    "test:security": "node scripts/run.mjs vitest run --config vitest.security.config.ts",
+    "lint": "eslint src scripts tests && tsc --noEmit -p tsconfig.app.json",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "postinstall": "node scripts/configure.mjs"
+  },
+  "private": true,
+  "packageManager": "npm@10.9.2",
+  "dependencies": {
+    "@angular/common": "^22.2.0",
+    "@angular/compiler": "^22.2.0",
+    "@angular/core": "^22.2.0",
+    "@angular/forms": "^22.2.0",
+    "@angular/platform-browser": "^22.2.0",
+    "@angular/router": "^22.2.0",
+    "@angular/service-worker": "^22.2.0",
+    "@supabase/supabase-js": "^2.95.3",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.3.0"
+  },
+  "devDependencies": {
+    "node": "22.22.3",
+    "@electric-sql/pglite": "^0.3.14",
+    "@eslint/js": "^9.39.2",
+    "eslint": "^9.39.2",
+    "typescript-eslint": "^8.56.0",
+    "tailwindcss": "^4.1.18",
+    "@tailwindcss/postcss": "^4.1.18",
+    "postcss": "^8.5.6",
+    "@angular/build": "^22.2.2",
+    "@angular/cli": "^22.2.2",
+    "@angular/compiler-cli": "^22.2.0",
+    "jsdom": "^30.0.0",
+    "prettier": "^3.8.1",
+    "typescript": "~6.0.2",
+    "vitest": "^5.0.0"
+  },
+  "type": "module"
+}

@@ -1,0 +1,320 @@
+import { PGlite } from '@electric-sql/pglite';
+import { readFileSync } from 'node:fs';
+import { beforeAll, afterAll, describe, it, expect } from 'vitest';
+const A = '11111111-1111-4111-8111-111111111111',
+  B = '22222222-2222-4222-8222-222222222222',
+  C = '33333333-3333-4333-8333-333333333333';
+let db: PGlite;
+let workspace: string;
+let other: string;
+let privateTask: string;
+let sharedTask: string;
+let privateProject: string;
+let source: string;
+let destination: string;
+async function asUser(id: string) {
+  await db.exec('reset role');
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)", [id]);
+  await db.exec('set role authenticated');
+}
+async function count(table: string) {
+  return Number(
+    (await db.query<{ n: string }>(`select count(*) as n from public.${table}`)).rows[0].n,
+  );
+}
+async function insert(table: string, cols: string, values: unknown[]) {
+  const placeholders = values.map((_, i) => `$${i + 1}`).join(',');
+  return (
+    await db.query<{ id: string }>(
+      `insert into public.${table}(${cols}) values(${placeholders}) returning id`,
+      values,
+    )
+  ).rows[0].id;
+}
+beforeAll(async () => {
+  db = new PGlite();
+  // Supabase platform shims only. The application's SQL migration runs unchanged.
+  await db.exec(`create role anon;create role authenticated;create role service_role bypassrls;
+    create schema auth;grant usage on schema auth to authenticated,anon,service_role;
+    create table auth.users(id uuid primary key,raw_user_meta_data jsonb default '{}');
+    create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
+    grant execute on function auth.uid() to public;
+    create schema storage;grant usage on schema storage to authenticated,anon;
+    create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
+    create table storage.objects(id uuid default gen_random_uuid() primary key,bucket_id text,name text);
+    alter table storage.objects enable row level security;grant select,insert,delete on storage.objects to authenticated;
+    create function storage.foldername(text) returns text[] language sql immutable as $$ select (string_to_array($1,'/'))[1:array_length(string_to_array($1,'/'),1)-1] $$;
+    grant execute on function storage.foldername(text) to public;`);
+  await db.exec(readFileSync('supabase/migrations/202610110001_foundation.sql', 'utf8'));
+  await db.query('insert into auth.users(id) values($1),($2),($3)', [A, B, C]);
+  await asUser(A);
+  workspace = (
+    await db.query<{ id: string }>("select public.create_workspace('Family','family') as id")
+  ).rows[0].id;
+  privateProject = await insert('projects', 'workspace_id,title', [workspace, 'Secret project']);
+  privateTask = await insert('tasks', 'workspace_id,title', [workspace, 'Secret task']);
+  sharedTask = await insert('tasks', 'workspace_id,title,visibility', [
+    workspace,
+    'Shared task',
+    'workspace',
+  ]);
+  source = await insert('accounts', 'workspace_id,name,opening_balance', [
+    workspace,
+    'Checking',
+    100,
+  ]);
+  destination = await insert('accounts', 'workspace_id,name', [workspace, 'Savings']);
+  await asUser(B);
+  other = (
+    await db.query<{ id: string }>("select public.create_workspace('Personal','personal') as id")
+  ).rows[0].id;
+});
+afterAll(async () => {
+  await db?.close();
+});
+describe('Actual PostgreSQL RLS and permission boundaries', () => {
+  it('supports settings upserts without permitting another user’s settings', async () => {
+    await asUser(A);
+    for (const widget of ['tasks', 'goals'])
+      await db.query(
+        'insert into public.app_settings(id,dashboard_widgets) values($1,array[$2::text]) on conflict(id) do update set id=excluded.id,dashboard_widgets=excluded.dashboard_widgets',
+        [A, widget],
+      );
+    expect(
+      (
+        await db.query<{ dashboard_widgets: string[] }>(
+          'select dashboard_widgets from public.app_settings',
+        )
+      ).rows[0].dashboard_widgets,
+    ).toEqual(['goals']);
+    await asUser(B);
+    await expect(db.query('insert into public.app_settings(id) values($1)', [A])).rejects.toThrow(
+      /row-level security/,
+    );
+  });
+  it('enables RLS on every application table', async () => {
+    await db.exec('reset role');
+    const rows = (
+      await db.query<{ tablename: string; rowsecurity: boolean }>(
+        "select tablename,rowsecurity from pg_tables where schemaname='public'",
+      )
+    ).rows;
+    expect(rows.length).toBe(18);
+    expect(rows.every((r) => r.rowsecurity)).toBe(true);
+  });
+  it('denies anonymous reads and workspace creation', async () => {
+    await db.exec('reset role;set role anon');
+    await expect(count('tasks')).rejects.toThrow(/permission denied/);
+    await expect(db.query("select public.create_workspace('Attack')")).rejects.toThrow(
+      /permission denied/,
+    );
+  });
+  it('isolates unrelated users', async () => {
+    await asUser(B);
+    expect(await count('tasks')).toBe(0);
+    expect(await count('profiles')).toBe(1);
+  });
+  it('rejects insertion into another user’s workspace', async () => {
+    await asUser(B);
+    await expect(insert('tasks', 'workspace_id,title', [workspace, 'Attack'])).rejects.toThrow(
+      /row-level security/,
+    );
+  });
+  it('allows owner-controlled viewer membership', async () => {
+    await asUser(A);
+    await db.query("select public.set_workspace_member($1,$2,'viewer')", [workspace, B]);
+    await asUser(B);
+    expect(await count('tasks')).toBe(1);
+    expect((await db.query<{ id: string }>('select id from public.tasks')).rows[0].id).toBe(
+      sharedTask,
+    );
+  });
+  it('keeps private records private even from workspace owner', async () => {
+    await asUser(A);
+    await db.query("select public.set_workspace_member($1,$2,'editor')", [workspace, C]);
+    await asUser(C);
+    await insert('notes', 'workspace_id,title,body', [
+      workspace,
+      'Private member note',
+      'Sensitive',
+    ]);
+    await asUser(A);
+    expect(await count('notes')).toBe(0);
+  });
+  it('prevents viewers from creating or editing shared records', async () => {
+    await asUser(B);
+    await expect(
+      insert('tasks', 'workspace_id,title', [workspace, 'Viewer write']),
+    ).rejects.toThrow(/row-level security/);
+    const result = await db.query('update public.tasks set title=$1 where id=$2', [
+      'Changed',
+      sharedTask,
+    ]);
+    expect(result.affectedRows).toBe(0);
+  });
+  it('blocks self-promotion via direct writes and RPC', async () => {
+    await asUser(B);
+    await expect(
+      db.query("update public.workspace_members set role='owner' where user_id=$1", [B]),
+    ).rejects.toThrow(/permission denied/);
+    await expect(
+      db.query("select public.set_workspace_member($1,$2,'editor')", [workspace, B]),
+    ).rejects.toThrow(/owner required/);
+  });
+  it('blocks ownership and tenant changes', async () => {
+    await asUser(A);
+    await expect(
+      db.query('update public.tasks set owner_id=$1 where id=$2', [B, privateTask]),
+    ).rejects.toThrow(/permission denied/);
+    await expect(
+      db.query('update public.tasks set workspace_id=$1 where id=$2', [other, privateTask]),
+    ).rejects.toThrow(/permission denied/);
+  });
+  it('prevents forged ownership on insertion', async () => {
+    await asUser(A);
+    await expect(
+      insert('tasks', 'workspace_id,owner_id,title', [workspace, B, 'Forged']),
+    ).rejects.toThrow(/row-level security/);
+  });
+  it('validates inaccessible project links', async () => {
+    await asUser(C);
+    await expect(
+      insert('tasks', 'workspace_id,title,project_id', [workspace, 'Leaked link', privateProject]),
+    ).rejects.toThrow(/inaccessible/);
+  });
+  it('validates cross-workspace links', async () => {
+    await asUser(A);
+    await expect(
+      insert('tasks', 'workspace_id,title,project_id', [other, 'Cross workspace', privateProject]),
+    ).rejects.toThrow();
+  });
+  it('keeps ledger writes server-owned', async () => {
+    await asUser(A);
+    await expect(
+      insert('transactions', 'workspace_id,account_id,title,amount,kind', [
+        workspace,
+        source,
+        'Forged transfer',
+        10,
+        'expense',
+      ]),
+    ).rejects.toThrow(/permission denied/);
+  });
+  it('records transfers atomically and idempotently', async () => {
+    await asUser(A);
+    const key = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    await db.query('select public.transfer_funds($1,$2,$3,25.15,$4)', [
+      workspace,
+      source,
+      destination,
+      key,
+    ]);
+    await db.query('select public.transfer_funds($1,$2,$3,25.15,$4)', [
+      workspace,
+      source,
+      destination,
+      key,
+    ]);
+    const rows = (
+      await db.query<{ kind: string; amount: string }>(
+        'select kind,amount from public.transactions where transfer_id=$1',
+        [key],
+      )
+    ).rows;
+    expect(rows.length).toBe(2);
+    expect(
+      rows.reduce((sum, r) => sum + (r.kind === 'transfer_in' ? 1 : -1) * Number(r.amount), 0),
+    ).toBe(0);
+    await expect(
+      db.query('select public.transfer_funds($1,$2,$3,25,$4)', [
+        workspace,
+        source,
+        destination,
+        key,
+      ]),
+    ).rejects.toThrow(/Idempotency/);
+  });
+  it('rejects unauthorized transfers without a partial ledger', async () => {
+    await asUser(C);
+    await expect(
+      db.query('select public.transfer_funds($1,$2,$3,50,gen_random_uuid())', [
+        workspace,
+        source,
+        destination,
+      ]),
+    ).rejects.toThrow(/owned by caller/);
+    expect(await count('transactions')).toBe(0);
+    await asUser(A);
+    expect(await count('transactions')).toBe(2);
+  });
+  it('rejects invalid amounts and cross-currency transfers', async () => {
+    await asUser(A);
+    await expect(
+      db.query('select public.transfer_funds($1,$2,$3,0.001,gen_random_uuid())', [
+        workspace,
+        source,
+        destination,
+      ]),
+    ).rejects.toThrow(/Invalid transfer/);
+    const usd = await insert('accounts', 'workspace_id,name,currency', [
+      workspace,
+      'Dollar account',
+      'USD',
+    ]);
+    await expect(
+      db.query('select public.transfer_funds($1,$2,$3,1,gen_random_uuid())', [
+        workspace,
+        source,
+        usd,
+      ]),
+    ).rejects.toThrow(/currency/);
+  });
+  it('does not let other members read private files or upload under owner paths', async () => {
+    await asUser(A);
+    const path = `${A}/${workspace}/receipt.pdf`;
+    await db.query("insert into storage.objects(bucket_id,name) values('financial-receipts',$1)", [
+      path,
+    ]);
+    await asUser(B);
+    expect(
+      Number((await db.query<{ n: string }>('select count(*) n from storage.objects')).rows[0].n),
+    ).toBe(0);
+    await expect(
+      db.query("insert into storage.objects(bucket_id,name) values('financial-receipts',$1)", [
+        path + '/attack',
+      ]),
+    ).rejects.toThrow(/row-level security/);
+  });
+  it('denies viewer uploads even to their own prefix', async () => {
+    await asUser(B);
+    await expect(
+      db.query("insert into storage.objects(bucket_id,name) values('personal-documents',$1)", [
+        `${B}/${workspace}/private.pdf`,
+      ]),
+    ).rejects.toThrow(/row-level security/);
+  });
+  it('delivers reminders once and does not expose the scheduler to users', async () => {
+    await asUser(A);
+    await insert('reminders', 'workspace_id,title,due_at', [
+      workspace,
+      'Remember this',
+      new Date(Date.now() - 1000).toISOString(),
+    ]);
+    await expect(db.query('select public.deliver_due_reminders()')).rejects.toThrow(
+      /permission denied/,
+    );
+    await db.exec('reset role');
+    await db.query('select public.deliver_due_reminders()');
+    await db.query('select public.deliver_due_reminders()');
+    await asUser(A);
+    expect(await count('notifications')).toBe(1);
+    await asUser(B);
+    expect(await count('notifications')).toBe(0);
+  });
+  it('removing membership revokes access immediately', async () => {
+    await asUser(A);
+    await db.query('select public.remove_workspace_member($1,$2)', [workspace, B]);
+    await asUser(B);
+    expect(await count('tasks')).toBe(0);
+  });
+});

@@ -1,0 +1,1 @@
+-- Deliberately no real user data or credentials. UI demo fixtures live in src/app/core/services/demo.ts.
