@@ -2694,6 +2694,97 @@ td:last-child {
   margin-left: -7px;
   margin-right: 2px;
 }
+.finance-planning {
+  margin-bottom: 24px;
+}
+.planning-heading p {
+  margin-top: 7px;
+  font-size: 12px;
+}
+.planning-toolbar {
+  padding: 0 22px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.planning-month {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--secondary);
+}
+.planning-month input {
+  width: auto;
+}
+.planning-form {
+  padding: 22px;
+  background: var(--bg);
+  border-block: 1px solid var(--border);
+}
+.planning-form .form-row {
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.planning-form .form-row > label {
+  flex: 1 1 180px;
+}
+.planning-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.planning-checkbox input {
+  width: auto;
+}
+.planning-form .form-hint {
+  margin: 14px 0;
+}
+.planning-error,
+.planning-note {
+  margin: 0 22px 20px;
+}
+.planning-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 20px;
+  padding: 0 22px 22px;
+}
+.planning-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+}
+.planning-card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.planning-card h3 {
+  font-size: 14px;
+}
+.planning-card p {
+  margin: 12px 0;
+  color: var(--secondary);
+}
+.budget-track {
+  height: 7px;
+  border-radius: 5px;
+  background: var(--accent-bg);
+  overflow: hidden;
+  margin-top: 14px;
+}
+.budget-track span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+.budget-track span.over-budget {
+  background: var(--orange);
+}
 .sidebar.compact {
   width: 72px;
   padding-left: 12px;

@@ -16,6 +16,8 @@ Projects connect tasks, events, notes and transactions through composite foreign
 
 Foundation: profiles, workspaces, workspace_members, categories, tags, entity_tags, attachments, reminders, notifications, activity_logs, app_settings. Working slice: projects, tasks, calendar_events, notes, goals, accounts, transactions. Additional domains will get normalized schemas with their own reviewed migrations at implementation time.
 
+Finance planning adds private budgets, bills and recurring_transactions. Budgets match category, calendar month and account currency against the complete visible expense ledger. Bill posting locks the bill, inserts one linked expense and stores its transaction ID in the same transaction. Recurrence posting locks each schedule and uniquely identifies occurrences by schedule/date. Dates are calculated from the original anchor so January 31 returns to March 31 after February. Only the record owner with write access may post or pause; service-only automatic dispatch also checks the owner's current membership. Browser clients cannot change payment state, occurrence counters or posting dates. Plans default to manual posting, with explicit opt-in automatic hourly dispatch through Supabase Cron.
+
 ## Shared UI
 
 Responsive navigation, icons, toast feedback, accessible quick-add dialog, command/search dialog, theme switch, offline status, validation states and reusable record views. Dashboard widgets can be hidden in Settings. Demo records are synthetic and live only in memory; real records are never written to browser application caches.
@@ -26,7 +28,8 @@ Responsive navigation, icons, toast feedback, accessible quick-add dialog, comma
 2. Auth, profile, workspace onboarding, settings and backend repositories.
 3. Working task/project/calendar/note/goal/expense slice; useful dashboard interactions.
 4. Production/PWA builds, meaningful unit tests and database isolation tests, CI deployment and operating documentation.
-5. Subsequent work: complete finance, family, documents, assets, subscriptions and contacts; then career, health, travel, reporting and imports. Reminder delivery, recurring finance and optional MFA UI follow their own security and integration tests. AI and external integrations come last.
+5. Finance planning: private category budgets, bills and anchored recurring income/expenses, tested for isolation and retry-safe ledger posting; opt-in hourly automation through Supabase Cron.
+6. Subsequent work: loans and richer finance reporting, family, documents, assets, subscriptions and contacts; then career, health, travel and imports. Reminder delivery and optional MFA UI follow their own security and integration tests. AI and external integrations come last.
 
 ## Deployment and operations
 

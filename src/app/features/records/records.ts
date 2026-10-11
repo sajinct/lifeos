@@ -7,9 +7,10 @@ import { UiService } from '../../core/services/ui';
 import { CaptureKind, Goal, Note, Task } from '../../core/models/domain';
 import { Icon } from '../../shared/components/icon';
 import { accountBalance, localDate } from '../../shared/utilities/finance';
+import { FinancePlanning } from './finance-planning';
 @Component({
   selector: 'app-records',
-  imports: [Icon, DatePipe, DecimalPipe, NgTemplateOutlet, ReactiveFormsModule],
+  imports: [Icon, DatePipe, DecimalPipe, NgTemplateOutlet, ReactiveFormsModule, FinancePlanning],
   templateUrl: './records.html',
 })
 export class Records {

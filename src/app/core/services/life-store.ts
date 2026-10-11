@@ -3,6 +3,10 @@ import { AuthService } from '../auth/auth';
 import { Backend } from '../supabase/client';
 import {
   Account,
+  Budget,
+  Bill,
+  RecurringTransaction,
+  FinancePlanInput,
   Activity,
   ALL_WIDGETS,
   CalendarEvent,
@@ -20,7 +24,13 @@ import {
   WorkspaceKind,
 } from '../models/domain';
 import { demoData } from './demo';
-import { accountBalance, csv, localDate, parseMoney } from '../../shared/utilities/finance';
+import {
+  accountBalance,
+  csv,
+  localDate,
+  parseMoney,
+  recurrenceDate,
+} from '../../shared/utilities/finance';
 @Injectable({ providedIn: 'root' })
 export class LifeStore {
   readonly auth = inject(AuthService);
@@ -36,6 +46,9 @@ export class LifeStore {
   readonly goals = signal<Goal[]>([]);
   readonly accounts = signal<Account[]>([]);
   readonly transactions = signal<Transaction[]>([]);
+  readonly budgets = signal<Budget[]>([]);
+  readonly bills = signal<Bill[]>([]);
+  readonly recurring = signal<RecurringTransaction[]>([]);
   readonly activity = signal<Activity[]>([]);
   readonly notifications = signal<Notification[]>([]);
   readonly widgets = signal(ALL_WIDGETS);
@@ -140,6 +153,9 @@ export class LifeStore {
     this.goals.set(d.goals);
     this.accounts.set(d.accounts);
     this.transactions.set(d.transactions);
+    this.budgets.set(d.budgets);
+    this.bills.set(d.bills);
+    this.recurring.set(d.recurring);
     this.activity.set(d.activity);
   }
   private clearRecords() {
@@ -150,6 +166,9 @@ export class LifeStore {
     this.goals.set([]);
     this.accounts.set([]);
     this.transactions.set([]);
+    this.budgets.set([]);
+    this.bills.set([]);
+    this.recurring.set([]);
     this.activity.set([]);
     this.members.set([]);
     this.notifications.set([]);
@@ -175,6 +194,9 @@ export class LifeStore {
         goals: this.goals(),
         accounts: this.accounts(),
         transactions: this.transactions(),
+        budgets: this.budgets(),
+        bills: this.bills(),
+        recurring: this.recurring(),
         activity: this.activity(),
       });
     this.clearRecords();
@@ -191,6 +213,9 @@ export class LifeStore {
         this.goals.set(d.goals);
         this.accounts.set(d.accounts);
         this.transactions.set(d.transactions);
+        this.budgets.set(d.budgets);
+        this.bills.set(d.bills);
+        this.recurring.set(d.recurring);
         this.activity.set(d.activity);
       }
       this.members.set([{ workspace_id: w.id, user_id: 'demo-user', role: 'owner' }]);
@@ -199,60 +224,79 @@ export class LifeStore {
     }
     try {
       const c = this.backend.requireClient();
-      const [t, p, e, n, g, a, x, l, m, notifications] = await Promise.all([
-        c
-          .from('tasks')
-          .select('*')
-          .eq('workspace_id', w.id)
-          .order('created_at', { ascending: false })
-          .limit(500),
-        c
-          .from('projects')
-          .select('*')
-          .eq('workspace_id', w.id)
-          .order('created_at', { ascending: false })
-          .limit(500),
-        c
-          .from('calendar_events')
-          .select('*')
-          .eq('workspace_id', w.id)
-          .order('starts_at', { ascending: false })
-          .limit(500),
-        c
-          .from('notes')
-          .select('*')
-          .eq('workspace_id', w.id)
-          .order('updated_at', { ascending: false })
-          .limit(500),
-        c
-          .from('goals')
-          .select('*')
-          .eq('workspace_id', w.id)
-          .order('created_at', { ascending: false })
-          .limit(500),
-        c.from('accounts').select('*').eq('workspace_id', w.id).order('created_at').limit(500),
-        c
-          .from('transactions')
-          .select('*')
-          .eq('workspace_id', w.id)
-          .order('created_at')
-          .order('id')
-          .range(0, 499),
-        c
-          .from('activity_logs')
-          .select('*')
-          .eq('workspace_id', w.id)
-          .order('created_at', { ascending: false })
-          .limit(30),
-        c.from('workspace_members').select('*').eq('workspace_id', w.id),
-        c
-          .from('notifications')
-          .select('*')
-          .eq('workspace_id', w.id)
-          .order('created_at', { ascending: false })
-          .limit(50),
-      ]);
-      for (const result of [t, p, e, n, g, a, x, l, m, notifications])
+      const [t, p, e, n, g, a, x, l, m, notifications, budgets, bills, recurring] =
+        await Promise.all([
+          c
+            .from('tasks')
+            .select('*')
+            .eq('workspace_id', w.id)
+            .order('created_at', { ascending: false })
+            .limit(500),
+          c
+            .from('projects')
+            .select('*')
+            .eq('workspace_id', w.id)
+            .order('created_at', { ascending: false })
+            .limit(500),
+          c
+            .from('calendar_events')
+            .select('*')
+            .eq('workspace_id', w.id)
+            .order('starts_at', { ascending: false })
+            .limit(500),
+          c
+            .from('notes')
+            .select('*')
+            .eq('workspace_id', w.id)
+            .order('updated_at', { ascending: false })
+            .limit(500),
+          c
+            .from('goals')
+            .select('*')
+            .eq('workspace_id', w.id)
+            .order('created_at', { ascending: false })
+            .limit(500),
+          c.from('accounts').select('*').eq('workspace_id', w.id).order('created_at').limit(500),
+          c
+            .from('transactions')
+            .select('*')
+            .eq('workspace_id', w.id)
+            .order('created_at')
+            .order('id')
+            .range(0, 499),
+          c
+            .from('activity_logs')
+            .select('*')
+            .eq('workspace_id', w.id)
+            .order('created_at', { ascending: false })
+            .limit(30),
+          c.from('workspace_members').select('*').eq('workspace_id', w.id),
+          c
+            .from('notifications')
+            .select('*')
+            .eq('workspace_id', w.id)
+            .order('created_at', { ascending: false })
+            .limit(50),
+          c
+            .from('budgets')
+            .select('*')
+            .eq('workspace_id', w.id)
+            .order('month', { ascending: false })
+            .limit(500),
+          c
+            .from('bills')
+            .select('*')
+            .eq('workspace_id', w.id)
+            .order('created_at', { ascending: false })
+            .limit(500),
+          c
+            .from('recurring_transactions')
+            .select('*')
+            .eq('workspace_id', w.id)
+            .order('created_at', { ascending: false })
+            .limit(500),
+        ]);
+      for (const result of [t, p, e, n, g, a, x, l, m, notifications, budgets, bills, recurring])
         if (result.error) throw result.error;
       // Finance needs the complete visible ledger; page rather than silently truncating balances.
       const ledger = [...(x.data ?? [])];
@@ -276,6 +320,9 @@ export class LifeStore {
       this.goals.set(g.data ?? []);
       this.accounts.set(a.data ?? []);
       this.transactions.set(ledger);
+      this.budgets.set(budgets.data ?? []);
+      this.bills.set(bills.data ?? []);
+      this.recurring.set(recurring.data ?? []);
       this.activity.set(l.data ?? []);
       this.members.set(m.data ?? []);
       this.notifications.set(notifications.data ?? []);
@@ -574,6 +621,211 @@ export class LifeStore {
       ]);
     }
   }
+  async saveBudget(category: string, month: string, currency: string, amount: string) {
+    const base = this.base();
+    if (
+      !category.trim() ||
+      category.trim().length > 100 ||
+      !/^\d{4}-\d{2}$/.test(month) ||
+      !validFinanceDate(month + '-01') ||
+      !/^[A-Z]{3}$/.test(currency)
+    )
+      throw new Error('Choose a valid month, category and three-letter currency.');
+    const value = parseMoney(amount);
+    const existing = this.budgets().find(
+      (b) => b.category === category.trim() && b.month === month + '-01' && b.currency === currency,
+    );
+    const row: Budget = {
+      ...base,
+      id: existing?.id ?? base.id,
+      category: category.trim(),
+      month: month + '-01',
+      currency,
+      amount: value,
+    };
+    if (!this.auth.demo()) {
+      const c = this.backend.requireClient();
+      const result = existing
+        ? await c.from('budgets').update({ amount: value }).eq('id', existing.id)
+        : await c.from('budgets').insert(row);
+      if (result.error) throw result.error;
+    }
+    this.budgets.update((list) => [row, ...list.filter((b) => b.id !== row.id)]);
+  }
+  async deleteBudget(budget: Budget) {
+    if (!this.canEdit(budget)) throw new Error('You cannot change this budget.');
+    if (!this.auth.demo()) {
+      const { error } = await this.backend
+        .requireClient()
+        .from('budgets')
+        .delete()
+        .eq('id', budget.id);
+      if (error) throw error;
+    }
+    this.budgets.update((list) => list.filter((b) => b.id !== budget.id));
+  }
+  async createFinancePlan(type: 'bill' | 'recurring', input: FinancePlanInput) {
+    const base = this.base();
+    const account = this.accounts().find(
+      (a) => a.id === input.account_id && a.owner_id === base.owner_id,
+    );
+    if (
+      !account ||
+      !input.title.trim() ||
+      input.title.trim().length > 200 ||
+      !validFinanceDate(input.date) ||
+      !input.category.trim() ||
+      input.category.trim().length > 100
+    )
+      throw new Error('Enter a title, valid date, category and an account you own.');
+    const common = {
+      ...base,
+      title: input.title.trim(),
+      account_id: account.id,
+      amount: parseMoney(input.amount),
+      category: input.category.trim(),
+    };
+    if (type === 'bill') {
+      const row: Bill = {
+        ...common,
+        due_on: input.date,
+        status: 'pending',
+        paid_on: null,
+        transaction_id: null,
+      };
+      if (!this.auth.demo()) {
+        const { error } = await this.backend.requireClient().from('bills').insert(row);
+        if (error) throw error;
+      }
+      this.bills.update((list) => [row, ...list]);
+    } else {
+      if (
+        !['daily', 'weekly', 'monthly', 'yearly'].includes(input.frequency) ||
+        !['income', 'expense'].includes(input.kind)
+      )
+        throw new Error('Choose a valid frequency and transaction type.');
+      const row: RecurringTransaction = {
+        ...common,
+        start_on: input.date,
+        next_on: input.date,
+        occurrence_count: 0,
+        frequency: input.frequency,
+        kind: input.kind,
+        active: true,
+        automatic: input.automatic,
+      };
+      if (!this.auth.demo()) {
+        const { error } = await this.backend
+          .requireClient()
+          .from('recurring_transactions')
+          .insert(row);
+        if (error) throw error;
+      }
+      this.recurring.update((list) => [row, ...list]);
+    }
+  }
+  async settleBill(bill: Bill) {
+    if (!this.canEdit(bill)) throw new Error('You cannot change this bill.');
+    if (!this.auth.demo()) {
+      const { error } = await this.backend.requireClient().rpc('settle_bill', { bill: bill.id });
+      if (error) throw error;
+      await this.switchWorkspace(this.workspace()!);
+      if (this.error()) throw new Error(this.error());
+    } else {
+      const current = this.bills().find((b) => b.id === bill.id);
+      if (!current || current.status === 'cancelled')
+        throw new Error('Cancelled bills cannot be paid.');
+      if (current.status === 'paid') return;
+      const id = crypto.randomUUID();
+      this.transactions.update((list) => [
+        ...list,
+        {
+          ...this.base(),
+          id,
+          title: current.title,
+          account_id: current.account_id,
+          amount: current.amount,
+          kind: 'expense',
+          category: current.category,
+          booked_on: localDate(),
+          transfer_id: null,
+          project_id: null,
+          bill_id: current.id,
+        },
+      ]);
+      this.bills.update((list) =>
+        list.map((b) =>
+          b.id === current.id
+            ? { ...b, status: 'paid', paid_on: localDate(), transaction_id: id }
+            : b,
+        ),
+      );
+    }
+  }
+  async cancelBill(bill: Bill) {
+    if (!this.canEdit(bill)) throw new Error('You cannot change this bill.');
+    if (!this.auth.demo()) {
+      const { error } = await this.backend.requireClient().rpc('cancel_bill', { bill: bill.id });
+      if (error) throw error;
+    } else if (this.bills().find((b) => b.id === bill.id)?.status === 'paid')
+      throw new Error('Paid bills cannot be cancelled.');
+    this.bills.update((list) =>
+      list.map((b) => (b.id === bill.id ? { ...b, status: 'cancelled' } : b)),
+    );
+  }
+  async setRecurringActive(plan: RecurringTransaction) {
+    if (!this.canEdit(plan)) throw new Error('You cannot change this schedule.');
+    const active = !plan.active;
+    if (!this.auth.demo()) {
+      const { error } = await this.backend
+        .requireClient()
+        .from('recurring_transactions')
+        .update({ active })
+        .eq('id', plan.id);
+      if (error) throw error;
+    }
+    this.recurring.update((list) => list.map((r) => (r.id === plan.id ? { ...r, active } : r)));
+  }
+  async postRecurring(plan: RecurringTransaction) {
+    if (!this.canEdit(plan)) throw new Error('You cannot change this schedule.');
+    if (!this.auth.demo()) {
+      const { data, error } = await this.backend
+        .requireClient()
+        .rpc('post_recurring_due', { plan: plan.id });
+      if (error) throw error;
+      await this.switchWorkspace(this.workspace()!);
+      if (this.error()) throw new Error(this.error());
+      return data;
+    }
+    const current = this.recurring().find((r) => r.id === plan.id);
+    if (!current?.active) return 0;
+    let count = current.occurrence_count;
+    let next = current.next_on;
+    let posted = 0;
+    const entries: Transaction[] = [];
+    while (next <= localDate() && posted < 100) {
+      entries.push({
+        ...this.base(),
+        title: current.title,
+        account_id: current.account_id,
+        amount: current.amount,
+        kind: current.kind,
+        category: current.category,
+        booked_on: next,
+        transfer_id: null,
+        project_id: null,
+        recurring_id: current.id,
+        occurrence_on: next,
+      });
+      next = recurrenceDate(current.start_on, current.frequency, ++count);
+      posted++;
+    }
+    this.transactions.update((list) => [...list, ...entries]);
+    this.recurring.update((list) =>
+      list.map((r) => (r.id === current.id ? { ...r, next_on: next, occurrence_count: count } : r)),
+    );
+    return posted;
+  }
   async markRead(n: Notification) {
     const read_at = new Date().toISOString();
     if (!this.auth.demo()) {
@@ -618,6 +870,9 @@ export class LifeStore {
       goals: this.goals(),
       accounts: this.accounts(),
       transactions: this.transactions(),
+      budgets: this.budgets(),
+      bills: this.bills(),
+      recurring: this.recurring(),
     };
     const text =
       format === 'json'
@@ -649,4 +904,11 @@ export class LifeStore {
         ? String(error.message)
         : 'Something went wrong. Please try again.';
   }
+}
+function validFinanceDate(value: string): boolean {
+  return (
+    /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+    !Number.isNaN(Date.parse(value)) &&
+    new Date(value + 'T00:00:00Z').toISOString().slice(0, 10) === value
+  );
 }

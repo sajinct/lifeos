@@ -1,4 +1,32 @@
-import { Account, Transaction } from '../../core/models/domain';
+import { Account, Budget, Frequency, Transaction } from '../../core/models/domain';
+export function recurrenceDate(anchor: string, frequency: Frequency, occurrence: number): string {
+  const [year, month, day] = anchor.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  if (frequency === 'daily' || frequency === 'weekly')
+    date.setDate(day + occurrence * (frequency === 'weekly' ? 7 : 1));
+  else {
+    date.setDate(1);
+    date.setMonth(month - 1 + occurrence * (frequency === 'yearly' ? 12 : 1));
+    const last = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+    date.setDate(Math.min(day, last));
+  }
+  return localDate(date);
+}
+export function budgetSpent(budget: Budget, entries: Transaction[], accounts: Account[]): number {
+  return (
+    entries
+      .filter(
+        (t) =>
+          t.owner_id === budget.owner_id &&
+          t.workspace_id === budget.workspace_id &&
+          t.kind === 'expense' &&
+          t.category === budget.category &&
+          t.booked_on.slice(0, 7) === budget.month.slice(0, 7) &&
+          accounts.some((a) => a.id === t.account_id && a.currency === budget.currency),
+      )
+      .reduce((sum, t) => sum + cents(t.amount), 0) / 100
+  );
+}
 export function cents(value: number | string): number {
   return Math.round(Number(value) * 100);
 }

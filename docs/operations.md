@@ -64,7 +64,37 @@ Security tests execute the application migration in PGlite's real PostgreSQL eng
 
 The `personal-documents` and `financial-receipts` buckets are private, limited to 10 MiB per object and permitted MIME types. Paths must be `USER_UUID/WORKSPACE_UUID/FILE_UUID.ext`. Only the file owner, while a workspace member, can read. Viewers cannot upload/delete. Updates are intentionally disallowed; file versions use distinct immutable paths. The file-management UI belongs to the Documents milestone and is not yet exposed. Never use public object URLs; generate short-lived signed URLs from an authorized session.
 
-## Reminders
+## Finance planning
+
+Apply all migrations with `supabase db push` before deploying a frontend that loads finance planning tables. Budgets, bills and schedules are private even within shared workspaces. The latest 500 planning records are loaded per table; the expense ledger is fully paginated for budget calculations. Workspace JSON exports include loaded planning records. CSV includes the complete visible ledger. Demo planning edits are in memory, and demo recurring posting uses the explicit **Record due** button.
+
+Bills do not affect balances until **Record paid** creates an expense. Repeating the action returns the same transaction; paid bills cannot be cancelled. Pending bills may be cancelled without creating a ledger entry. This app records payments; it does not execute bank payments.
+
+Recurring schedules support daily, weekly, monthly and yearly income/expenses. Automatic posting is opt-in on schedule creation. **Record due** posts missed occurrences through today in the profile time zone, at most 100 per run. Monthly and yearly dates remain anchored to the original start day, clamping in short months. Pause holds the cursor; resuming catches up missed dates. Removing or downgrading the owner's membership stops posting. To change amount, account or frequency, pause the old schedule and create a new one. Avoid overlapping start dates if you do not want overlapping ledger entries.
+
+Enable the hourly job after applying the migration:
+
+```text
+npx supabase db query --linked --file supabase/setup/recurring-cron.sql
+```
+
+The setup is repeatable for the named job. Dispatcher execution is restricted to `service_role` and database administrators; it processes at most 500 due automatic schedules per run. Monitor **Integrations → Cron → Jobs → History** in Supabase. To pause the dispatcher, toggle this job inactive. Private entries stay out of the PWA cache. See [Supabase Cron](https://supabase.com/docs/guides/cron/quickstart).
+
+The connected production project has this hourly job enabled. Run `npx supabase db query --linked --file supabase/tests/finance-cloud-smoke.sql` to recheck live bill/recurring posting and finance isolation. It rolls back its synthetic accounts and ledger records without sending emails or touching passwords.
+
+## Production email and account acceptance checks
+
+Configure an SMTP provider in Supabase **Authentication → Email → SMTP Settings**. Enter the provider's host, port, username and password there, along with a verified sender address and sender name. Verify the sending domain's DNS records with the provider and use its required TLS port. Keep SMTP secrets in Supabase, outside this repository and frontend configuration. Supabase's default mail service is limited to organization team addresses and is not suitable for public signup; see [custom SMTP guidance](https://supabase.com/docs/guides/auth/auth-smtp).
+
+After SMTP is configured, complete these checks with two real accounts in the browser. Account owners enter and submit their own credentials:
+
+1. Sign up at `https://lifeos.sajinct.com/#/auth`, verify the email in the same browser, then sign in.
+2. Create a workspace, account, task, note and finance plan. Reload and confirm persistence.
+3. Sign out, request a password reset and complete it. Verify the email returns to the custom domain and opens password recovery.
+4. Sign in with a second verified account: the first workspace, records and finance plans must be invisible.
+5. Explicitly add the second account as a viewer. It may read shared productivity records but cannot write or read private finance plans. Remove it and verify shared access is revoked.
+
+## Reminder dispatch
 
 The database contains an idempotent, service-only in-app reminder dispatcher. Run `select public.deliver_due_reminders();` from Supabase Cron every five minutes once reminders are configured. Enable the `pg_cron` extension in Supabase and schedule:
 
@@ -73,7 +103,7 @@ select cron.schedule('lifeos-reminders', '*/5 * * * *',
   'select public.deliver_due_reminders();');
 ```
 
-The unique reminder_id prevents duplicate notifications; deliveries to removed members are skipped. Notification history is stored in PostgreSQL. There is no email provider or recurring-finance scheduler in Phase 1. Add an Edge Function only when a server-only integration is actually needed, with a durable outbox, authentication checks, retries and provider idempotency keys. Secrets belong in Supabase server-side configuration.
+The unique reminder_id prevents duplicate notifications; deliveries to removed members are skipped. Notification history is stored in PostgreSQL. Reminder dispatch is separate from recurring finance and does not send emails. Add an Edge Function only when a server-only integration is actually needed, with a durable outbox, authentication checks, retries and provider idempotency keys. Secrets belong in Supabase server-side configuration.
 
 ## Export, backup and restore
 

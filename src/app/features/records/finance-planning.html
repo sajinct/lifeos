@@ -1,0 +1,351 @@
+<section class="finance-planning panel">
+  <div class="panel-heading planning-heading">
+    <div>
+      <h2>Plan ahead</h2>
+      <p class="muted">Your budgets, bills and recurring records stay private.</p>
+    </div>
+    <button class="button subtle" (click)="add()" [disabled]="!store.writable() || busy()">
+      Add {{ tab() === 'budgets' ? 'budget' : tab() === 'bills' ? 'bill' : 'schedule' }}
+    </button>
+  </div>
+  <div class="planning-toolbar">
+    <div class="segmented" aria-label="Finance planning views">
+      <button
+        [class.selected]="tab() === 'budgets'"
+        [attr.aria-pressed]="tab() === 'budgets'"
+        (click)="select('budgets')"
+        [disabled]="busy()"
+      >
+        Budgets
+      </button>
+      <button
+        [class.selected]="tab() === 'bills'"
+        [attr.aria-pressed]="tab() === 'bills'"
+        (click)="select('bills')"
+        [disabled]="busy()"
+      >
+        Bills
+      </button>
+      <button
+        [class.selected]="tab() === 'recurring'"
+        [attr.aria-pressed]="tab() === 'recurring'"
+        (click)="select('recurring')"
+        [disabled]="busy()"
+      >
+        Recurring
+      </button>
+    </div>
+    @if (tab() === 'budgets') {
+      <label class="planning-month"
+        >Budget month<input
+          type="month"
+          [value]="month()"
+          (change)="month.set($any($event.target).value)"
+      /></label>
+    }
+  </div>
+  @if (error()) {
+    <p class="form-error planning-error" role="alert">{{ error() }}</p>
+  }
+  @if (showForm()) {
+    @if (tab() === 'budgets') {
+      <form class="planning-form" [formGroup]="budgetForm" (ngSubmit)="saveBudget()">
+        <div class="form-row">
+          <label
+            >Category<input formControlName="category" maxlength="100" list="finance-categories"
+          /></label>
+          <label>Month<input type="month" formControlName="month" /></label>
+          <label
+            >Currency<select formControlName="currency">
+              @for (c of currencies(); track c) {
+                <option [value]="c">{{ c }}</option>
+              }
+            </select></label
+          >
+          <label
+            >Monthly limit<input formControlName="amount" inputmode="decimal" placeholder="0.00"
+          /></label>
+        </div>
+        <p class="form-hint">
+          Expenses match the exact category and currency. Saving an existing category, month and
+          currency updates its limit.
+        </p>
+        <div class="heading-actions">
+          <button class="button primary" type="submit" [disabled]="busy()">Save budget</button
+          ><button
+            class="button subtle"
+            type="button"
+            (click)="showForm.set(false)"
+            [disabled]="busy()"
+          >
+            Close
+          </button>
+        </div>
+      </form>
+    } @else {
+      <form class="planning-form" [formGroup]="planForm" (ngSubmit)="savePlan()">
+        <div class="form-row">
+          <label
+            >Title<input
+              formControlName="title"
+              maxlength="200"
+              placeholder="e.g. Electricity or salary"
+          /></label>
+          <label
+            >Account<select formControlName="account_id">
+              <option value="">Choose account</option>
+              @for (a of ownedAccounts(); track a.id) {
+                <option [value]="a.id">{{ a.name }} · {{ a.currency }}</option>
+              }
+            </select></label
+          >
+          <label
+            >Amount<input formControlName="amount" inputmode="decimal" placeholder="0.00"
+          /></label>
+        </div>
+        <div class="form-row">
+          <label
+            >Category<input formControlName="category" maxlength="100" list="finance-categories"
+          /></label>
+          <label
+            >{{ tab() === 'bills' ? 'Due date' : 'First occurrence'
+            }}<input type="date" formControlName="date"
+          /></label>
+          @if (tab() === 'recurring') {
+            <label
+              >Type<select formControlName="kind">
+                <option value="expense">Expense</option>
+                <option value="income">Income</option>
+              </select></label
+            >
+            <label
+              >Repeat<select formControlName="frequency">
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
+              </select></label
+            >
+          }
+        </div>
+        @if (tab() === 'recurring') {
+          <label class="planning-checkbox"
+            ><input type="checkbox" formControlName="automatic" />Record automatically on due
+            dates</label
+          >
+          <p class="form-hint">
+            Automatic schedules add ledger entries in your profile’s time zone. Past start dates
+            include missed occurrences. Pausing holds the schedule; resuming catches up. Monthly
+            dates return to the original day after shorter months. Demo mode uses Record due.
+          </p>
+        } @else {
+          <p class="form-hint">
+            Adding a bill does not change your balance. Record it as paid after you have paid it.
+          </p>
+        }
+        <div class="heading-actions">
+          <button
+            class="button primary"
+            type="submit"
+            [disabled]="busy() || !ownedAccounts().length"
+          >
+            Save {{ tab() === 'bills' ? 'bill' : 'schedule' }}</button
+          ><button
+            class="button subtle"
+            type="button"
+            (click)="showForm.set(false)"
+            [disabled]="busy()"
+          >
+            Close
+          </button>
+        </div>
+        @if (!ownedAccounts().length) {
+          <p class="form-hint">Add an account first.</p>
+        }
+      </form>
+    }
+  }
+  @switch (tab()) {
+    @case ('budgets') {
+      <div class="planning-cards">
+        @for (b of budgets(); track b.id) {
+          <article class="planning-card">
+            <div class="planning-card-top">
+              <h3>{{ b.category }}</h3>
+              <span [class.orange-text]="spent(b) > b.amount">{{ progress(b) }}% used</span>
+            </div>
+            <strong
+              >{{ money(spent(b), b.currency) }}
+              <span class="muted">of {{ money(b.amount, b.currency) }}</span></strong
+            >
+            <div
+              class="budget-track"
+              role="progressbar"
+              [attr.aria-label]="b.category + ' budget used'"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              [attr.aria-valuenow]="progress(b)"
+            >
+              <span [class.over-budget]="spent(b) > b.amount" [style.width.%]="progress(b)"></span>
+            </div>
+            <p [class.orange-text]="spent(b) > b.amount">
+              {{ money(Math.abs(b.amount - spent(b)), b.currency) }}
+              {{ spent(b) > b.amount ? 'over budget' : 'remaining' }}
+            </p>
+            <div class="heading-actions">
+              <button
+                class="text-button"
+                (click)="editBudget(b)"
+                [disabled]="!store.canEdit(b) || busy()"
+              >
+                Edit limit</button
+              ><button
+                class="text-button"
+                (click)="remove(b)"
+                [disabled]="!store.canEdit(b) || busy()"
+              >
+                Remove
+              </button>
+            </div>
+          </article>
+        } @empty {
+          <p class="empty-state">
+            Set a monthly category limit to see spending and remaining budget.
+          </p>
+        }
+      </div>
+    }
+    @case ('bills') {
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Bill</th>
+              <th>Due</th>
+              <th>Amount</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (b of bills(); track b.id) {
+              <tr>
+                <td>
+                  <strong>{{ b.title }}</strong
+                  ><small>{{ accountLabel(b.account_id) }} · {{ b.category }}</small>
+                </td>
+                <td>{{ b.due_on | date: 'd MMM yyyy' }}</td>
+                <td>{{ money(b.amount, currency(b.account_id)) }}</td>
+                <td [class.orange-text]="b.status === 'pending' && b.due_on < today">
+                  {{ b.status === 'pending' && b.due_on < today ? 'Overdue' : b.status }}
+                  @if (b.paid_on) {
+                    <small>{{ b.paid_on | date: 'd MMM yyyy' }}</small>
+                  }
+                </td>
+                <td>
+                  @if (b.status === 'pending') {
+                    <div class="heading-actions">
+                      <button
+                        class="button subtle"
+                        (click)="pay(b)"
+                        [disabled]="!store.canEdit(b) || busy()"
+                      >
+                        Record paid</button
+                      ><button
+                        class="text-button"
+                        (click)="cancel(b)"
+                        [disabled]="!store.canEdit(b) || busy()"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  }
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="5" class="empty-state">Keep track of upcoming bills here.</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+    @case ('recurring') {
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Schedule</th>
+              <th>Next occurrence</th>
+              <th>Amount</th>
+              <th>Mode</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (r of store.recurring(); track r.id) {
+              <tr>
+                <td>
+                  <strong>{{ r.title }}</strong
+                  ><small>{{ r.frequency }} {{ r.kind }} · {{ accountLabel(r.account_id) }}</small>
+                </td>
+                <td>
+                  {{ r.next_on | date: 'd MMM yyyy'
+                  }}<small>{{ r.occurrence_count }} recorded</small>
+                </td>
+                <td>{{ money(r.amount, currency(r.account_id)) }}</td>
+                <td>{{ !r.active ? 'Paused' : r.automatic ? 'Automatic' : 'Manual' }}</td>
+                <td>
+                  <div class="heading-actions">
+                    <button
+                      class="button subtle"
+                      (click)="post(r)"
+                      [disabled]="!store.canEdit(r) || !r.active || r.next_on > today || busy()"
+                    >
+                      Record due</button
+                    ><button
+                      class="text-button"
+                      (click)="pause(r)"
+                      [disabled]="!store.canEdit(r) || busy()"
+                    >
+                      {{ r.active ? 'Pause' : 'Resume' }}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="5" class="empty-state">
+                  Set up repeat income or expenses with one schedule.
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="form-hint planning-note">
+        Each run records up to 100 due occurrences per schedule. Automatic entries appear after
+        refreshing. Bill payments are recorded separately.
+      </p>
+    }
+  }
+  <datalist id="finance-categories">
+    @for (
+      category of [
+        'Food',
+        'Transport',
+        'Shopping',
+        'Housing',
+        'Utilities',
+        'Health',
+        'Entertainment',
+        'Salary',
+        'Other',
+      ];
+      track category
+    ) {
+      <option [value]="category"></option>
+    }
+  </datalist>
+</section>

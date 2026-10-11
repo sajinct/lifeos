@@ -17,12 +17,13 @@ Open http://127.0.0.1:4200 and choose **Explore a demo workspace**. Sample recor
 - Supabase email/password signup/signin, verification, PKCE password reset, restored sessions and secure logout.
 - Profiles, workspace creation/switching, owner-managed membership and custom dashboard widgets.
 - A first working slice of tasks (list/Kanban), calendar, projects, notes, goals and finance (accounts, income/expenses, atomic transfers).
-- Private-by-default records, 18 RLS-protected application tables, private Storage policies, typed client access and server-only reminder dispatch.
+- Monthly category budgets, bills with retry-safe payment recording, and daily/weekly/monthly/yearly recurring transactions with opt-in automatic posting and pause/resume.
+- Private-by-default records, 21 RLS-protected application tables, private Storage policies, typed client access and server-only reminder dispatch.
 - Currency-aware summaries, linked project records, CSV/JSON exports and idempotent transfer requests.
 - Installable PWA manifest/service worker that caches static assets only; offline indication.
 - GitHub Actions checks and Pages deployment supporting repository paths and custom domains.
 
-This is **Phase 1 plus an initial Phase 2 slice**, not the complete fifteen-module ERP. Documents UI, family, assets, subscriptions, contacts, budgets/bills/loans, habits, career, health, travel, email automation, imports and AI are subsequent milestones. The app does not expose empty routes for those modules.
+This is **Phase 1 plus an initial Phase 2 slice**, not the complete fifteen-module ERP. Documents UI, family, assets, subscriptions, contacts, loans, habits, career, health, travel, email automation, imports and AI are subsequent milestones. The app does not expose empty routes for those modules.
 
 ## Connect and deploy
 

@@ -8,6 +8,9 @@ import {
   Account,
   Transaction,
   Activity,
+  Budget,
+  Bill,
+  RecurringTransaction,
 } from '../models/domain';
 import { localDate } from '../../shared/utilities/finance';
 export function demoData() {
@@ -247,5 +250,55 @@ export function demoData() {
     { ...base('l2'), title: 'Added an expense · Groceries' },
     { ...base('l3'), title: 'Updated Personal website' },
   ];
-  return { projects, tasks, events, goals, notes, accounts, transactions, activity };
+  const budgets: Budget[] = [
+    {
+      ...base('budget1'),
+      category: 'Food',
+      month: today.slice(0, 7) + '-01',
+      currency: 'INR',
+      amount: 12000,
+    },
+  ];
+  const bills: Bill[] = [
+    {
+      ...base('bill1'),
+      title: 'Electricity',
+      account_id: 'a1',
+      amount: 1450,
+      category: 'Utilities',
+      due_on: date(3),
+      status: 'pending',
+      paid_on: null,
+      transaction_id: null,
+    },
+  ];
+  const recurring: RecurringTransaction[] = [
+    {
+      ...base('recurring1'),
+      title: 'Monthly rent',
+      account_id: 'a1',
+      amount: 15000,
+      kind: 'expense',
+      category: 'Housing',
+      start_on: today,
+      next_on: today,
+      frequency: 'monthly',
+      occurrence_count: 0,
+      active: true,
+      automatic: false,
+    },
+  ];
+  return {
+    projects,
+    tasks,
+    events,
+    goals,
+    notes,
+    accounts,
+    transactions,
+    activity,
+    budgets,
+    bills,
+    recurring,
+  };
 }

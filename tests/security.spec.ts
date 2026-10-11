@@ -1,5 +1,5 @@
 import { PGlite } from '@electric-sql/pglite';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { beforeAll, afterAll, describe, it, expect } from 'vitest';
 const A = '11111111-1111-4111-8111-111111111111',
   B = '22222222-2222-4222-8222-222222222222',
@@ -46,7 +46,10 @@ beforeAll(async () => {
     create function storage.foldername(text) returns text[] language sql immutable as $$ select (string_to_array($1,'/'))[1:array_length(string_to_array($1,'/'),1)-1] $$;
     grant execute on function storage.foldername(text) to public;
     create function public.platform_probe() returns integer language sql as $$ select 1 $$;`);
-  await db.exec(readFileSync('supabase/migrations/202610110001_foundation.sql', 'utf8'));
+  for (const file of readdirSync('supabase/migrations')
+    .filter((f) => f.endsWith('.sql'))
+    .sort())
+    await db.exec(readFileSync(`supabase/migrations/${file}`, 'utf8'));
   await db.query('insert into auth.users(id) values($1),($2),($3)', [A, B, C]);
   await asUser(A);
   workspace = (
@@ -106,7 +109,7 @@ describe('Actual PostgreSQL RLS and permission boundaries', () => {
         "select tablename,rowsecurity from pg_tables where schemaname='public'",
       )
     ).rows;
-    expect(rows.length).toBe(18);
+    expect(rows.length).toBe(21);
     expect(rows.every((r) => r.rowsecurity)).toBe(true);
   });
   it('denies anonymous reads and workspace creation', async () => {
@@ -323,5 +326,251 @@ describe('Actual PostgreSQL RLS and permission boundaries', () => {
     await db.query('select public.remove_workspace_member($1,$2)', [workspace, B]);
     await asUser(B);
     expect(await count('tasks')).toBe(0);
+  });
+});
+
+describe('Private budgets, bills and recurring ledger', () => {
+  let bill: string;
+  let schedule: string;
+  it('isolates finance plans from unrelated users, editors and viewers', async () => {
+    await asUser(A);
+    await insert('budgets', 'workspace_id,category,month,currency,amount', [
+      workspace,
+      'Food',
+      '2026-10-01',
+      'INR',
+      100,
+    ]);
+    bill = await insert('bills', 'workspace_id,account_id,title,amount,due_on', [
+      workspace,
+      source,
+      'Electricity',
+      12.15,
+      '2026-10-15',
+    ]);
+    schedule = await insert(
+      'recurring_transactions',
+      'workspace_id,account_id,title,amount,kind,frequency,start_on,next_on,automatic',
+      [
+        workspace,
+        source,
+        'Weekly groceries',
+        1.25,
+        'expense',
+        'weekly',
+        '2026-01-01',
+        '2026-01-01',
+        true,
+      ],
+    );
+    await db.query("select public.set_workspace_member($1,$2,'viewer')", [workspace, B]);
+    for (const user of [B, C]) {
+      await asUser(user);
+      for (const table of ['budgets', 'bills', 'recurring_transactions'])
+        expect(await count(table)).toBe(0);
+      await expect(db.query('select public.settle_bill($1)', [bill])).rejects.toThrow(/owner/);
+      await expect(db.query('select public.post_recurring_due($1)', [schedule])).rejects.toThrow(
+        /owner/,
+      );
+    }
+    await asUser(C);
+    await expect(
+      insert('bills', 'workspace_id,account_id,title,amount,due_on', [
+        workspace,
+        source,
+        'Forged link',
+        1,
+        '2026-10-01',
+      ]),
+    ).rejects.toThrow(/Account must be owned/);
+    await asUser(B);
+    await expect(
+      insert('budgets', 'workspace_id,category,month,currency,amount', [
+        workspace,
+        'Attack',
+        '2026-10-01',
+        'INR',
+        1,
+      ]),
+    ).rejects.toThrow(/row-level security/);
+    await db.exec('reset role;set role anon');
+    await expect(count('budgets')).rejects.toThrow(/permission denied/);
+  });
+  it('settles a bill once, atomically, and keeps status and ownership server-controlled', async () => {
+    await asUser(A);
+    const first = (await db.query<{ id: string }>('select public.settle_bill($1) as id', [bill]))
+      .rows[0].id;
+    expect(
+      (await db.query<{ id: string }>('select public.settle_bill($1) as id', [bill])).rows[0].id,
+    ).toBe(first);
+    expect(
+      Number(
+        (
+          await db.query<{ n: string }>(
+            'select count(*) n from public.transactions where bill_id=$1',
+            [bill],
+          )
+        ).rows[0].n,
+      ),
+    ).toBe(1);
+    expect(
+      (
+        await db.query<{ status: string; transaction_id: string }>(
+          'select status,transaction_id from public.bills where id=$1',
+          [bill],
+        )
+      ).rows[0],
+    ).toEqual({ status: 'paid', transaction_id: first });
+    await expect(
+      db.query("update public.bills set status='pending' where id=$1", [bill]),
+    ).rejects.toThrow(/permission denied/);
+    await expect(db.query('select public.cancel_bill($1)', [bill])).rejects.toThrow(/Paid bills/);
+    await expect(db.query('update public.budgets set owner_id=$1', [B])).rejects.toThrow(
+      /permission denied/,
+    );
+    await expect(
+      insert('bills', 'workspace_id,account_id,title,amount,due_on,status', [
+        workspace,
+        source,
+        'Fake paid',
+        1,
+        '2026-10-01',
+        'paid',
+      ]),
+    ).rejects.toThrow(/server-owned/);
+    const cancelled = await insert('bills', 'workspace_id,account_id,title,amount,due_on', [
+      workspace,
+      source,
+      'Cancelled',
+      10,
+      '2026-10-01',
+    ]);
+    await db.query('select public.cancel_bill($1)', [cancelled]);
+    await expect(db.query('select public.settle_bill($1)', [cancelled])).rejects.toThrow(
+      /Cancelled/,
+    );
+  });
+  it('preserves month-end and leap-year recurrence anchors', async () => {
+    await db.exec('reset role');
+    const dates = (
+      await db.query<{ feb: string; mar: string; year: string }>(
+        "select private.recurrence_date('2024-01-31','monthly',1)::text as feb,private.recurrence_date('2024-01-31','monthly',2)::text as mar,private.recurrence_date('2024-02-29','yearly',4)::text as year",
+      )
+    ).rows[0];
+    expect(dates).toEqual({ feb: '2024-02-29', mar: '2024-03-31', year: '2028-02-29' });
+  });
+  it('posts due occurrences exactly once and protects the scheduler and cursor', async () => {
+    await asUser(A);
+    await db.query('select public.post_recurring_due($1)', [schedule]);
+    const before = Number(
+      (
+        await db.query<{ n: string }>(
+          'select count(*) n from public.transactions where recurring_id=$1',
+          [schedule],
+        )
+      ).rows[0].n,
+    );
+    expect(before).toBeGreaterThan(0);
+    expect(
+      (await db.query<{ n: number }>('select public.post_recurring_due($1) as n', [schedule]))
+        .rows[0].n,
+    ).toBe(0);
+    expect(
+      Number(
+        (
+          await db.query<{ n: string }>(
+            'select count(*) n from public.transactions where recurring_id=$1',
+            [schedule],
+          )
+        ).rows[0].n,
+      ),
+    ).toBe(before);
+    await expect(
+      db.query('update public.recurring_transactions set next_on=current_date where id=$1', [
+        schedule,
+      ]),
+    ).rejects.toThrow(/permission denied/);
+    await expect(db.query('select public.post_due_recurring_transactions()')).rejects.toThrow(
+      /permission denied/,
+    );
+    await expect(db.query('select private.post_recurring($1)', [schedule])).rejects.toThrow(
+      /permission denied/,
+    );
+    const future = await insert(
+      'recurring_transactions',
+      'workspace_id,account_id,title,amount,kind,frequency,start_on,next_on',
+      [workspace, source, 'Future', 1, 'income', 'monthly', '2099-01-31', '2099-01-31'],
+    );
+    expect(
+      (await db.query<{ n: number }>('select public.post_recurring_due($1) n', [future])).rows[0].n,
+    ).toBe(0);
+    await expect(
+      insert(
+        'recurring_transactions',
+        'workspace_id,account_id,title,amount,kind,frequency,start_on,next_on,occurrence_count',
+        [workspace, source, 'Forged cursor', 1, 'income', 'monthly', '2026-01-01', '2026-01-01', 2],
+      ),
+    ).rejects.toThrow(/server-owned/);
+  });
+  it('automatic posting respects opt-in, pause and membership revocation', async () => {
+    await asUser(A);
+    const today = (await db.query<{ today: string }>('select current_date::text today')).rows[0]
+      .today;
+    const automatic = await insert(
+      'recurring_transactions',
+      'workspace_id,account_id,title,amount,kind,frequency,start_on,next_on,automatic',
+      [workspace, source, 'Automatic', 3.45, 'income', 'daily', today, today, true],
+    );
+    const manual = await insert(
+      'recurring_transactions',
+      'workspace_id,account_id,title,amount,kind,frequency,start_on,next_on',
+      [workspace, source, 'Manual', 3.45, 'income', 'daily', today, today],
+    );
+    const paused = await insert(
+      'recurring_transactions',
+      'workspace_id,account_id,title,amount,kind,frequency,start_on,next_on,automatic,active',
+      [workspace, source, 'Paused', 3.45, 'income', 'daily', today, today, true, false],
+    );
+    await db.exec('reset role;set role service_role');
+    await db.query('select public.post_due_recurring_transactions()');
+    await db.query('select public.post_due_recurring_transactions()');
+    await asUser(A);
+    for (const [id, expected] of [
+      [automatic, 1],
+      [manual, 0],
+      [paused, 0],
+    ])
+      expect(
+        Number(
+          (
+            await db.query<{ n: string }>(
+              'select count(*) n from public.transactions where recurring_id=$1',
+              [id],
+            )
+          ).rows[0].n,
+        ),
+      ).toBe(expected);
+    await asUser(C);
+    const account = await insert('accounts', 'workspace_id,name', [workspace, 'Member account']);
+    const revoked = await insert(
+      'recurring_transactions',
+      'workspace_id,account_id,title,amount,kind,frequency,start_on,next_on,automatic',
+      [workspace, account, 'Revoked', 1, 'expense', 'daily', today, today, true],
+    );
+    await asUser(A);
+    await db.query('select public.remove_workspace_member($1,$2)', [workspace, C]);
+    await db.exec('reset role;set role service_role');
+    await db.query('select public.post_due_recurring_transactions()');
+    await db.exec('reset role');
+    expect(
+      Number(
+        (
+          await db.query<{ n: string }>(
+            'select count(*) n from public.transactions where recurring_id=$1',
+            [revoked],
+          )
+        ).rows[0].n,
+      ),
+    ).toBe(0);
   });
 });

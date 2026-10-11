@@ -74,6 +74,49 @@ export interface Transaction extends OwnedRecord {
   booked_on: string;
   transfer_id: string | null;
   project_id: string | null;
+  bill_id?: string | null;
+  recurring_id?: string | null;
+  occurrence_on?: string | null;
+}
+export interface Budget extends OwnedRecord {
+  category: string;
+  month: string;
+  currency: string;
+  amount: number;
+}
+export interface Bill extends OwnedRecord {
+  title: string;
+  account_id: string;
+  amount: number;
+  category: string;
+  due_on: string;
+  status: 'pending' | 'paid' | 'cancelled';
+  paid_on: string | null;
+  transaction_id: string | null;
+}
+export type Frequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
+export interface RecurringTransaction extends OwnedRecord {
+  title: string;
+  account_id: string;
+  amount: number;
+  kind: 'income' | 'expense';
+  category: string;
+  start_on: string;
+  next_on: string;
+  frequency: Frequency;
+  occurrence_count: number;
+  active: boolean;
+  automatic: boolean;
+}
+export interface FinancePlanInput {
+  title: string;
+  account_id: string;
+  amount: string;
+  category: string;
+  date: string;
+  frequency: Frequency;
+  kind: 'income' | 'expense';
+  automatic: boolean;
 }
 export interface Activity extends OwnedRecord {
   title: string;
@@ -98,6 +141,9 @@ export interface TableRows {
   goals: Goal;
   accounts: Account;
   transactions: Transaction;
+  budgets: Budget;
+  bills: Bill;
+  recurring_transactions: RecurringTransaction;
   activity_logs: Activity;
   notifications: Notification;
   app_settings: Settings;
@@ -113,6 +159,9 @@ export type Database = {
     Tables: { [K in keyof TableRows]: Table<TableRows[K]> };
     Views: Record<string, never>;
     Functions: {
+      settle_bill: { Args: { bill: string }; Returns: string };
+      cancel_bill: { Args: { bill: string }; Returns: undefined };
+      post_recurring_due: { Args: { plan: string }; Returns: number };
       create_workspace: {
         Args: { workspace_name: string; workspace_type: WorkspaceKind };
         Returns: string;
