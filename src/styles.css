@@ -4,6 +4,9 @@
   display: none;
 }
 @media (max-width: 680px) {
+  .greeting-sun {
+    display: none;
+  }
   .nav-close {
     display: flex;
     position: absolute;
