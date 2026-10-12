@@ -75,6 +75,20 @@ export class SearchDialog implements AfterViewInit {
     if (!q) return [];
     return [
       ...this.store
+        .goals()
+        .filter((g) => g.status === 'active')
+        .map((g) => ({ id: g.id, title: g.title, type: 'Goal', icon: 'goal', path: '/goals' })),
+      ...this.store
+        .habits()
+        .filter((h) => h.status === 'active')
+        .map((h) => ({
+          id: h.id,
+          title: h.title + ' · ' + (h.routine || 'Habit'),
+          type: 'Habit',
+          icon: 'repeat',
+          path: '/goals',
+        })),
+      ...this.store
         .careerRecords()
         .filter((r) => r.status !== 'archived')
         .map((r) => ({
@@ -173,7 +187,10 @@ export class SearchDialog implements AfterViewInit {
   navigate(result: { id: string; path: string; bucket?: string }) {
     this.ui.searchOpen.set(false);
     void this.router.navigateByUrl(
-      result.path === '/family' || result.path === '/assets' || result.path === '/career'
+      result.path === '/family' ||
+        result.path === '/assets' ||
+        result.path === '/career' ||
+        result.path === '/goals'
         ? result.path + '?reminder=' + encodeURIComponent(result.id)
         : result.path,
       {

@@ -59,6 +59,63 @@ export interface Goal extends OwnedRecord {
   unit: string;
   due_date: string | null;
   color: string;
+  period: 'long_term' | 'monthly' | 'annual';
+  status: 'active' | 'archived';
+  notes: string;
+  revision: number;
+}
+export interface Habit extends OwnedRecord {
+  title: string;
+  routine: string;
+  notes: string;
+  starts_on: string;
+  weekdays: number[];
+  status: 'active' | 'paused' | 'archived';
+  revision: number;
+}
+export interface HabitPeriod extends OwnedRecord {
+  habit_id: string;
+  starts_on: string;
+  status: Habit['status'];
+}
+export interface HabitCheckin extends OwnedRecord {
+  habit_id: string;
+  completed_on: string;
+  done: boolean;
+  revision: number;
+}
+export interface GoalMilestone extends OwnedRecord {
+  goal_id: string;
+  title: string;
+  due_on: string | null;
+  notes: string;
+  done: boolean;
+  completed_on: string | null;
+  revision: number;
+}
+export interface HabitInput {
+  title: string;
+  routine: string;
+  notes: string;
+  starts_on: string;
+  weekdays: number[];
+}
+export interface GoalInput {
+  title: string;
+  target: string;
+  current: string;
+  unit: string;
+  due_date: string;
+  period: Goal['period'];
+  color: string;
+  notes: string;
+  visibility: Visibility;
+}
+export interface MilestoneInput {
+  goal_id: string;
+  title: string;
+  due_on: string;
+  notes: string;
 }
 export interface Account extends OwnedRecord {
   name: string;
@@ -480,6 +537,10 @@ export type CareerInput = Pick<
   document_ids: string[];
 };
 export interface TableRows {
+  habits: Habit;
+  habit_periods: HabitPeriod;
+  habit_checkins: HabitCheckin;
+  goal_milestones: GoalMilestone;
   career_records: CareerRecord;
   career_documents: CareerDocument;
   profiles: Profile;
@@ -522,6 +583,64 @@ export type Database = {
     Tables: { [K in keyof TableRows]: Table<TableRows[K]> };
     Views: Record<string, never>;
     Functions: {
+      save_personal_goal: {
+        Args: {
+          entry: string;
+          w: string;
+          expected_revision: number | null;
+          goal_title: string;
+          goal_target: number;
+          goal_current: number;
+          goal_unit: string;
+          deadline: string | null;
+          goal_period: string;
+          goal_color: string;
+          goal_notes: string;
+          sharing: Visibility;
+        };
+        Returns: string;
+      };
+      set_goal_archive: {
+        Args: { entry: string; expected_revision: number; archived: boolean };
+        Returns: undefined;
+      };
+      save_habit: {
+        Args: {
+          entry: string;
+          w: string;
+          expected_revision: number | null;
+          habit_title: string;
+          routine_name: string;
+          habit_notes: string;
+          first_day: string;
+          scheduled_days: number[];
+        };
+        Returns: string;
+      };
+      set_habit_status: {
+        Args: { entry: string; expected_revision: number; target: string };
+        Returns: undefined;
+      };
+      set_habit_checkin: {
+        Args: { habit: string; day: string; expected_revision: number; completed: boolean };
+        Returns: undefined;
+      };
+      save_goal_milestone: {
+        Args: {
+          entry: string;
+          w: string;
+          expected_revision: number | null;
+          goal: string;
+          milestone_title: string;
+          deadline: string | null;
+          milestone_notes: string;
+        };
+        Returns: string;
+      };
+      set_goal_milestone_done: {
+        Args: { entry: string; expected_revision: number; completed: boolean };
+        Returns: undefined;
+      };
       save_career_record: {
         Args: {
           entry: string;

@@ -1,0 +1,462 @@
+<section class="page-heading">
+  <div>
+    <span class="eyebrow">Small steps, steady progress</span>
+    <h1>Goals & habits</h1>
+    <p>Make room for what matters, one day and one milestone at a time.</p>
+  </div>
+  <button
+    class="button primary"
+    (click)="tab() === 'goals' ? addGoal() : addHabit()"
+    [disabled]="busy() || store.loading() || !store.writable()"
+  >
+    {{ tab() === 'goals' ? 'Add goal' : 'Add habit' }}
+  </button>
+</section>
+<div class="contact-stats">
+  <section class="panel">
+    <span>Your active goals</span><strong>{{ summary().goals }}</strong
+    ><small>{{ summary().achieved }} targets reached</small>
+  </section>
+  <section class="panel">
+    <span>Active habits</span><strong>{{ summary().habits }}</strong>
+  </section>
+  <section class="panel">
+    <span>Habit consistency · last 30 days</span
+    ><strong>{{ summary().scheduled ? summary().rate + '%' : '—' }}</strong
+    ><small>Completed scheduled days</small>
+  </section>
+</div>
+<p class="form-hint">
+  New goals, habits, check-ins and milestones start private. Existing shared goals retain their
+  sharing. Monthly and annual goals use your target date and keep their progress until you change
+  it.
+</p>
+<div class="records-toolbar contact-toolbar">
+  <div class="segmented">
+    <button [class.selected]="tab() === 'goals'" (click)="select('goals')">
+      Goals & milestones</button
+    ><button [class.selected]="tab() === 'habits'" (click)="select('habits')">
+      Habits & routines
+    </button>
+  </div>
+  <label class="filter-search"
+    ><span class="sr-only">Search goals and habits</span
+    ><input
+      placeholder="Search goals, habits or routines"
+      [value]="search()"
+      (input)="search.set($any($event.target).value)" /></label
+  ><select
+    aria-label="Goals and habits status"
+    [value]="statusFilter()"
+    (change)="statusFilter.set($any($event.target).value)"
+  >
+    <option value="active">Active</option>
+    @if (tab() === 'habits') {
+      <option value="paused">Paused</option>
+    }
+    <option value="archived">Archived</option>
+    <option value="all">All statuses</option>
+  </select>
+  @if (tab() === 'goals') {
+    <select
+      aria-label="Goal period filter"
+      [value]="periodFilter()"
+      (change)="periodFilter.set($any($event.target).value)"
+    >
+      <option value="all">All periods</option>
+      <option value="long_term">Long-term</option>
+      <option value="monthly">Monthly</option>
+      <option value="annual">Annual</option>
+    </select>
+  } @else {
+    <select
+      aria-label="Routine filter"
+      [value]="routineFilter()"
+      (change)="routineFilter.set($any($event.target).value)"
+    >
+      <option value="all">All routines</option>
+      @for (r of routines(); track r) {
+        <option [value]="r">{{ r }}</option>
+      }
+    </select>
+  }
+  <button
+    class="button"
+    (click)="export()"
+    [disabled]="
+      store.loading() ||
+      !!store.error() ||
+      !(tab() === 'goals' ? goalRows().length : habitRows().length)
+    "
+  >
+    Export CSV
+  </button>
+  @if (tab() === 'habits') {
+    <button
+      class="button"
+      (click)="export(true)"
+      [disabled]="store.loading() || !!store.error() || !habitRows().length"
+    >
+      Export check-ins
+    </button>
+  }
+</div>
+@if (selectedId()) {
+  <div class="file-reminder-banner">
+    Showing the selected record. <a routerLink="/goals">Show all records</a>
+  </div>
+}
+@if (error() || store.error()) {
+  <p class="error-banner" role="alert">{{ error() || store.error() }}</p>
+}
+@if (formKind() === 'goal') {
+  <section class="panel subscription-form">
+    <h2>{{ editingGoal() ? 'Edit goal' : 'New private goal' }}</h2>
+    <form [formGroup]="goalForm" (ngSubmit)="save()">
+      <div class="form-grid">
+        <label>Goal title<input formControlName="title" maxlength="200" required /></label
+        ><label
+          >Goal period<select formControlName="period">
+            <option value="long_term">Long-term</option>
+            <option value="monthly">Monthly</option>
+            <option value="annual">Annual</option>
+          </select></label
+        ><label>Target amount<input formControlName="target" inputmode="decimal" required /></label
+        ><label
+          >Current progress<input formControlName="current" inputmode="decimal" required /></label
+        ><label
+          >Progress unit<input
+            formControlName="unit"
+            maxlength="100"
+            placeholder="books, km, INR" /></label
+        ><label
+          >Goal target date<input
+            type="date"
+            formControlName="due_date"
+            min="1900-01-01"
+            max="2100-12-31" /></label
+        ><label
+          >Goal color<select formControlName="color">
+            <option value="purple">Purple</option>
+            <option value="green">Green</option>
+            <option value="orange">Orange</option>
+            <option value="blue">Blue</option>
+          </select></label
+        >
+      </div>
+      <label
+        >Goal notes<textarea formControlName="notes" maxlength="4000" rows="3"></textarea>
+      </label>
+      <p class="form-hint">
+        {{
+          goalForm.controls.visibility.value === 'workspace'
+            ? 'This existing goal is shared with the workspace.'
+            : 'This goal is private to you.'
+        }}
+        Monthly and annual goals need a target date; progress does not reset automatically.
+      </p>
+      <div class="heading-actions">
+        <button type="submit" class="button primary" [disabled]="busy()">Save goal</button
+        ><button type="button" class="button" (click)="close()" [disabled]="busy()">Cancel</button>
+      </div>
+    </form>
+  </section>
+}
+@if (formKind() === 'habit') {
+  <section class="panel subscription-form">
+    <h2>{{ editingHabit() ? 'Edit habit' : 'New private habit' }}</h2>
+    <form [formGroup]="habitForm" (ngSubmit)="save()">
+      <div class="form-grid">
+        <label>Habit title<input formControlName="title" maxlength="200" required /></label
+        ><label
+          >Routine group<input
+            formControlName="routine"
+            maxlength="100"
+            list="routine-names"
+            placeholder="Morning, Evening, Learning" /></label
+        ><label
+          >Habit start date<input
+            type="date"
+            formControlName="starts_on"
+            min="1900-01-01"
+            [max]="library.today()"
+            [readonly]="!!editingHabit()"
+            required
+        /></label>
+      </div>
+      <datalist id="routine-names">
+        @for (r of routines(); track r) {
+          <option [value]="r"></option>
+        }
+      </datalist>
+      <fieldset class="asset-document-picker">
+        <legend>Scheduled weekdays</legend>
+        <div class="habit-weekdays">
+          @for (name of weekdays; track name; let i = $index) {
+            <label
+              ><input
+                type="checkbox"
+                [checked]="habitForm.controls.weekdays.value.includes(i + 1)"
+                (change)="weekday(i + 1, $any($event.target).checked)"
+                [disabled]="!!editingHabit()"
+              />{{ name }}</label
+            >
+          }
+        </div>
+      </fieldset>
+      <label
+        >Habit notes<textarea formControlName="notes" maxlength="2000" rows="3"></textarea>
+      </label>
+      <p class="form-hint">
+        The start date and weekdays stay fixed to preserve your history. Create a new habit to
+        change the schedule. Pause or archive applies from today; check-ins remain saved.
+      </p>
+      <div class="heading-actions">
+        <button type="submit" class="button primary" [disabled]="busy()">Save habit</button
+        ><button type="button" class="button" (click)="close()" [disabled]="busy()">Cancel</button>
+      </div>
+    </form>
+  </section>
+}
+@if (formKind() === 'milestone') {
+  <section class="panel subscription-form">
+    <h2>{{ editingMilestone() ? 'Edit milestone' : 'New private milestone' }}</h2>
+    <p>{{ goalTitle(milestoneForm.controls.goal_id.value) }}</p>
+    <form [formGroup]="milestoneForm" (ngSubmit)="save()">
+      <div class="form-grid">
+        <label>Milestone title<input formControlName="title" maxlength="200" required /></label
+        ><label
+          >Milestone target date (optional)<input
+            type="date"
+            formControlName="due_on"
+            min="1900-01-01"
+            max="2100-12-31"
+        /></label>
+      </div>
+      <label
+        >Milestone notes<textarea formControlName="notes" maxlength="2000" rows="3"></textarea>
+      </label>
+      <p class="form-hint">
+        Milestones are a private checklist. Completing one does not change the goal's numeric
+        progress.
+      </p>
+      <div class="heading-actions">
+        <button type="submit" class="button primary" [disabled]="busy()">Save milestone</button
+        ><button type="button" class="button" (click)="close()" [disabled]="busy()">Cancel</button>
+      </div>
+    </form>
+  </section>
+}
+@if (store.loading()) {
+  <p class="empty-state" role="status">Loading goals and habits…</p>
+} @else if (!store.error()) {
+  @if (tab() === 'goals') {
+    <div class="contact-cards">
+      @for (g of goalRows(); track g.id) {
+        <article class="panel contact-card">
+          <div class="contact-card-heading">
+            <div>
+              <span class="eyebrow"
+                >{{ g.period === 'long_term' ? 'Long-term' : g.period }} · {{ g.status }}</span
+              >
+              <h2>{{ g.title }}</h2>
+            </div>
+            <span class="priority">{{ g.visibility === 'private' ? 'Private' : 'Workspace' }}</span>
+          </div>
+          <div
+            class="goal-ring"
+            [class]="'goal-ring ' + g.color"
+            [style.--progress]="store.progress(g) + '%'"
+          >
+            <span>{{ store.progress(g) }}<small>%</small></span>
+          </div>
+          <p class="habit-progress">{{ g.current }} / {{ g.target }} {{ g.unit }}</p>
+          @if (g.due_date) {
+            <p class="form-hint">
+              Target {{ g.due_date + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }}
+            </p>
+          }
+          @if (g.notes) {
+            <p class="contact-notes contact-text">{{ g.notes }}</p>
+          }
+          @if (g.status === 'active' && store.canEdit(g)) {
+            <label
+              >Update progress for {{ g.title
+              }}<input
+                inputmode="decimal"
+                [value]="g.current"
+                (change)="progress(g, $any($event.target).value)"
+                [disabled]="busy()"
+            /></label>
+          }
+          @if (own(g)) {
+            <div class="goal-milestones">
+              <h3>Private milestones</h3>
+              @for (m of milestones(g); track m.id) {
+                <div class="milestone-item">
+                  <button
+                    class="task-checkbox"
+                    [class.checked]="m.done"
+                    (click)="milestoneDone(m)"
+                    [attr.aria-label]="(m.done ? 'Reopen ' : 'Complete ') + m.title"
+                    [disabled]="busy() || !store.writable() || g.status !== 'active'"
+                  >
+                    {{ m.done ? '✓' : '' }}
+                  </button>
+                  <div>
+                    <strong>{{ m.title }}</strong>
+                    @if (m.due_on) {
+                      <small>Target {{ m.due_on + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }}</small>
+                    }
+                    @if (m.completed_on) {
+                      <small
+                        >Completed
+                        {{ m.completed_on + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }}</small
+                      >
+                    }
+                    @if (m.notes) {
+                      <p>{{ m.notes }}</p>
+                    }
+                  </div>
+                  @if (g.status === 'active' && store.writable()) {
+                    <button class="button subtle" (click)="addMilestone(g, m)" [disabled]="busy()">
+                      Edit milestone
+                    </button>
+                  }
+                </div>
+              } @empty {
+                <p class="form-hint">Break this goal into small steps.</p>
+              }
+              @if (g.status === 'active' && store.writable()) {
+                <button class="button subtle" (click)="addMilestone(g)" [disabled]="busy()">
+                  Add milestone
+                </button>
+              }
+            </div>
+          }
+          @if (store.canEdit(g)) {
+            <div class="heading-actions">
+              @if (g.status === 'active') {
+                <button class="button subtle" (click)="addGoal(g)" [disabled]="busy()">
+                  Edit goal
+                </button>
+              }
+              <button class="button subtle" (click)="archiveGoal(g)" [disabled]="busy()">
+                {{ g.status === 'active' ? 'Archive goal' : 'Restore goal' }}
+              </button>
+            </div>
+          }
+        </article>
+      } @empty {
+        <section class="panel empty-state">
+          No matching goals. Add a goal or adjust the filters.
+        </section>
+      }
+    </div>
+  } @else {
+    <div class="habit-date-row">
+      <label
+        >Check-in date<input
+          type="date"
+          [value]="day()"
+          [min]="minDay()"
+          [max]="library.today()"
+          (input)="day.set($any($event.target).value)" /></label
+      ><button class="button subtle" (click)="day.set(library.today())">Today</button>
+      <p class="form-hint">Check in or undo on scheduled dates within the past 365 days.</p>
+    </div>
+    @for (group of groups(); track group.name) {
+      <section class="routine-section">
+        <h2>{{ group.name }}</h2>
+        <div class="contact-cards">
+          @for (h of group.habits; track h.id) {
+            <article class="panel contact-card">
+              <div class="contact-card-heading">
+                <div>
+                  <h3>{{ h.title }}</h3>
+                  <p>{{ schedule(h) }} · {{ h.status | titlecase }}</p>
+                </div>
+                <span class="priority">Private</span>
+              </div>
+              <div class="habit-checkin">
+                <button
+                  class="task-checkbox"
+                  [class.checked]="check(h)?.done"
+                  [disabled]="
+                    busy() || !store.writable() || !scheduled(h) || h.status === 'archived'
+                  "
+                  (click)="toggle(h)"
+                  [attr.aria-label]="(check(h)?.done ? 'Undo ' : 'Complete ') + h.title"
+                >
+                  {{ check(h)?.done ? '✓' : '' }}
+                </button>
+                <div>
+                  <strong>{{
+                    check(h)?.done
+                      ? 'Completed'
+                      : scheduled(h)
+                        ? 'Ready for a small step'
+                        : 'Not scheduled'
+                  }}</strong
+                  ><small>{{ day() + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }}</small>
+                </div>
+              </div>
+              <dl class="habit-stats">
+                <div>
+                  <dt>Current streak</dt>
+                  <dd>{{ stats(h).current }}</dd>
+                </div>
+                <div>
+                  <dt>Best · 90 days</dt>
+                  <dd>{{ stats(h).best }}</dd>
+                </div>
+                <div>
+                  <dt>Last 30 days</dt>
+                  <dd>{{ stats(h).scheduled ? stats(h).rate + '%' : '—' }}</dd>
+                </div>
+              </dl>
+              @if (h.notes) {
+                <p class="contact-notes contact-text">{{ h.notes }}</p>
+              }
+              @if (store.writable()) {
+                <div class="heading-actions">
+                  @if (h.status === 'archived') {
+                    <button class="button subtle" (click)="status(h, 'active')" [disabled]="busy()">
+                      Restore habit
+                    </button>
+                  } @else {
+                    <button class="button subtle" (click)="addHabit(h)" [disabled]="busy()">
+                      Edit habit</button
+                    ><button
+                      class="button subtle"
+                      (click)="status(h, h.status === 'paused' ? 'active' : 'paused')"
+                      [disabled]="busy()"
+                    >
+                      {{ h.status === 'paused' ? 'Resume' : 'Pause' }}</button
+                    ><button
+                      class="button subtle"
+                      (click)="status(h, 'archived')"
+                      [disabled]="busy()"
+                    >
+                      Archive habit
+                    </button>
+                  }
+                </div>
+              }
+            </article>
+          }
+        </div>
+      </section>
+    } @empty {
+      <section class="panel empty-state">
+        No matching habits. Create your first daily habit or adjust the filters.
+      </section>
+    }
+    <p class="form-hint">
+      Streaks count scheduled days and skip paused days. An unfinished today does not break your
+      current streak until the day ends. Best streak covers the last 90 calendar days. Consistency
+      includes today's scheduled habits. Pausing or archiving today removes today's scheduled
+      requirement while preserving check-in history.
+    </p>
+  }
+}

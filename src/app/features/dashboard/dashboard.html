@@ -61,7 +61,7 @@
       Personal goals <span class="icon-tile orange"><app-icon name="goal" /></span>
     </div>
     <div class="stat-value">
-      {{ store.goals().length }}<span class="stat-caption">to work toward</span>
+      {{ activeGoals().length }}<span class="stat-caption">to work toward</span>
     </div>
     <div class="stat-foot">
       <span class="orange-text">Small steps. Big things.</span><app-icon name="arrow" /></div
@@ -250,7 +250,7 @@
         <a routerLink="/goals">View all <app-icon name="chevron" /></a>
       </div>
       <div class="goals-grid">
-        @for (goal of store.goals().slice(0, 3); track goal.id) {
+        @for (goal of activeGoals().slice(0, 3); track goal.id) {
           <a routerLink="/goals" class="mini-goal"
             ><div
               [class]="'goal-ring ' + goal.color"

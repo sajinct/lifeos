@@ -3398,6 +3398,92 @@ td:last-child {
   margin: 0;
   overflow-wrap: anywhere;
 }
+.habit-weekdays {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.habit-weekdays label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.habit-date-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 20px 0;
+}
+.habit-date-row label {
+  margin: 0;
+}
+.routine-section {
+  margin-top: 24px;
+}
+.routine-section > h2 {
+  font-size: 18px;
+  margin-bottom: 16px;
+}
+.habit-checkin {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 16px 0;
+}
+.habit-checkin small,
+.milestone-item small {
+  display: block;
+  color: var(--secondary);
+  font-size: 12px;
+  margin-top: 5px;
+}
+.habit-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  padding: 16px 0;
+}
+.habit-stats dt {
+  color: var(--secondary);
+  font-size: 11px;
+}
+.habit-stats dd {
+  margin: 6px 0 0;
+  font-size: 24px;
+}
+.habit-progress {
+  margin: 16px 0;
+}
+.goal-milestones {
+  border-top: 1px solid var(--border);
+  margin: 20px 0;
+  padding-top: 20px;
+}
+.goal-milestones h3 {
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+.milestone-item {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 16px 0;
+}
+.milestone-item > div {
+  flex: 1;
+  min-width: 120px;
+  overflow-wrap: anywhere;
+}
+.milestone-item strong {
+  font-size: 13px;
+}
+.milestone-item p {
+  font-size: 12px;
+  margin-top: 8px;
+  white-space: pre-wrap;
+}
 .contact-details a {
   overflow-wrap: anywhere;
 }

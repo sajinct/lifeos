@@ -22,6 +22,10 @@ import {
   Contact,
   ContactLink,
   HouseholdMember,
+  Habit,
+  HabitPeriod,
+  HabitCheckin,
+  GoalMilestone,
   CareerRecord,
   CareerDocument,
   Asset,
@@ -67,6 +71,10 @@ export class LifeStore {
   readonly recurring = signal<RecurringTransaction[]>([]);
   readonly householdMembers = signal<HouseholdMember[]>([]);
   readonly householdEntries = signal<HouseholdEntry[]>([]);
+  readonly habits = signal<Habit[]>([]);
+  readonly habitPeriods = signal<HabitPeriod[]>([]);
+  readonly habitCheckins = signal<HabitCheckin[]>([]);
+  readonly goalMilestones = signal<GoalMilestone[]>([]);
   readonly careerRecords = signal<CareerRecord[]>([]);
   readonly careerDocuments = signal<CareerDocument[]>([]);
   readonly assets = signal<Asset[]>([]);
@@ -193,6 +201,10 @@ export class LifeStore {
     this.loans.set(d.loans);
     this.householdMembers.set(d.householdMembers);
     this.householdEntries.set(d.householdEntries);
+    this.habits.set(d.habits);
+    this.habitPeriods.set(d.habitPeriods);
+    this.habitCheckins.set(d.habitCheckins);
+    this.goalMilestones.set(d.goalMilestones);
     this.careerRecords.set(d.careerRecords);
     this.careerDocuments.set(d.careerDocuments);
     this.assets.set(d.assets);
@@ -221,6 +233,10 @@ export class LifeStore {
     this.loans.set([]);
     this.householdMembers.set([]);
     this.householdEntries.set([]);
+    this.habits.set([]);
+    this.habitPeriods.set([]);
+    this.habitCheckins.set([]);
+    this.goalMilestones.set([]);
     this.careerRecords.set([]);
     this.careerDocuments.set([]);
     this.assets.set([]);
@@ -265,6 +281,10 @@ export class LifeStore {
         loans: this.loans(),
         householdMembers: this.householdMembers(),
         householdEntries: this.householdEntries(),
+        habits: this.habits(),
+        habitPeriods: this.habitPeriods(),
+        habitCheckins: this.habitCheckins(),
+        goalMilestones: this.goalMilestones(),
         careerRecords: this.careerRecords(),
         careerDocuments: this.careerDocuments(),
         assets: this.assets(),
@@ -299,6 +319,10 @@ export class LifeStore {
         this.loans.set(d.loans);
         this.householdMembers.set(d.householdMembers);
         this.householdEntries.set(d.householdEntries);
+        this.habits.set(d.habits);
+        this.habitPeriods.set(d.habitPeriods);
+        this.habitCheckins.set(d.habitCheckins);
+        this.goalMilestones.set(d.goalMilestones);
         this.careerRecords.set(d.careerRecords);
         this.careerDocuments.set(d.careerDocuments);
         this.assets.set(d.assets);
@@ -364,7 +388,8 @@ export class LifeStore {
           .select('*')
           .eq('workspace_id', w.id)
           .order('created_at', { ascending: false })
-          .limit(500),
+          .order('id')
+          .range(0, 499),
         c
           .from('accounts')
           .select('*')
@@ -540,6 +565,47 @@ export class LifeStore {
           else allEntries.push(...(page.data as HouseholdEntry[]));
           if (page.data.length < 500) break;
         }
+      const habitRows: Habit[] = [],
+        periodRows: HabitPeriod[] = [],
+        checkinRows: HabitCheckin[] = [],
+        milestoneRows: GoalMilestone[] = [];
+      for (const table of ['habits', 'habit_periods', 'habit_checkins', 'goal_milestones'] as const)
+        for (let offset = 0; ; offset += 500) {
+          const page = await c
+            .from(table)
+            .select('*')
+            .eq('workspace_id', w.id)
+            .order('created_at')
+            .order('id')
+            .range(offset, offset + 499);
+          if (page.error) throw page.error;
+          if (run !== this.generation) return;
+          if (table === 'habits') habitRows.push(...(page.data as Habit[]));
+          else if (table === 'habit_periods') periodRows.push(...(page.data as HabitPeriod[]));
+          else if (table === 'habit_checkins') checkinRows.push(...(page.data as HabitCheckin[]));
+          else milestoneRows.push(...(page.data as GoalMilestone[]));
+          if (page.data.length < 500) break;
+        }
+      const goalRows = [...(g.data ?? [])];
+      if (goalRows.length === 500)
+        for (let offset = 500; ; offset += 500) {
+          const page = await c
+            .from('goals')
+            .select('*')
+            .eq('workspace_id', w.id)
+            .order('created_at', { ascending: false })
+            .order('id')
+            .range(offset, offset + 499);
+          if (page.error) throw page.error;
+          if (run !== this.generation) return;
+          goalRows.push(...page.data);
+          if (page.data.length < 500) break;
+        }
+      if (run !== this.generation) return;
+      this.habits.set(habitRows);
+      this.habitPeriods.set(periodRows);
+      this.habitCheckins.set(checkinRows);
+      this.goalMilestones.set(milestoneRows);
       const careerRecords: CareerRecord[] = [],
         careerDocuments: CareerDocument[] = [];
       for (const table of ['career_records', 'career_documents'] as const)
@@ -603,7 +669,7 @@ export class LifeStore {
       this.projects.set(p.data ?? []);
       this.events.set(e.data ?? []);
       this.notes.set(n.data ?? []);
-      this.goals.set(g.data ?? []);
+      this.goals.set(goalRows);
       this.accounts.set(accountRows);
       this.transactions.set(ledger);
       this.budgets.set(budgetRows);
@@ -704,15 +770,32 @@ export class LifeStore {
     if (!this.canEdit(goal) || !/^\d+(\.\d{1,2})?$/.test(value))
       throw new Error('Enter a valid non-negative progress value.');
     const current = Number(value);
+    if (!Number.isFinite(current) || current >= 1000000000000 || goal.status !== 'active')
+      throw new Error('Restore the goal and enter progress below one trillion.');
+    const revision = this.goals().find((g) => g.id === goal.id)?.revision;
+    if (revision !== goal.revision) throw new Error('Goal changed; refresh and try again.');
+    const generation = this.generation;
     if (!this.auth.demo()) {
-      const { error } = await this.backend
-        .requireClient()
-        .from('goals')
-        .update({ current })
-        .eq('id', goal.id);
+      const { error } = await this.backend.requireClient().rpc('save_personal_goal', {
+        entry: goal.id,
+        w: goal.workspace_id,
+        expected_revision: goal.revision,
+        goal_title: goal.title,
+        goal_target: goal.target,
+        goal_current: current,
+        goal_unit: goal.unit,
+        deadline: goal.due_date,
+        goal_period: goal.period,
+        goal_color: goal.color,
+        goal_notes: goal.notes,
+        sharing: goal.visibility,
+      });
       if (error) throw error;
     }
-    this.goals.update((list) => list.map((g) => (g.id === goal.id ? { ...g, current } : g)));
+    if (generation !== this.generation) return;
+    this.goals.update((list) =>
+      list.map((g) => (g.id === goal.id ? { ...g, current, revision: g.revision + 1 } : g)),
+    );
   }
   async deleteNote(note: Note) {
     if (!this.canEdit(note)) throw new Error('You cannot delete this note.');
@@ -734,10 +817,11 @@ export class LifeStore {
       updated_at: new Date().toISOString(),
     };
   }
-  async add(input: Capture) {
+  async add(input: Capture, goalRequest?: string) {
     const title = input.title.trim();
     if (!title || title.length > 200) throw new Error('Enter a title of 1–200 characters.');
     const b = { ...this.base(), visibility: input.visibility };
+    if (input.kind === 'goal' && goalRequest) b.id = goalRequest;
     const c = this.backend.client;
     const check = (error: { message: string } | null) => {
       if (error) throw new Error(error.message);
@@ -776,6 +860,12 @@ export class LifeStore {
         break;
       }
       case 'goal': {
+        const existing = this.goals().find((g) => g.id === b.id);
+        if (this.auth.demo() && existing) {
+          if (existing.owner_id !== b.owner_id || existing.workspace_id !== b.workspace_id)
+            throw new Error('Goal is inaccessible.');
+          return;
+        }
         const row: Goal = {
           ...b,
           title,
@@ -784,8 +874,43 @@ export class LifeStore {
           unit: input.category,
           due_date: input.date || null,
           color: 'purple',
+          period: 'long_term',
+          status: 'active',
+          notes: '',
+          revision: 1,
         };
-        if (!this.auth.demo()) check((await c!.from('goals').insert(row)).error);
+        const generation = this.generation;
+        const session = this.fileSession();
+        if (!this.auth.demo())
+          check(
+            (
+              await c!.rpc('save_personal_goal', {
+                entry: row.id,
+                w: row.workspace_id,
+                expected_revision: null,
+                goal_title: row.title,
+                goal_target: row.target,
+                goal_current: 0,
+                goal_unit: row.unit,
+                deadline: row.due_date,
+                goal_period: row.period,
+                goal_color: row.color,
+                goal_notes: row.notes,
+                sharing: row.visibility,
+              })
+            ).error,
+          );
+        if (generation !== this.generation) return;
+        if (!this.auth.demo()) {
+          await this.switchWorkspace(this.workspace()!);
+          if (
+            session === this.fileSession() &&
+            b.workspace_id === this.workspace()?.id &&
+            this.error()
+          )
+            throw new Error(this.error());
+          return;
+        }
         this.goals.update((v) => [row, ...v]);
         break;
       }
@@ -1169,6 +1294,10 @@ export class LifeStore {
       loans: this.loans(),
       householdMembers: this.householdMembers(),
       householdEntries: this.householdEntries(),
+      habits: this.habits(),
+      habitPeriods: this.habitPeriods(),
+      habitCheckins: this.habitCheckins(),
+      goalMilestones: this.goalMilestones(),
       careerRecords: this.careerRecords(),
       careerDocuments: this.careerDocuments(),
       assets: this.assets(),

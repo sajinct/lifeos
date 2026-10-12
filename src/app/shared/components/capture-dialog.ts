@@ -147,6 +147,7 @@ export class CaptureDialog implements AfterViewInit {
   readonly ui = inject(UiService);
   readonly error = signal('');
   readonly saving = signal(false);
+  private readonly goalRequest = crypto.randomUUID();
   @ViewChild('dialog') dialog!: ElementRef<HTMLDialogElement>;
   readonly form = inject(FormBuilder).nonNullable.group({
     title: ['', [Validators.required, Validators.maxLength(200)]],
@@ -184,7 +185,10 @@ export class CaptureDialog implements AfterViewInit {
     this.saving.set(true);
     this.error.set('');
     try {
-      await this.store.add({ ...this.form.getRawValue(), kind: this.kind() } as Capture);
+      await this.store.add(
+        { ...this.form.getRawValue(), kind: this.kind() } as Capture,
+        this.goalRequest,
+      );
       this.ui.notify(this.kind().slice(0, 1).toUpperCase() + this.kind().slice(1) + ' added');
       this.ui.capture.set(null);
     } catch (e) {

@@ -13,6 +13,7 @@ import { localDate } from '../../shared/utilities/finance';
 })
 export class Dashboard {
   readonly store = inject(LifeStore);
+  readonly activeGoals = computed(() => this.store.goals().filter((g) => g.status === 'active'));
   readonly ui = inject(UiService);
   readonly now = new Date();
   readonly today = localDate();

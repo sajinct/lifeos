@@ -144,6 +144,10 @@ export function demoData() {
   ];
   const goals: Goal[] = [
     {
+      period: 'long_term',
+      status: 'active',
+      notes: '',
+      revision: 1,
       ...base('g1'),
       title: 'Build an emergency fund',
       target: 200000,
@@ -153,6 +157,10 @@ export function demoData() {
       color: 'purple',
     },
     {
+      period: 'long_term',
+      status: 'active',
+      notes: '',
+      revision: 1,
       ...base('g2'),
       title: 'Read 24 books',
       target: 24,
@@ -162,6 +170,10 @@ export function demoData() {
       color: 'green',
     },
     {
+      period: 'long_term',
+      status: 'active',
+      notes: '',
+      revision: 1,
       ...base('g3'),
       title: 'Run 100 kilometers',
       target: 100,
@@ -306,6 +318,10 @@ export function demoData() {
     notifications: [] as import('../models/domain').Notification[],
     householdMembers: [] as import('../models/domain').HouseholdMember[],
     householdEntries: [] as import('../models/domain').HouseholdEntry[],
+    habits: [] as import('../models/domain').Habit[],
+    habitPeriods: [] as import('../models/domain').HabitPeriod[],
+    habitCheckins: [] as import('../models/domain').HabitCheckin[],
+    goalMilestones: [] as import('../models/domain').GoalMilestone[],
     careerRecords: [] as import('../models/domain').CareerRecord[],
     careerDocuments: [] as import('../models/domain').CareerDocument[],
     assets: [] as import('../models/domain').Asset[],

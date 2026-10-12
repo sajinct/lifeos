@@ -26,13 +26,14 @@ Open http://127.0.0.1:4200 and choose **Explore a demo workspace**. Sample recor
 - Family & household members, birthdays, responsibilities and important dates with explicit private/workspace sharing, opt-in personal reminders, archive/restore and filtered CSV export.
 - Private assets with purchase/warranty details, owned document/receipt links, maintenance schedules, immutable service history, personal alerts and CSV exports.
 - Private Career employment/skills, job applications and certifications, owned document links, follow-up/interview/expiry reminders, archives and CSV exports.
-- Private-by-default records, 34 RLS-protected application tables, private Storage policies, typed client access and server-only reminder dispatch.
+- Goals & Habits with monthly/annual/long-term targets, private milestones, scheduled weekday habits, routine groups, daily check-ins/undo, pause/archive history, streaks and consistency statistics.
+- Private-by-default records, 38 RLS-protected application tables, private Storage policies, typed client access and server-only reminder dispatch.
 - Date-filtered Finance reports with separate currency totals, monthly cash flow, category trends, budget comparisons, recorded subscription expenses and loan interest, plus filtered CSV and workspace JSON exports.
 - Currency-aware summaries, linked project records and idempotent transfer requests.
 - Installable PWA manifest/service worker that caches static assets only; offline indication.
 - GitHub Actions checks and Pages deployment supporting repository paths and custom domains.
 
-This is **Phase 1 plus an initial Phase 2 slice**, not the complete fifteen-module ERP. Habits, health, travel, email automation, imports and AI are subsequent milestones. The app does not expose empty routes for those modules.
+The foundation is complete, with working modules across Phases 2–4. The full fifteen-module ERP still has pending features: health, travel, deeper functionality in existing modules, email automation, imports and AI. The app does not expose empty routes for those modules.
 
 ## Connect and deploy
 
