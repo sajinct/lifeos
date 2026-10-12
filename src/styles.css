@@ -589,6 +589,69 @@ nav > a.active:before {
 .notification-panel h3 {
   margin-bottom: 15px;
 }
+.notification-panel {
+  max-height: min(70vh, 650px);
+  overflow-y: auto;
+  width: min(440px, calc(100vw - 32px));
+}
+.notification-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.notification-heading a {
+  font-size: 12px;
+  color: var(--accent);
+}
+.notification-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0;
+}
+.notification-panel .notification-tabs button {
+  width: auto;
+  border-radius: 8px;
+  background: var(--accent-bg);
+}
+.notification-tabs button[aria-pressed='true'] {
+  color: var(--accent);
+  font-weight: 600;
+}
+.notification-item {
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+}
+.notification-item p {
+  margin: 0 0 8px;
+  overflow-wrap: anywhere;
+}
+.notification-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.notification-panel .notification-actions button {
+  width: auto;
+  padding: 5px 8px;
+  font-size: 11px;
+  color: var(--accent);
+  border-radius: 6px;
+}
+.settings-grid app-reminder-settings {
+  display: block;
+}
+.reminder-toggle {
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+.reminder-toggle input {
+  width: 16px !important;
+  min-height: 16px;
+  accent-color: var(--accent);
+}
 .notification-panel button {
   display: block;
   text-align: left;

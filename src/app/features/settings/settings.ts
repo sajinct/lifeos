@@ -4,9 +4,10 @@ import { LifeStore } from '../../core/services/life-store';
 import { UiService } from '../../core/services/ui';
 import { ALL_WIDGETS, WorkspaceKind } from '../../core/models/domain';
 import { Icon } from '../../shared/components/icon';
+import { ReminderSettings } from './reminder-settings';
 @Component({
   selector: 'app-settings',
-  imports: [ReactiveFormsModule, Icon],
+  imports: [ReactiveFormsModule, Icon, ReminderSettings],
   template: ` <section class="page-heading">
       <div>
         <span class="eyebrow">MAKE YOURSELF AT HOME</span>
@@ -15,6 +16,7 @@ import { Icon } from '../../shared/components/icon';
       </div>
     </section>
     <div class="settings-grid">
+      <app-reminder-settings />
       <section class="panel settings-panel">
         <h2>Your profile</h2>
         <p>The little details that make this yours.</p>
@@ -159,7 +161,7 @@ import { Icon } from '../../shared/components/icon';
           time.
         </p>
         <div class="roadmap-list">
-          <span>Next: Documents, assets & subscriptions</span
+          <span>Next: Subscriptions, loans & richer finance reports</span
           ><span>Then: Family, contacts & complete finance</span
           ><span>Later: Career, health, travel & automation</span>
         </div>

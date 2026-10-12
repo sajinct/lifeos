@@ -8,6 +8,12 @@
     <app-icon name="plus" />Upload {{ bucket() === 'financial-receipts' ? 'receipt' : 'document' }}
   </button>
 </section>
+@if (reminderId()) {
+  <div class="file-library-note">
+    <span>Showing the reminded document. Use New version to upload its renewal.</span
+    ><button class="button subtle" (click)="clearReminder()">Show all files</button>
+  </div>
+}
 <div class="file-library-note">
   <app-icon name="lock" /><span
     >Only you can access these files. Archived files and older versions remain available to

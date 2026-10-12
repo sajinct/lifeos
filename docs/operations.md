@@ -62,7 +62,7 @@ Security tests execute the application migration in PGlite's real PostgreSQL eng
 
 ## Private files
 
-Open **Documents & receipts** in the sidebar. Documents support PDF/JPG/PNG/TXT; receipts support PDF/JPG/PNG. Files must be non-empty and at most 10 MiB. Categories, expiry dates and optional project links organize the library. Finance rows have **Add receipt**, which opens the upload form with that ledger entry selected. Receipts may also be uploaded unlinked and linked later through **Details**. Expiry filters identify expired documents or those due within 30 days; renewal notifications are a future milestone.
+Open **Documents & receipts** in the sidebar. Documents support PDF/JPG/PNG/TXT; receipts support PDF/JPG/PNG. Files must be non-empty and at most 10 MiB. Categories, expiry dates and optional project links organize the library. Finance rows have **Add receipt**, which opens the upload form with that ledger entry selected. Receipts may also be uploaded unlinked and linked later through **Details**. Expiry filters identify expired documents or those due within 30 days. Enable document expiry reminders in Settings; a reminder links to the document and its **New version** action for renewals.
 
 The `personal-documents` and `financial-receipts` buckets are private. Paths are `USER_UUID/WORKSPACE_UUID/FILE_UUID.ext`. Only the uploader, while still a workspace member, can read bytes or metadata. Workspace owners do not gain access to another member's files. Viewers can read their own existing files but cannot upload or edit. Storage requires a matching owned file reservation for every upload. Upserts and object updates are disabled. Downloads use authenticated requests with browser caching disabled; there are no public file URLs or persistent signed links in the app.
 
@@ -106,14 +106,22 @@ After SMTP is configured, complete these checks with two real accounts in the br
 
 ## Reminder dispatch
 
-The database contains an idempotent, service-only in-app reminder dispatcher. Run `select public.deliver_due_reminders();` from Supabase Cron every five minutes once reminders are configured. Enable the `pg_cron` extension in Supabase and schedule:
+Open **Settings → Reminders**. Each account independently enables task, bill and document reminders across its workspaces. They default to disabled. Set lead times (tasks/bills 0–30 days; documents 0–90 days), a delivery hour (0–23), and an IANA time zone such as `Asia/Kolkata`. Saving is an owner-scoped RPC and preserves dashboard preferences. Eligible sources are the user's incomplete tasks with due dates, pending bills, and ready personal documents with expiry dates. Receipts and archived/uploading files do not generate expiry reminders.
+
+The service-only dispatcher checks every five minutes after the configured local hour. It creates one upcoming reminder per source/date when the lead window is reached, and one overdue/expired reminder once the local date passes the due date. Enabling reminders late catches up with one current reminder rather than producing daily historical alerts. A unique source/date/phase constraint and a transaction advisory lock protect retries/concurrent runs. Existing manual reminders retain their unique `reminder_id` delivery semantics.
+
+Notifications appear in the bell for the current workspace. **Open tasks/finance/document** shows the relevant record; **Mark as read**, **Dismiss**, and **Snooze 1 hour/1 day** operate on the original notification. The Snoozed tab shows its return time in the browser's local time zone. Snoozed notices return unread when their timestamp is reached. The app refreshes notices on bell opening and every minute while visible; delivery and display may therefore take several minutes. The newest 100 non-dismissed notices are loaded per workspace. Dismissal persists and does not recreate the same occurrence. Completed tasks, paid/cancelled bills, archived documents, and changed due dates clear stale notifications; disabling a reminder type also clears existing notifications of that type. Restoring a source with the same due date does not recreate a dismissed occurrence. A new due date or renewed document version is a new occurrence.
+
+Reminder titles and actions stay private to the source owner, including for shared source records. Current workspace membership is checked for reads, actions and dispatch; removal revokes access immediately. Email is a separate future milestone; SMTP configuration alone does not enable reminder emails.
+
+Migration `202610120002_automated_reminders.sql` installs/updates the named `lifeos-reminders` cron job when `pg_cron` is present. It is active on the production project. For a new project, enable the `pg_cron` extension in Supabase and schedule:
 
 ```sql
 select cron.schedule('lifeos-reminders', '*/5 * * * *',
   'select public.deliver_due_reminders();');
 ```
 
-The unique reminder_id prevents duplicate notifications; deliveries to removed members are skipped. Notification history is stored in PostgreSQL. Reminder dispatch is separate from recurring finance and does not send emails. Add an Edge Function only when a server-only integration is actually needed, with a durable outbox, authentication checks, retries and provider idempotency keys. Secrets belong in Supabase server-side configuration.
+Verify activation/execution with `select jobname,schedule,active from cron.job where jobname='lifeos-reminders';` and the corresponding `cron.job_run_details` history. Run the server-side smoke check with `supabase db query --linked --file scripts/reminder-cloud-smoke.sql`. It tests real scheduler grants, retry protection, snooze, task/bill lifecycle and viewer isolation using synthetic identities inside a rolled-back transaction; no email or credential is created. Reminder dispatch is separate from recurring finance. Future email delivery should use an authenticated server-side outbox with retries and provider idempotency keys. Secrets belong in Supabase server-side configuration.
 
 ## Export, backup and restore
 

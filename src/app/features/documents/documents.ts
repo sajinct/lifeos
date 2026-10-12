@@ -1,7 +1,8 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, effect } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Attachment, FileBucket } from '../../core/models/domain';
 import { FileLibrary } from '../../core/services/file-library';
 import { LifeStore } from '../../core/services/life-store';
@@ -18,6 +19,9 @@ export class DocumentsPage {
   readonly store = inject(LifeStore);
   readonly library = inject(FileLibrary);
   readonly ui = inject(UiService);
+  readonly router = inject(Router);
+  private readonly params = toSignal(inject(ActivatedRoute).queryParamMap);
+  readonly reminderId = computed(() => this.params()?.get('reminder'));
   readonly bucket = signal<FileBucket>(
     history.state?.transaction || history.state?.bucket === 'financial-receipts'
       ? 'financial-receipts'
@@ -56,6 +60,7 @@ export class DocumentsPage {
   );
   readonly files = computed(() =>
     this.rows().filter((a) => {
+      if (this.reminderId()) return a.id === this.reminderId();
       const status =
         this.view() === 'unfinished'
           ? ['uploading', 'cancelled'].includes(a.status)
@@ -73,6 +78,20 @@ export class DocumentsPage {
       return status && search && category && expiry;
     }),
   );
+  constructor() {
+    effect(() => {
+      if (this.reminderId()) {
+        this.bucket.set('personal-documents');
+        this.view.set('ready');
+      }
+    });
+  }
+  clearReminder() {
+    void this.router.navigate([], {
+      queryParams: { reminder: null },
+      queryParamsHandling: 'merge',
+    });
+  }
   count(view: 'ready' | 'archived' | 'unfinished') {
     return this.rows().filter((a) =>
       view === 'unfinished' ? ['uploading', 'cancelled'].includes(a.status) : a.status === view,

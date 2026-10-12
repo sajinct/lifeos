@@ -125,8 +125,34 @@ export interface Notification extends OwnedRecord {
   title: string;
   reminder_id: string | null;
   read_at: string | null;
+  source_kind: 'task' | 'bill' | 'document' | null;
+  source_id: string | null;
+  occurrence_on: string | null;
+  phase: 'upcoming' | 'overdue' | null;
+  dismissed_at: string | null;
+  snoozed_until: string | null;
 }
-export interface Settings {
+export interface ReminderPreferences {
+  task_reminders: boolean;
+  bill_reminders: boolean;
+  document_reminders: boolean;
+  task_lead_days: number;
+  bill_lead_days: number;
+  document_lead_days: number;
+  reminder_hour: number;
+  reminder_timezone: string;
+}
+export const DEFAULT_REMINDERS: ReminderPreferences = {
+  task_reminders: false,
+  bill_reminders: false,
+  document_reminders: false,
+  task_lead_days: 1,
+  bill_lead_days: 3,
+  document_lead_days: 30,
+  reminder_hour: 9,
+  reminder_timezone: 'UTC',
+};
+export interface Settings extends ReminderPreferences {
   id: string;
   dashboard_widgets: string[];
 }
@@ -181,6 +207,23 @@ export type Database = {
     Tables: { [K in keyof TableRows]: Table<TableRows[K]> };
     Views: Record<string, never>;
     Functions: {
+      save_reminder_preferences: {
+        Args: {
+          tasks_enabled: boolean;
+          bills_enabled: boolean;
+          documents_enabled: boolean;
+          task_days: number;
+          bill_days: number;
+          document_days: number;
+          delivery_hour: number;
+          delivery_timezone: string;
+        };
+        Returns: undefined;
+      };
+      act_on_notification: {
+        Args: { notice: string; action: 'read' | 'dismiss' | 'snooze'; snooze_minutes: number };
+        Returns: undefined;
+      };
       complete_attachment: { Args: { upload: string }; Returns: undefined };
       set_attachment_status: {
         Args: { upload: string; target: 'ready' | 'archived' };

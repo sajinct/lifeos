@@ -32,7 +32,8 @@ Responsive navigation, icons, toast feedback, accessible quick-add dialog, comma
 4. Production/PWA builds, meaningful unit tests and database isolation tests, CI deployment and operating documentation.
 5. Finance planning: private category budgets, bills and anchored recurring income/expenses, tested for isolation and retry-safe ledger posting; opt-in hourly automation through Supabase Cron.
 6. Private files: document and receipt uploads, category/expiry filters, authenticated downloads, versions, archives, project/ledger links and interrupted-upload recovery. Database and live Storage API isolation tests cover the lifecycle.
-7. Subsequent work: loans and richer finance reporting, family, assets, subscriptions and contacts; then career, health, travel and imports. Document renewal automation, reminder delivery and optional MFA UI follow their own security and integration tests. AI and external integrations come last.
+7. Personal, opt-in in-app reminders for task dates, pending bills and document expiry. A service-only five-minute dispatcher uses each user's IANA time zone, lead times and local delivery hour. Unique source/date/phase keys and a scheduler lock prevent duplicates. Notifications stay private to the record owner, support read/dismiss/snooze, and link to their source. Completion, payment, archival and date edits clear stale occurrences; removed members cannot read or act on reminders. Browser polling loads the newest 100 active/snoozed notices for the current workspace, with session guards against stale responses. Demo reminders follow the same calendar rules in memory. Live cloud SQL checks are fully rolled back.
+8. Subsequent work: loans and richer finance reporting, family, assets, subscriptions and contacts; then career, health, travel and imports. Email delivery and optional MFA UI follow their own security and integration tests. AI and external integrations come last.
 
 ## Deployment and operations
 

@@ -76,6 +76,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await db?.close();
 });
+
 describe('Actual PostgreSQL RLS and permission boundaries', () => {
   it('preserves unrelated platform function permissions', async () => {
     await db.exec('reset role;set role anon');
@@ -770,5 +771,307 @@ describe('Private budgets, bills and recurring ledger', () => {
         ).rows[0].n,
       ),
     ).toBe(0);
+  });
+});
+
+describe('Automated reminder isolation and lifecycle', () => {
+  let w: string, account: string, task: string, overdue: string, bill: string, file: string;
+  let notice: string;
+  const prefs = "select public.save_reminder_preferences($1,$2,$3,10,10,30,0,'UTC')";
+  beforeAll(async () => {
+    await asUser(A);
+    w = (await db.query<{ id: string }>("select public.create_workspace('Reminder tests') as id"))
+      .rows[0].id;
+    account = await insert('accounts', 'workspace_id,name', [w, 'Reminder account']);
+    task = await insert('tasks', 'workspace_id,title,due_date', [
+      w,
+      'Upcoming private task',
+      new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10),
+    ]);
+    overdue = await insert('tasks', 'workspace_id,title,due_date', [
+      w,
+      'Overdue task',
+      new Date(Date.now() - 86400000).toISOString().slice(0, 10),
+    ]);
+    bill = await insert('bills', 'workspace_id,title,account_id,amount,due_on', [
+      w,
+      'Unpaid bill',
+      account,
+      5,
+      new Date().toISOString().slice(0, 10),
+    ]);
+    file = '99999999-9999-4999-8999-999999999999';
+    const path = `${A}/${w}/${file}.txt`;
+    await db.query(
+      "insert into public.attachments(id,workspace_id,name,object_path,mime_type,size_bytes,expires_on) values($1,$2,'Renewal.txt',$3,'text/plain',5,current_date+5)",
+      [file, w, path],
+    );
+    await db.query(
+      'insert into storage.objects(bucket_id,name,metadata) values(\'personal-documents\',$1,\'{"size":5,"mimetype":"text/plain"}\')',
+      [path],
+    );
+    await db.query('select public.complete_attachment($1)', [file]);
+  });
+  it('starts disabled, constrains preferences, and preserves widget settings', async () => {
+    await db.exec('reset role');
+    await db.query('select public.deliver_due_reminders()');
+    expect(
+      (await db.query('select id from public.notifications where workspace_id=$1', [w])).rows,
+    ).toHaveLength(0);
+    await asUser(A);
+    await expect(
+      db.query("select public.save_reminder_preferences(true,true,true,-1,3,30,9,'UTC')"),
+    ).rejects.toThrow(/check constraint/);
+    await expect(
+      db.query("select public.save_reminder_preferences(true,true,true,1,3,30,9,'Invalid/Zone')"),
+    ).rejects.toThrow(/IANA/);
+    await db.query(prefs, [true, true, true]);
+    expect(
+      (
+        await db.query<{ dashboard_widgets: string[] }>(
+          'select dashboard_widgets from public.app_settings',
+        )
+      ).rows[0].dashboard_widgets,
+    ).toEqual(['goals']);
+  });
+  it('delivers all three kinds once, including overdue, and restricts scheduler permissions', async () => {
+    await asUser(A);
+    await expect(db.query('select public.deliver_due_reminders()')).rejects.toThrow(
+      /permission denied/,
+    );
+    await db.exec('reset role');
+    await db.query('select public.deliver_due_reminders()');
+    await db.query('select public.deliver_due_reminders()');
+    const rows = (
+      await db.query<{ id: string; source_kind: string; source_id: string; phase: string }>(
+        'select * from public.notifications where workspace_id=$1',
+        [w],
+      )
+    ).rows;
+    expect(rows).toHaveLength(4);
+    expect(rows.filter((n) => n.source_kind === 'document')).toHaveLength(1);
+    expect(rows.find((n) => n.source_id === overdue)?.phase).toBe('overdue');
+    notice = rows.find((n) => n.source_id === task)!.id;
+    await asUser(A);
+    await expect(
+      db.query('update public.notifications set snoozed_until=now() where id=$1', [notice]),
+    ).rejects.toThrow(/permission denied/);
+  });
+  it('prevents viewer and unrelated users from reading or acting on an owner’s notifications', async () => {
+    await asUser(A);
+    await db.query("select public.set_workspace_member($1,$2,'viewer')", [w, B]);
+    await asUser(B);
+    expect(
+      (await db.query('select id from public.notifications where workspace_id=$1', [w])).rows,
+    ).toHaveLength(0);
+    await expect(
+      db.query("select public.act_on_notification($1,'snooze',60)", [notice]),
+    ).rejects.toThrow(/inaccessible/);
+    await expect(
+      db.query('update public.app_settings set task_reminders=true where id=$1', [A]),
+    ).rejects.toThrow(/permission denied/);
+  });
+  it('snoozes the original row, rejects arbitrary durations, and preserves dismissal on retries', async () => {
+    await asUser(A);
+    await db.query("select public.act_on_notification($1,'read')", [notice]);
+    await expect(
+      db.query("select public.act_on_notification($1,'snooze',3)", [notice]),
+    ).rejects.toThrow(/hour or one day/);
+    await db.query("select public.act_on_notification($1,'snooze',60)", [notice]);
+    const row = (
+      await db.query<{ read_at: string | null; snoozed: boolean }>(
+        'select read_at,snoozed_until>now() as snoozed from public.notifications where id=$1',
+        [notice],
+      )
+    ).rows[0];
+    expect(row).toEqual({ read_at: null, snoozed: true });
+    await db.exec('reset role');
+    await db.query('select public.deliver_due_reminders()');
+    expect(
+      (await db.query('select id from public.notifications where source_id=$1', [task])).rows,
+    ).toHaveLength(1);
+    await asUser(A);
+    await db.query("select public.act_on_notification($1,'dismiss')", [notice]);
+    await db.exec('reset role');
+    await db.query('select public.deliver_due_reminders()');
+    expect(
+      (
+        await db.query(
+          'select id from public.notifications where id=$1 and dismissed_at is not null',
+          [notice],
+        )
+      ).rows,
+    ).toHaveLength(1);
+  });
+  it('rescheduling cancels the old occurrence and creates only one new occurrence', async () => {
+    await asUser(A);
+    await db.query('update public.tasks set due_date=due_date+1 where id=$1', [task]);
+    await db.exec('reset role');
+    await db.query('select public.deliver_due_reminders()');
+    expect(
+      (
+        await db.query(
+          'select id from public.notifications where source_id=$1 and dismissed_at is null',
+          [task],
+        )
+      ).rows,
+    ).toHaveLength(1);
+    await asUser(A);
+    await db.query("update public.tasks set status='done' where id=$1", [task]);
+    expect(
+      (
+        await db.query(
+          'select id from public.notifications where source_id=$1 and dismissed_at is null',
+          [task],
+        )
+      ).rows,
+    ).toHaveLength(0);
+  });
+  it('payment and archiving clear snoozed reminders immediately and reject stale snoozes', async () => {
+    await asUser(A);
+    const docNotice = (
+      await db.query<{ id: string }>('select id from public.notifications where source_id=$1', [
+        file,
+      ])
+    ).rows[0].id;
+    await db.query("select public.act_on_notification($1,'snooze',1440)", [docNotice]);
+    await db.query("select public.set_attachment_status($1,'archived')", [file]);
+    await db.query('select public.settle_bill($1)', [bill]);
+    expect(
+      (
+        await db.query(
+          'select id from public.notifications where source_id in ($1,$2) and dismissed_at is null',
+          [file, bill],
+        )
+      ).rows,
+    ).toHaveLength(0);
+    await expect(
+      db.query("select public.act_on_notification($1,'snooze',60)", [docNotice]),
+    ).rejects.toThrow(/dismissed/);
+  });
+  it('disabling preferences clears active reminders and cannot affect another account', async () => {
+    await asUser(A);
+    await db.query(prefs, [false, false, false]);
+    expect(
+      (
+        await db.query(
+          'select id from public.notifications where workspace_id=$1 and dismissed_at is null',
+          [w],
+        )
+      ).rows,
+    ).toHaveLength(0);
+    await asUser(B);
+    await db.query(prefs, [true, true, true]);
+    await db.exec('reset role');
+    expect(
+      (
+        await db.query<{ task_reminders: boolean }>(
+          'select task_reminders from public.app_settings where id=$1',
+          [A],
+        )
+      ).rows[0].task_reminders,
+    ).toBe(false);
+  });
+  it('revokes reads and actions immediately when membership is removed', async () => {
+    await asUser(A);
+    await db.query('select public.remove_workspace_member($1,$2)', [w, B]);
+    await asUser(B);
+    await expect(
+      db.query("select public.act_on_notification($1,'read')", [notice]),
+    ).rejects.toThrow(/inaccessible/);
+    await asUser(A);
+    // Leave preferences disabled for the other independent permission suites.
+  });
+  it('honors the configured local hour and calendar date rather than server midnight', async () => {
+    await db.exec('reset role');
+    const clock = (
+      await db.query<{
+        zone: string;
+        hour: number;
+        day: string;
+        phase: string;
+      }>(`select name as zone,
+      extract(hour from now() at time zone name)::integer as hour,
+      (now() at time zone name)::date::text as day,
+      case when current_date<(now() at time zone name)::date then 'overdue' else 'upcoming' end as phase
+      from pg_catalog.pg_timezone_names where name in ('Pacific/Kiritimati','Etc/GMT+12')
+      and (now() at time zone name)::date<>current_date and extract(hour from now() at time zone name)<23 limit 1`)
+    ).rows[0];
+    expect(clock).toBeDefined();
+    await asUser(A);
+    const clockTask = await insert('tasks', 'workspace_id,title,due_date', [
+      w,
+      'Calendar boundary',
+      new Date().toISOString().slice(0, 10),
+    ]);
+    await db.query('select public.save_reminder_preferences(true,false,false,1,3,30,$1,$2)', [
+      clock.hour + 1,
+      clock.zone,
+    ]);
+    await db.exec('reset role');
+    await db.query('select public.deliver_due_reminders()');
+    expect(
+      (await db.query('select id from public.notifications where source_id=$1', [clockTask])).rows,
+    ).toHaveLength(0);
+    await asUser(A);
+    await db.query('select public.save_reminder_preferences(true,false,false,1,3,30,0,$1)', [
+      clock.zone,
+    ]);
+    await db.exec('reset role');
+    await db.query('select public.deliver_due_reminders()');
+    expect(
+      (
+        await db.query<{ phase: string }>(
+          'select phase from public.notifications where source_id=$1',
+          [clockTask],
+        )
+      ).rows[0].phase,
+    ).toBe(clock.phase);
+    await asUser(A);
+    await db.query(prefs, [false, false, false]);
+  });
+  it('keeps a member’s reminders private from workspace owners and skips revoked owners', async () => {
+    await asUser(A);
+    await db.query("select public.set_workspace_member($1,$2,'editor')", [w, C]);
+    await asUser(C);
+    await db.query(prefs, [true, false, false]);
+    const cTask = await insert('tasks', 'workspace_id,title,due_date,visibility', [
+      w,
+      'Shared member task',
+      new Date().toISOString().slice(0, 10),
+      'workspace',
+    ]);
+    await db.exec('reset role');
+    await db.query('select public.deliver_due_reminders()');
+    const cNotice = (
+      await db.query<{ id: string }>('select id from public.notifications where source_id=$1', [
+        cTask,
+      ])
+    ).rows[0].id;
+    await asUser(A);
+    expect(
+      (await db.query('select id from public.notifications where id=$1', [cNotice])).rows,
+    ).toHaveLength(0);
+    await expect(
+      db.query("select public.act_on_notification($1,'dismiss')", [cNotice]),
+    ).rejects.toThrow(/inaccessible/);
+    await db.query('select public.remove_workspace_member($1,$2)', [w, C]);
+    await asUser(C);
+    expect(
+      (await db.query('select id from public.notifications where id=$1', [cNotice])).rows,
+    ).toHaveLength(0);
+    await expect(
+      db.query("select public.act_on_notification($1,'read')", [cNotice]),
+    ).rejects.toThrow(/inaccessible/);
+    await db.exec('reset role');
+    await db.query('select public.deliver_due_reminders()');
+    expect(
+      (
+        await db.query(
+          'select id from public.notifications where id=$1 and dismissed_at is not null',
+          [cNotice],
+        )
+      ).rows,
+    ).toHaveLength(1);
   });
 });

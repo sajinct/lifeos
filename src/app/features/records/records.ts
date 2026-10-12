@@ -8,6 +8,7 @@ import { CaptureKind, Goal, Note, Task } from '../../core/models/domain';
 import { Icon } from '../../shared/components/icon';
 import { accountBalance, localDate } from '../../shared/utilities/finance';
 import { FinancePlanning } from './finance-planning';
+import { toSignal } from '@angular/core/rxjs-interop';
 @Component({
   selector: 'app-records',
   imports: [Icon, DatePipe, DecimalPipe, NgTemplateOutlet, ReactiveFormsModule, FinancePlanning],
@@ -19,6 +20,8 @@ export class Records {
   readonly route = inject(ActivatedRoute);
   readonly router = inject(Router);
   readonly page = this.route.snapshot.url[0]?.path ?? 'tasks';
+  private readonly params = toSignal(this.route.queryParamMap);
+  readonly reminderId = computed(() => this.params()?.get('reminder'));
   readonly names: Record<string, string> = {
     tasks: 'Tasks',
     inbox: 'Your inbox',
@@ -56,8 +59,10 @@ export class Records {
   readonly tasks = computed(() =>
     this.store
       .tasks()
-      .filter(
-        (t) => this.matches(t.title) && (this.filter() === 'all' || t.status === this.filter()),
+      .filter((t) =>
+        this.reminderId()
+          ? t.id === this.reminderId()
+          : this.matches(t.title) && (this.filter() === 'all' || t.status === this.filter()),
       ),
   );
   readonly projects = computed(() => this.store.projects().filter((p) => this.matches(p.title)));
@@ -103,6 +108,12 @@ export class Records {
     amount: ['', Validators.required],
   });
   readonly statuses: Task['status'][] = ['todo', 'in_progress', 'done'];
+  clearReminder() {
+    void this.router.navigate([], {
+      queryParams: { reminder: null },
+      queryParamsHandling: 'merge',
+    });
+  }
   matches(title: string) {
     return title.toLowerCase().includes(this.search().toLowerCase());
   }

@@ -16,6 +16,8 @@ import {
   Member,
   Note,
   Notification,
+  ReminderPreferences,
+  DEFAULT_REMINDERS,
   OwnedRecord,
   Profile,
   Project,
@@ -54,6 +56,7 @@ export class LifeStore {
   readonly fileSession = signal(0);
   readonly activity = signal<Activity[]>([]);
   readonly notifications = signal<Notification[]>([]);
+  readonly reminderPreferences = signal<ReminderPreferences>({ ...DEFAULT_REMINDERS });
   readonly widgets = signal(ALL_WIDGETS);
   readonly loading = signal(false);
   readonly error = signal('');
@@ -125,6 +128,7 @@ export class LifeStore {
       this.profile.set(p.data);
       this.workspaces.set(w.data);
       this.widgets.set(s.data?.dashboard_widgets ?? ALL_WIDGETS);
+      if (s.data) this.reminderPreferences.set(s.data);
       if (w.data[0]) await this.switchWorkspace(w.data[0]);
     } catch (e) {
       this.error.set(this.message(e));
@@ -161,6 +165,7 @@ export class LifeStore {
     this.recurring.set(d.recurring);
     this.attachments.set(d.attachments);
     this.activity.set(d.activity);
+    this.notifications.set(d.notifications);
   }
   private clearRecords() {
     this.tasks.set([]);
@@ -188,6 +193,7 @@ export class LifeStore {
     this.profile.set(null);
     this.error.set('');
     this.widgets.set(ALL_WIDGETS);
+    this.reminderPreferences.set({ ...DEFAULT_REMINDERS });
   }
   async switchWorkspace(w: Workspace) {
     const run = ++this.generation;
@@ -205,6 +211,7 @@ export class LifeStore {
         recurring: this.recurring(),
         attachments: this.attachments(),
         activity: this.activity(),
+        notifications: this.notifications(),
       });
     this.clearRecords();
     this.workspace.set(w);
@@ -225,6 +232,7 @@ export class LifeStore {
         this.recurring.set(d.recurring);
         this.attachments.set(d.attachments);
         this.activity.set(d.activity);
+        this.notifications.set(d.notifications);
       }
       this.members.set([{ workspace_id: w.id, user_id: 'demo-user', role: 'owner' }]);
       this.loading.set(false);
@@ -283,8 +291,9 @@ export class LifeStore {
             .from('notifications')
             .select('*')
             .eq('workspace_id', w.id)
+            .is('dismissed_at', null)
             .order('created_at', { ascending: false })
-            .limit(50),
+            .limit(100),
           c
             .from('budgets')
             .select('*')
@@ -855,18 +864,6 @@ export class LifeStore {
       list.map((r) => (r.id === current.id ? { ...r, next_on: next, occurrence_count: count } : r)),
     );
     return posted;
-  }
-  async markRead(n: Notification) {
-    const read_at = new Date().toISOString();
-    if (!this.auth.demo()) {
-      const { error } = await this.backend
-        .requireClient()
-        .from('notifications')
-        .update({ read_at })
-        .eq('id', n.id);
-      if (error) throw error;
-    }
-    this.notifications.update((v) => v.map((x) => (x.id === n.id ? { ...x, read_at } : x)));
   }
   private log(title: string) {
     this.activity.update((v) => [{ ...this.base(), title }, ...v].slice(0, 30));

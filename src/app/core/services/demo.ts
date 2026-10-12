@@ -303,5 +303,6 @@ export function demoData() {
     bills,
     recurring,
     attachments,
+    notifications: [] as import('../models/domain').Notification[],
   };
 }

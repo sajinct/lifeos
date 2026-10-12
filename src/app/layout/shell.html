@@ -122,7 +122,7 @@
       <div class="notification-wrap">
         <button
           class="icon-button notification-button"
-          (click)="notices.set(!notices())"
+          (click)="toggleNotices()"
           aria-label="Notifications"
           [attr.aria-expanded]="notices()"
         >
@@ -133,11 +133,60 @@
         </button>
         @if (notices()) {
           <div class="notification-panel">
-            <h3>Notifications</h3>
-            @for (n of store.notifications(); track n.id) {
-              <button (click)="read(n.id)" [class.muted]="n.read_at">
-                {{ n.title }}<small>{{ n.read_at ? 'Read' : 'Mark as read' }}</small>
+            <div class="notification-heading">
+              <h3>Notifications</h3>
+              <a routerLink="/settings" (click)="notices.set(false)">Settings</a>
+            </div>
+            <div class="notification-tabs">
+              <button (click)="snoozedView.set(false)" [attr.aria-pressed]="!snoozedView()">
+                Active ({{ reminders.visible().length }})
               </button>
+              <button (click)="snoozedView.set(true)" [attr.aria-pressed]="snoozedView()">
+                Snoozed ({{ snoozed().length }})
+              </button>
+            </div>
+            @if (reminders.error()) {
+              <p class="error-banner" role="alert">{{ reminders.error() }}</p>
+            }
+            @for (n of noticeList(); track n.id) {
+              <article class="notification-item" [class.muted]="n.read_at">
+                <p>{{ n.title }}</p>
+                @if (snoozedView()) {
+                  <small>Returns {{ n.snoozed_until | date: 'medium' }}</small>
+                }
+                <div class="notification-actions">
+                  @if (n.source_kind) {
+                    <button (click)="openNotice(n)" [disabled]="reminders.busy()">
+                      {{
+                        n.source_kind === 'document'
+                          ? 'Open document'
+                          : n.source_kind === 'bill'
+                            ? 'Open finance'
+                            : 'Open tasks'
+                      }}
+                    </button>
+                  }
+                  @if (!n.read_at && !snoozedView()) {
+                    <button (click)="reminders.act(n, 'read')" [disabled]="reminders.busy()">
+                      Mark as read
+                    </button>
+                  }
+                  @if (!snoozedView()) {
+                    <button (click)="reminders.act(n, 'snooze', 60)" [disabled]="reminders.busy()">
+                      Snooze 1 hour
+                    </button>
+                    <button
+                      (click)="reminders.act(n, 'snooze', 1440)"
+                      [disabled]="reminders.busy()"
+                    >
+                      Snooze 1 day
+                    </button>
+                  }
+                  <button (click)="reminders.act(n, 'dismiss')" [disabled]="reminders.busy()">
+                    Dismiss
+                  </button>
+                </div>
+              </article>
             } @empty {
               <p>You’re all caught up.</p>
             }

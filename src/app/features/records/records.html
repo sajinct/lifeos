@@ -22,6 +22,12 @@
     }
   </div>
 </section>
+@if (reminderId() && page === 'tasks') {
+  <div class="file-library-note">
+    <span>Showing the reminded task.</span
+    ><button class="button subtle" (click)="clearReminder()">Show all tasks</button>
+  </div>
+}
 @if (page !== 'reports') {
   <div class="records-toolbar">
     <div class="filter-search">

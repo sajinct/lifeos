@@ -1,4 +1,10 @@
 <section class="finance-planning panel">
+  @if (reminderId()) {
+    <div class="file-library-note">
+      <span>Showing the reminded bill.</span
+      ><button class="button subtle" (click)="clearReminder()">Show all bills</button>
+    </div>
+  }
   <div class="panel-heading planning-heading">
     <div>
       <h2>Plan ahead</h2>

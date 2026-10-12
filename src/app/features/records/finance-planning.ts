@@ -1,4 +1,6 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, effect } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { LifeStore } from '../../core/services/life-store';
@@ -13,6 +15,9 @@ import { budgetSpent, localDate } from '../../shared/utilities/finance';
 export class FinancePlanning {
   readonly store = inject(LifeStore);
   readonly ui = inject(UiService);
+  readonly router = inject(Router);
+  private readonly params = toSignal(inject(ActivatedRoute).queryParamMap);
+  readonly reminderId = computed(() => this.params()?.get('reminder'));
   readonly Math = Math;
   private readonly fb = inject(FormBuilder);
   readonly tab = signal<'budgets' | 'bills' | 'recurring'>('budgets');
@@ -25,12 +30,25 @@ export class FinancePlanning {
     this.store.budgets().filter((b) => b.month.slice(0, 7) === this.month()),
   );
   readonly bills = computed(() =>
-    [...this.store.bills()].sort(
-      (a, b) =>
-        (a.status === 'pending' ? 0 : 1) - (b.status === 'pending' ? 0 : 1) ||
-        a.due_on.localeCompare(b.due_on),
-    ),
+    [...this.store.bills()]
+      .filter((b) => !this.reminderId() || b.id === this.reminderId())
+      .sort(
+        (a, b) =>
+          (a.status === 'pending' ? 0 : 1) - (b.status === 'pending' ? 0 : 1) ||
+          a.due_on.localeCompare(b.due_on),
+      ),
   );
+  constructor() {
+    effect(() => {
+      if (this.reminderId()) this.tab.set('bills');
+    });
+  }
+  clearReminder() {
+    void this.router.navigate([], {
+      queryParams: { reminder: null },
+      queryParamsHandling: 'merge',
+    });
+  }
   readonly ownedAccounts = computed(() =>
     this.store
       .accounts()
