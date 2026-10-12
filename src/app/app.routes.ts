@@ -20,6 +20,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/records/records').then((m) => m.Records),
       })),
       {
+        path: 'family',
+        loadComponent: () => import('./features/family/family').then((m) => m.FamilyPage),
+      },
+      {
         path: 'contacts',
         loadComponent: () => import('./features/contacts/contacts').then((m) => m.ContactsPage),
       },

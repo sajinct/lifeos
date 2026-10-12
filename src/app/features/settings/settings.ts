@@ -161,7 +161,7 @@ import { ReminderSettings } from './reminder-settings';
           time.
         </p>
         <div class="roadmap-list">
-          <span>Next: Family & household planning</span><span>Then: Assets & complete finance</span
+          <span>Next: Assets & maintenance</span><span>Then: Career, health & travel</span
           ><span>Later: Career, health, travel & automation</span>
         </div>
       </section>

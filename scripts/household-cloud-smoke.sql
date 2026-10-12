@@ -1,0 +1,41 @@
+-- Every synthetic identity and record is rolled back; no messages or credentials are created.
+begin;
+create temporary table lifeos_household_smoke(result text);
+do $$
+declare a uuid:=gen_random_uuid(); b uuid:=gen_random_uuid(); w uuid; m uuid:=gen_random_uuid(); p uuid:=gen_random_uuid(); t uuid:=gen_random_uuid(); d uuid:=gen_random_uuid(); today date; denied boolean;
+begin
+  insert into auth.users(id,raw_user_meta_data) values(a,'{"display_name":"Disposable household check"}'),(b,'{"display_name":"Disposable household viewer"}');
+  perform set_config('request.jwt.claim.sub',a::text,true);set local role authenticated;
+  w:=public.create_workspace('Disposable household check','family');perform public.set_workspace_member(w,b,'viewer');today:=(now() at time zone 'UTC')::date;
+  perform public.save_household_member(m,w,null,'Sample housemate','Housemate',to_char(today,'MM-DD'),'Synthetic only','workspace');
+  perform public.save_household_member(m,w,null,'Ignored retry','Parent',null,'','private');
+  perform public.save_household_member(p,w,null,'Private person','Relative',null,'Synthetic only','private');
+  perform public.save_household_entry(t,w,null,'Water plants','task',today,false,m,'Synthetic only','workspace');
+  perform public.save_household_entry(t,w,null,'Ignored retry','date',today,false,null,'','private');
+  perform public.save_household_entry(d,w,null,'Annual family day','date',today,true,m,'Synthetic only','workspace');
+  if not exists(select 1 from public.household_members where id=m and revision=1 and name='Sample housemate') or not exists(select 1 from public.household_entries where id=t and revision=1 and title='Water plants') then raise exception 'Creation retry changed records';end if;
+  denied:=false;begin perform public.save_household_entry(t,w,1,'Unsafe edit','task',today,false,p,'','workspace');exception when others then denied:=true;end;
+  if not denied or not exists(select 1 from public.household_entries where id=t and revision=1 and member_id=m) then raise exception 'Private member link or atomic edit failed';end if;
+  denied:=false;begin perform public.save_household_member(m,w,1,'Sample housemate','Housemate',null,'','private');exception when others then denied:=true;end;
+  if not denied then raise exception 'Shared member hidden while linked';end if;
+  perform public.save_reminder_preferences(false,false,false,1,3,30,0,'UTC',false,7,false,3,false,1,true,7);
+  reset role;perform public.deliver_due_reminders();perform public.deliver_due_reminders();
+  if (select count(*) from public.notifications where owner_id=a and source_kind in ('family_birthday','family_task','family_date') and dismissed_at is null)<>3 then raise exception 'Family reminders missing or duplicated';end if;
+  if private.household_anniversary('2000-02-29','2027-03-01')<>'2028-02-29' then raise exception 'Leap birthday anchor lost';end if;
+  set local role authenticated;perform public.set_household_status('entry',t,1,'done');perform public.set_household_status('entry',t,1,'done');
+  if not exists(select 1 from public.household_entries where id=t and revision=2 and status='done' and member_id=m) or exists(select 1 from public.notifications where source_id=t and dismissed_at is null) then raise exception 'Completion or reminder cleanup failed';end if;
+  perform public.set_household_status('entry',t,2,'active');denied:=false;begin perform public.set_household_status('entry',t,1,'done');exception when others then denied:=true;end;
+  if not denied then raise exception 'Stale completion accepted';end if;
+  perform public.set_household_status('member',m,1,'archived');perform public.set_household_status('member',m,2,'active');
+  perform public.save_reminder_preferences(false,false,false,1,3,30,0,'UTC',false,7,false,3,false,1);
+  if not exists(select 1 from public.app_settings where id=a and family_reminders) then raise exception 'Legacy settings lost family preference';end if;
+  perform set_config('request.jwt.claim.sub',b::text,true);
+  if (select count(*) from public.household_members where workspace_id=w)<>1 or exists(select 1 from public.household_members where id=p) or exists(select 1 from public.notifications where owner_id=a) then raise exception 'Viewer isolation failed';end if;
+  denied:=false;begin perform public.set_household_status('entry',t,3,'done');exception when others then denied:=true;end;
+  if not denied then raise exception 'Viewer write allowed';end if;
+  perform set_config('request.jwt.claim.sub',a::text,true);perform public.remove_workspace_member(w,b);perform set_config('request.jwt.claim.sub',b::text,true);
+  if exists(select 1 from public.household_entries where workspace_id=w) then raise exception 'Removed member retained access';end if;
+  reset role;insert into lifeos_household_smoke values('Household sharing, link atomicity, retry/revision safety, completion, annual reminders and isolation passed; synthetic records rolled back.');
+end $$;
+select * from lifeos_household_smoke;
+rollback;

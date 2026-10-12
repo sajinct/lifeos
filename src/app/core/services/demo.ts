@@ -304,6 +304,8 @@ export function demoData() {
     recurring,
     attachments,
     notifications: [] as import('../models/domain').Notification[],
+    householdMembers: [] as import('../models/domain').HouseholdMember[],
+    householdEntries: [] as import('../models/domain').HouseholdEntry[],
     contacts: [] as import('../models/domain').Contact[],
     contactLinks: [] as import('../models/domain').ContactLink[],
     loans: [] as import('../models/domain').Loan[],

@@ -21,6 +21,8 @@ import {
   Subscription,
   Contact,
   ContactLink,
+  HouseholdMember,
+  HouseholdEntry,
   Loan,
   LoanRepayment,
   OwnedRecord,
@@ -57,6 +59,8 @@ export class LifeStore {
   readonly budgets = signal<Budget[]>([]);
   readonly bills = signal<Bill[]>([]);
   readonly recurring = signal<RecurringTransaction[]>([]);
+  readonly householdMembers = signal<HouseholdMember[]>([]);
+  readonly householdEntries = signal<HouseholdEntry[]>([]);
   readonly contacts = signal<Contact[]>([]);
   readonly contactLinks = signal<ContactLink[]>([]);
   readonly loans = signal<Loan[]>([]);
@@ -175,6 +179,8 @@ export class LifeStore {
     this.recurring.set(d.recurring);
     this.subscriptions.set(d.subscriptions);
     this.loans.set(d.loans);
+    this.householdMembers.set(d.householdMembers);
+    this.householdEntries.set(d.householdEntries);
     this.contacts.set(d.contacts);
     this.contactLinks.set(d.contactLinks);
     this.loanRepayments.set(d.loanRepayments);
@@ -195,6 +201,8 @@ export class LifeStore {
     this.recurring.set([]);
     this.subscriptions.set([]);
     this.loans.set([]);
+    this.householdMembers.set([]);
+    this.householdEntries.set([]);
     this.contacts.set([]);
     this.contactLinks.set([]);
     this.loanRepayments.set([]);
@@ -231,6 +239,8 @@ export class LifeStore {
         recurring: this.recurring(),
         subscriptions: this.subscriptions(),
         loans: this.loans(),
+        householdMembers: this.householdMembers(),
+        householdEntries: this.householdEntries(),
         contacts: this.contacts(),
         contactLinks: this.contactLinks(),
         loanRepayments: this.loanRepayments(),
@@ -257,6 +267,8 @@ export class LifeStore {
         this.recurring.set(d.recurring);
         this.subscriptions.set(d.subscriptions);
         this.loans.set(d.loans);
+        this.householdMembers.set(d.householdMembers);
+        this.householdEntries.set(d.householdEntries);
         this.contacts.set(d.contacts);
         this.contactLinks.set(d.contactLinks);
         this.loanRepayments.set(d.loanRepayments);
@@ -475,7 +487,26 @@ export class LifeStore {
           else allContactLinks.push(...(page.data as ContactLink[]));
           if (page.data.length < 500) break;
         }
+      const allMembers: HouseholdMember[] = [],
+        allEntries: HouseholdEntry[] = [];
+      for (const table of ['household_members', 'household_entries'] as const)
+        for (let offset = 0; ; offset += 500) {
+          const page = await c
+            .from(table)
+            .select('*')
+            .eq('workspace_id', w.id)
+            .order('created_at')
+            .order('id')
+            .range(offset, offset + 499);
+          if (page.error) throw page.error;
+          if (run !== this.generation) return;
+          if (table === 'household_members') allMembers.push(...(page.data as HouseholdMember[]));
+          else allEntries.push(...(page.data as HouseholdEntry[]));
+          if (page.data.length < 500) break;
+        }
       if (run !== this.generation) return;
+      this.householdMembers.set(allMembers);
+      this.householdEntries.set(allEntries);
       this.contacts.set(allContacts);
       this.contactLinks.set(allContactLinks);
       this.loans.set(allLoans);
@@ -1048,6 +1079,8 @@ export class LifeStore {
       recurring: this.recurring(),
       subscriptions: this.subscriptions(),
       loans: this.loans(),
+      householdMembers: this.householdMembers(),
+      householdEntries: this.householdEntries(),
       contacts: this.contacts(),
       contactLinks: this.contactLinks(),
       loanRepayments: this.loanRepayments(),

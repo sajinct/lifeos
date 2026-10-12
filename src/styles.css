@@ -3246,6 +3246,33 @@ td:last-child {
   gap: 16px;
   margin: 20px 0;
 }
+.household-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 24px 0;
+}
+.household-tabs button {
+  padding: 10px 16px;
+  border-radius: 12px;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+.household-tabs button.active {
+  background: var(--accent-bg);
+  color: var(--accent);
+  border-color: #d8caf3;
+}
+.household-sharing-note {
+  padding: 14px;
+  background: var(--accent-bg);
+  color: var(--secondary);
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.6;
+}
 .contact-stats section {
   padding: 20px;
 }

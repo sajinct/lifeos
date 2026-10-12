@@ -38,6 +38,9 @@ export class Reminders {
         this.store.subscriptions(),
         this.store.loans(),
         this.store.contacts(),
+        this.store.householdMembers(),
+        this.store.householdEntries(),
+        new Date(this.now()),
       );
       const prefs = this.store.reminderPreferences();
       const workspace = this.store.workspace();
@@ -154,6 +157,7 @@ export class Reminders {
       [p.subscription_lead_days, 90],
       [p.loan_lead_days, 90],
       [p.contact_lead_days, 90],
+      [p.family_lead_days, 90],
       [p.reminder_hour, 23],
     ])
       if (!Number.isInteger(value) || value < 0 || value > max)
@@ -178,6 +182,8 @@ export class Reminders {
         loan_days: p.loan_lead_days,
         contacts_enabled: p.contact_reminders,
         contact_days: p.contact_lead_days,
+        family_enabled: p.family_reminders,
+        family_days: p.family_lead_days,
       });
       if (error) throw error;
     }
@@ -202,17 +208,21 @@ export class Reminders {
       const c = this.backend.requireClient();
       // Fetch the exact source even when it falls outside a screen's newest-500 window.
       const table =
-        n.source_kind === 'task'
-          ? 'tasks'
-          : n.source_kind === 'bill'
-            ? 'bills'
-            : n.source_kind === 'document'
-              ? 'attachments'
-              : n.source_kind === 'loan'
-                ? 'loans'
-                : n.source_kind === 'contact'
-                  ? 'contacts'
-                  : 'subscriptions';
+        n.source_kind === 'family_birthday'
+          ? 'household_members'
+          : n.source_kind === 'family_task' || n.source_kind === 'family_date'
+            ? 'household_entries'
+            : n.source_kind === 'task'
+              ? 'tasks'
+              : n.source_kind === 'bill'
+                ? 'bills'
+                : n.source_kind === 'document'
+                  ? 'attachments'
+                  : n.source_kind === 'loan'
+                    ? 'loans'
+                    : n.source_kind === 'contact'
+                      ? 'contacts'
+                      : 'subscriptions';
       const { data, error } = await c
         .from(table)
         .select('*')
@@ -229,7 +239,17 @@ export class Reminders {
         return false;
       if (!data)
         throw new Error('This record is no longer available. You can dismiss its reminder.');
-      if (table === 'tasks' && 'due_date' in data)
+      if ('birthday' in data)
+        this.store.householdMembers.update((rows) => [
+          ...rows.filter((r) => r.id !== data.id),
+          data,
+        ]);
+      else if ('annual' in data)
+        this.store.householdEntries.update((rows) => [
+          ...rows.filter((r) => r.id !== data.id),
+          data,
+        ]);
+      else if (table === 'tasks' && 'due_date' in data)
         this.store.tasks.update((rows) => [...rows.filter((r) => r.id !== data.id), data]);
       else if (table === 'bills' && 'due_on' in data)
         this.store.bills.update((rows) => [...rows.filter((r) => r.id !== data.id), data]);
@@ -318,16 +338,18 @@ export class Reminders {
     }
   }
   path(n: Notification) {
-    return n.source_kind === 'task'
-      ? '/tasks'
-      : n.source_kind === 'bill'
-        ? '/finance'
-        : n.source_kind === 'document'
-          ? '/documents'
-          : n.source_kind === 'loan'
-            ? '/loans'
-            : n.source_kind === 'contact'
-              ? '/contacts'
-              : '/subscriptions';
+    return n.source_kind?.startsWith('family_')
+      ? '/family'
+      : n.source_kind === 'task'
+        ? '/tasks'
+        : n.source_kind === 'bill'
+          ? '/finance'
+          : n.source_kind === 'document'
+            ? '/documents'
+            : n.source_kind === 'loan'
+              ? '/loans'
+              : n.source_kind === 'contact'
+                ? '/contacts'
+                : '/subscriptions';
   }
 }

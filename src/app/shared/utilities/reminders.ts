@@ -7,12 +7,15 @@ import {
   Subscription,
   Loan,
   Contact,
+  HouseholdMember,
+  HouseholdEntry,
 } from '../../core/models/domain';
+import { householdAnniversary } from './household';
 export interface ReminderSource {
   id: string;
   workspace_id: string;
   owner_id: string;
-  kind: 'task' | 'bill' | 'document' | 'subscription' | 'trial' | 'loan' | 'contact';
+  kind: Exclude<Notification['source_kind'], null>;
   title: string;
   date: string;
   days: number;
@@ -25,8 +28,29 @@ export function reminderSources(
   subscriptions: Subscription[] = [],
   loans: Loan[] = [],
   contacts: Contact[] = [],
+  householdMembers: HouseholdMember[] = [],
+  householdEntries: HouseholdEntry[] = [],
+  now: Date = new Date(),
 ): ReminderSource[] {
+  const today = reminderClock(now, p.reminder_timezone).day;
   return [
+    ...householdMembers
+      .filter((m) => p.family_reminders && m.status === 'active' && m.birthday)
+      .map((m) => ({
+        ...m,
+        kind: 'family_birthday' as const,
+        title: m.name,
+        date: householdAnniversary('2000-' + m.birthday, today),
+        days: p.family_lead_days,
+      })),
+    ...householdEntries
+      .filter((e) => p.family_reminders && e.status === 'active' && e.due_on)
+      .map((e) => ({
+        ...e,
+        kind: e.kind === 'task' ? ('family_task' as const) : ('family_date' as const),
+        date: e.annual ? householdAnniversary(e.due_on!, today) : e.due_on!,
+        days: p.family_lead_days,
+      })),
     ...contacts
       .filter((c) => p.contact_reminders && c.status === 'active' && c.next_follow_up)
       .map((c) => ({
@@ -89,19 +113,25 @@ export function reminderPhase(source: ReminderSource, day: string): Notification
 }
 export function reminderTitle(s: ReminderSource, phase: Notification['phase']) {
   const label =
-    s.kind === 'task'
-      ? 'Task'
-      : s.kind === 'bill'
-        ? 'Bill'
-        : s.kind === 'document'
-          ? 'Document'
-          : s.kind === 'trial'
-            ? 'Trial'
-            : s.kind === 'loan'
-              ? 'Loan repayment'
-              : s.kind === 'contact'
-                ? 'Contact follow-up'
-                : 'Subscription';
+    s.kind === 'family_birthday'
+      ? 'Birthday'
+      : s.kind === 'family_task'
+        ? 'Household task'
+        : s.kind === 'family_date'
+          ? 'Important date'
+          : s.kind === 'task'
+            ? 'Task'
+            : s.kind === 'bill'
+              ? 'Bill'
+              : s.kind === 'document'
+                ? 'Document'
+                : s.kind === 'trial'
+                  ? 'Trial'
+                  : s.kind === 'loan'
+                    ? 'Loan repayment'
+                    : s.kind === 'contact'
+                      ? 'Contact follow-up'
+                      : 'Subscription';
   const overdue =
     s.kind === 'document'
       ? 'expired'

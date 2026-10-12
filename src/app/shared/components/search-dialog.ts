@@ -75,6 +75,26 @@ export class SearchDialog implements AfterViewInit {
     if (!q) return [];
     return [
       ...this.store
+        .householdMembers()
+        .filter((m) => m.status === 'active')
+        .map((m) => ({
+          id: m.id,
+          title: m.name,
+          type: 'Household member',
+          icon: 'family',
+          path: '/family',
+        })),
+      ...this.store
+        .householdEntries()
+        .filter((e) => e.status === 'active')
+        .map((e) => ({
+          id: e.id,
+          title: e.title,
+          type: e.kind === 'task' ? 'Household responsibility' : 'Important date',
+          icon: 'family',
+          path: '/family',
+        })),
+      ...this.store
         .contacts()
         .filter((c) => c.status === 'active')
         .map((c) => ({
@@ -136,11 +156,14 @@ export class SearchDialog implements AfterViewInit {
   ngAfterViewInit() {
     this.dialog.nativeElement.showModal();
   }
-  navigate(result: { path: string; bucket?: string }) {
+  navigate(result: { id: string; path: string; bucket?: string }) {
     this.ui.searchOpen.set(false);
-    void this.router.navigateByUrl(result.path, {
-      state: { search: this.query(), bucket: result.bucket },
-    });
+    void this.router.navigateByUrl(
+      result.path === '/family' ? '/family?reminder=' + encodeURIComponent(result.id) : result.path,
+      {
+        state: { search: this.query(), bucket: result.bucket },
+      },
+    );
   }
   capture(kind: CaptureKind) {
     this.ui.searchOpen.set(false);

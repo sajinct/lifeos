@@ -1,0 +1,399 @@
+<section class="page-heading">
+  <div>
+    <span class="eyebrow">MAKE ROOM FOR THE PEOPLE CLOSEST TO YOU</span>
+    <h1>Family & household</h1>
+    <p>Keep your people, everyday responsibilities, and important dates together.</p>
+  </div>
+  <div class="heading-actions">
+    <button
+      class="button subtle"
+      (click)="export()"
+      [disabled]="
+        store.loading() || !!store.error() || (!shownMembers().length && !shownEntries().length)
+      "
+    >
+      <app-icon name="download" />Export household CSV</button
+    ><button
+      class="button primary"
+      (click)="add(tab())"
+      [disabled]="busy() || store.loading() || !store.writable()"
+    >
+      <app-icon name="plus" />{{
+        tab() === 'member'
+          ? 'Add member'
+          : tab() === 'task'
+            ? 'Add responsibility'
+            : 'Add important date'
+      }}
+    </button>
+  </div>
+</section>
+<div class="file-library-note">
+  <app-icon name="lock" /><span
+    >Private by default. Shared records are visible to every member of this workspace.</span
+  ><a routerLink="/settings">Manage workspace access & reminders</a>
+</div>
+<div class="contact-stats">
+  <section class="panel">
+    <span>Household members</span><strong>{{ counts().members }}</strong>
+  </section>
+  <section class="panel">
+    <span>Open responsibilities</span><strong>{{ counts().tasks }}</strong>
+  </section>
+  <section class="panel">
+    <span>Important dates</span><strong>{{ counts().dates }}</strong>
+  </section>
+</div>
+<div class="household-tabs" role="tablist" aria-label="Household sections">
+  <button
+    role="tab"
+    [attr.aria-selected]="tab() === 'member'"
+    [class.active]="tab() === 'member'"
+    (click)="switchTab('member')"
+  >
+    Members & birthdays
+  </button>
+  <button
+    role="tab"
+    [attr.aria-selected]="tab() === 'task'"
+    [class.active]="tab() === 'task'"
+    (click)="switchTab('task')"
+  >
+    Responsibilities
+  </button>
+  <button
+    role="tab"
+    [attr.aria-selected]="tab() === 'date'"
+    [class.active]="tab() === 'date'"
+    (click)="switchTab('date')"
+  >
+    Important dates
+  </button>
+</div>
+@if (reminderId()) {
+  <div class="file-library-note">
+    <span>Showing the selected family record.</span
+    ><button class="button subtle" (click)="clearReminder()">Show all family records</button>
+  </div>
+}
+@if (error()) {
+  <p class="error-banner" role="alert">{{ error() }}</p>
+}
+@if (store.error()) {
+  <p class="error-banner" role="alert">{{ store.error() }}</p>
+}
+@if (formType() === 'member') {
+  <section class="panel subscription-form">
+    <h2>{{ editing() ? 'Edit household member' : 'Add household member' }}</h2>
+    <form [formGroup]="memberForm" (ngSubmit)="saveMember()">
+      <div class="form-grid">
+        <label>Name<input formControlName="name" maxlength="200" required /></label
+        ><label
+          >Relationship<input
+            formControlName="relationship"
+            maxlength="100"
+            required
+            placeholder="Partner, parent, child, housemate…"
+        /></label>
+        <label
+          >Birthday month (optional)<select formControlName="birthday_month">
+            <option value="">No birthday</option>
+            @for (month of months; track month; let i = $index) {
+              <option [value]="(i + 1).toString().padStart(2, '0')">{{ month }}</option>
+            }
+          </select></label
+        ><label
+          >Birthday day<input
+            formControlName="birthday_day"
+            type="number"
+            min="1"
+            max="31"
+            step="1"
+        /></label>
+        <label
+          >Member visibility<select
+            formControlName="visibility"
+            [attr.disabled]="!canChangeSharing() ? '' : null"
+          >
+            <option value="private">Private — only me</option>
+            <option value="workspace">Shared — entire workspace</option>
+          </select></label
+        >
+      </div>
+      <label
+        >Member notes<textarea formControlName="notes" rows="3" maxlength="4000"></textarea>
+      </label>
+      <p class="form-hint">
+        Only month and day are stored for birthdays. Adding this person creates a household record;
+        it does not invite them or give them account access.
+      </p>
+      @if (memberForm.controls.visibility.value === 'workspace') {
+        <p class="household-sharing-note">
+          The name, relationship, birthday and notes will be visible to all current and future
+          members of this workspace. The workspace owner can edit shared records. Only the record
+          creator can change sharing.
+        </p>
+      }
+      <div class="heading-actions">
+        <button type="submit" class="button primary" [disabled]="busy() || store.loading()">
+          {{ busy() ? 'Saving…' : 'Save member' }}</button
+        ><button
+          type="button"
+          class="button subtle"
+          (click)="formType.set(null)"
+          [disabled]="busy()"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  </section>
+}
+@if (formType() === 'entry') {
+  <section class="panel subscription-form">
+    <h2>
+      {{ editing() ? 'Edit' : 'Add' }}
+      {{ entryForm.controls.kind.value === 'task' ? 'responsibility' : 'important date' }}
+    </h2>
+    <form [formGroup]="entryForm" (ngSubmit)="saveEntry()">
+      <div class="form-grid">
+        <label>Title<input formControlName="title" maxlength="200" required /></label
+        ><label
+          >{{ entryForm.controls.kind.value === 'task' ? 'Due date (optional)' : 'Date'
+          }}<input
+            formControlName="due_on"
+            type="date"
+            min="1900-01-01"
+            max="2100-12-31"
+            [required]="entryForm.controls.kind.value === 'date'"
+        /></label>
+        <label
+          >Entry visibility<select
+            formControlName="visibility"
+            [attr.disabled]="!canChangeSharing() ? '' : null"
+          >
+            <option value="private">Private — only me</option>
+            <option value="workspace">Shared — entire workspace</option>
+          </select></label
+        >
+        <label
+          >{{
+            entryForm.controls.kind.value === 'task'
+              ? 'Responsible household member'
+              : 'Related household member'
+          }}<select formControlName="member_id">
+            <option value="">Unassigned</option>
+            @for (m of options(); track m.id) {
+              <option [value]="m.id">
+                {{ m.name }}{{ m.status === 'archived' ? ' (archived)' : '' }}
+              </option>
+            }
+          </select></label
+        >
+        @if (entryForm.controls.kind.value === 'date') {
+          <label class="reminder-toggle"
+            ><input type="checkbox" formControlName="annual" />Repeat every year</label
+          >
+        }
+      </div>
+      <label
+        >Entry notes<textarea formControlName="notes" rows="3" maxlength="4000"></textarea>
+      </label>
+      <p class="form-hint">
+        Shared entries can link only to shared members. Assigning a responsibility does not grant
+        access or send an email. In-app reminders go to this record's creator when enabled.
+      </p>
+      @if (entryForm.controls.visibility.value === 'workspace') {
+        <p class="household-sharing-note">
+          The title, date, member and notes will be visible to all current and future members of
+          this workspace. The workspace owner can edit shared records. Only the record creator can
+          change sharing.
+        </p>
+      }
+      <div class="heading-actions">
+        <button type="submit" class="button primary" [disabled]="busy() || store.loading()">
+          {{ busy() ? 'Saving…' : 'Save entry' }}</button
+        ><button
+          type="button"
+          class="button subtle"
+          (click)="formType.set(null)"
+          [disabled]="busy()"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  </section>
+}
+<div class="record-toolbar contact-toolbar">
+  <div class="search-field">
+    <app-icon name="search" /><input
+      aria-label="Find household records"
+      placeholder="Search people, responsibilities or notes…"
+      [value]="search()"
+      (input)="search.set($any($event.target).value)"
+    />
+  </div>
+  <select
+    aria-label="Household status filter"
+    [value]="statusFilter()"
+    (change)="statusFilter.set($any($event.target).value)"
+  >
+    <option value="active">Active / open</option>
+    <option value="done">Completed</option>
+    <option value="archived">Archived</option>
+    <option value="all">All statuses</option></select
+  ><select
+    aria-label="Household sharing filter"
+    [value]="sharingFilter()"
+    (change)="sharingFilter.set($any($event.target).value)"
+  >
+    <option value="all">All visibility</option>
+    <option value="private">Private</option>
+    <option value="workspace">Shared</option>
+  </select>
+</div>
+@if (store.loading()) {
+  <p class="empty-state" role="status">Loading household records…</p>
+} @else if (!store.error()) {
+  <div class="contact-cards">
+    @for (m of shownMembers(); track m.id) {
+      <article class="panel contact-card">
+        <div class="contact-card-heading">
+          <span class="icon-tile purple"><app-icon name="family" /></span>
+          <div>
+            <h2>{{ m.name }}</h2>
+            <p>{{ m.relationship }}</p>
+          </div>
+          <span class="priority">{{ m.visibility === 'private' ? 'Private' : 'Shared' }}</span>
+        </div>
+        @if (m.notes) {
+          <p class="contact-notes">{{ m.notes }}</p>
+        }
+        @if (m.birthday) {
+          <div class="contact-follow-up">
+            <span class="eyebrow">NEXT BIRTHDAY</span
+            ><strong>{{ library.occurrence(m) + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }}</strong
+            ><small>Yearly · February 29 is observed on February 28 in other years.</small>
+          </div>
+        }
+        @if (m.status === 'archived') {
+          <p class="form-hint">Archived · birthday reminders stopped</p>
+        }
+        <div class="heading-actions">
+          @if (store.canEdit(m)) {
+            @if (m.status === 'active') {
+              <button
+                class="button subtle"
+                (click)="edit(m)"
+                [disabled]="busy() || store.loading()"
+              >
+                Edit
+              </button>
+            }
+            <button
+              class="button subtle"
+              (click)="setStatus(m, m.status === 'active' ? 'archived' : 'active')"
+              [disabled]="busy() || store.loading()"
+            >
+              {{ m.status === 'active' ? 'Archive' : 'Restore' }}
+            </button>
+          } @else {
+            <small class="form-hint">Read only</small>
+          }
+        </div>
+      </article>
+    }
+    @for (e of shownEntries(); track e.id) {
+      <article class="panel contact-card">
+        <div class="contact-card-heading">
+          <span class="icon-tile purple"
+            ><app-icon [name]="e.kind === 'task' ? 'task' : 'calendar'"
+          /></span>
+          <div>
+            <h2>{{ e.title }}</h2>
+            <p>
+              {{ e.kind === 'task' ? 'Responsibility' : 'Important date' }} ·
+              {{ memberName(e.member_id) }}
+            </p>
+          </div>
+          <span class="priority">{{ e.visibility === 'private' ? 'Private' : 'Shared' }}</span>
+        </div>
+        @if (e.notes) {
+          <p class="contact-notes">{{ e.notes }}</p>
+        }
+        @if (e.due_on) {
+          <div class="contact-follow-up">
+            <span class="eyebrow">{{ e.annual ? 'NEXT OCCURRENCE' : 'DATE' }}</span
+            ><strong>{{ library.occurrence(e) + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }}</strong
+            ><small>{{
+              e.annual
+                ? 'Repeats every year'
+                : e.status === 'active' && e.due_on < library.today()
+                  ? 'Overdue'
+                  : e.status === 'active' && e.due_on === library.today()
+                    ? 'Due today'
+                    : 'One-time'
+            }}</small>
+          </div>
+        }
+        @if (e.status !== 'active') {
+          <p class="form-hint">
+            {{ e.status === 'done' ? 'Completed' : 'Archived' }} · reminders stopped
+          </p>
+        }
+        <div class="heading-actions">
+          @if (store.canEdit(e)) {
+            @if (e.status === 'active') {
+              <button
+                class="button subtle"
+                (click)="edit(e)"
+                [disabled]="busy() || store.loading()"
+              >
+                Edit
+              </button>
+              @if (e.kind === 'task') {
+                <button
+                  class="button primary"
+                  (click)="setStatus(e, 'done')"
+                  [disabled]="busy() || store.loading()"
+                >
+                  Mark complete
+                </button>
+              }
+            }
+            @if (e.status === 'done') {
+              <button
+                class="button subtle"
+                (click)="setStatus(e, 'active')"
+                [disabled]="busy() || store.loading()"
+              >
+                Reopen
+              </button>
+            }
+            <button
+              class="button subtle"
+              (click)="setStatus(e, e.status === 'archived' ? 'active' : 'archived')"
+              [disabled]="busy() || store.loading()"
+            >
+              {{ e.status === 'archived' ? 'Restore' : 'Archive' }}
+            </button>
+          } @else {
+            <small class="form-hint">Read only</small>
+          }
+        </div>
+      </article>
+    }
+  </div>
+  @if (!shownMembers().length && !shownEntries().length) {
+    <section class="panel empty-state">
+      <app-icon name="family" />
+      <h2>No matching household records</h2>
+      <p>Add a member, responsibility, or important date, or adjust your filters.</p>
+    </section>
+  }
+}
+<p class="form-hint">
+  Household records use your current workspace. Archives preserve details and links. CSV follows
+  this section's filters; Workspace JSON in Settings includes all records you can see.
+</p>

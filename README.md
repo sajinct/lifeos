@@ -23,13 +23,14 @@ Open http://127.0.0.1:4200 and choose **Explore a demo workspace**. Sample recor
 - Private subscriptions and free trials, monthly/yearly cost estimates by currency, renewal alerts, optional recurring expense links and cancellation that stops future recording.
 - Private loans borrowed/lent, fixed simple-interest schedules, partial/early repayments, owner-only reminders and atomic principal/interest entries in Finance.
 - Private contacts for people/organizations, details and notes, owner-only project/loan links, opt-in follow-up reminders, reversible archives, search and filtered CSV export.
-- Private-by-default records, 26 RLS-protected application tables, private Storage policies, typed client access and server-only reminder dispatch.
+- Family & household members, birthdays, responsibilities and important dates with explicit private/workspace sharing, opt-in personal reminders, archive/restore and filtered CSV export.
+- Private-by-default records, 28 RLS-protected application tables, private Storage policies, typed client access and server-only reminder dispatch.
 - Date-filtered Finance reports with separate currency totals, monthly cash flow, category trends, budget comparisons, recorded subscription expenses and loan interest, plus filtered CSV and workspace JSON exports.
 - Currency-aware summaries, linked project records and idempotent transfer requests.
 - Installable PWA manifest/service worker that caches static assets only; offline indication.
 - GitHub Actions checks and Pages deployment supporting repository paths and custom domains.
 
-This is **Phase 1 plus an initial Phase 2 slice**, not the complete fifteen-module ERP. Family, assets, habits, career, health, travel, email automation, imports and AI are subsequent milestones. The app does not expose empty routes for those modules.
+This is **Phase 1 plus an initial Phase 2 slice**, not the complete fifteen-module ERP. Assets, habits, career, health, travel, email automation, imports and AI are subsequent milestones. The app does not expose empty routes for those modules.
 
 ## Connect and deploy
 

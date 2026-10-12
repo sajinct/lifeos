@@ -238,11 +238,56 @@ export interface ContactInput {
 export interface Activity extends OwnedRecord {
   title: string;
 }
+export interface HouseholdMember extends OwnedRecord {
+  name: string;
+  relationship: string;
+  birthday: string | null;
+  notes: string;
+  status: 'active' | 'archived';
+  revision: number;
+}
+export interface HouseholdEntry extends OwnedRecord {
+  title: string;
+  kind: 'task' | 'date';
+  due_on: string | null;
+  annual: boolean;
+  member_id: string | null;
+  notes: string;
+  status: 'active' | 'done' | 'archived';
+  revision: number;
+}
+export interface HouseholdMemberInput {
+  name: string;
+  relationship: string;
+  birthday: string;
+  notes: string;
+  visibility: Visibility;
+}
+export interface HouseholdEntryInput {
+  title: string;
+  kind: HouseholdEntry['kind'];
+  due_on: string;
+  annual: boolean;
+  member_id: string;
+  notes: string;
+  visibility: Visibility;
+}
 export interface Notification extends OwnedRecord {
   title: string;
   reminder_id: string | null;
   read_at: string | null;
-  source_kind: 'task' | 'bill' | 'document' | 'subscription' | 'trial' | 'loan' | 'contact' | null;
+  source_kind:
+    | 'task'
+    | 'bill'
+    | 'document'
+    | 'subscription'
+    | 'trial'
+    | 'loan'
+    | 'contact'
+    | 'family_birthday'
+    | 'family_task'
+    | 'family_date'
+    | null;
   source_id: string | null;
   occurrence_on: string | null;
   phase: 'upcoming' | 'overdue' | null;
@@ -256,12 +301,14 @@ export interface ReminderPreferences {
   subscription_reminders: boolean;
   loan_reminders: boolean;
   contact_reminders: boolean;
+  family_reminders: boolean;
   task_lead_days: number;
   bill_lead_days: number;
   document_lead_days: number;
   subscription_lead_days: number;
   loan_lead_days: number;
   contact_lead_days: number;
+  family_lead_days: number;
   reminder_hour: number;
   reminder_timezone: string;
 }
@@ -272,12 +319,14 @@ export const DEFAULT_REMINDERS: ReminderPreferences = {
   subscription_reminders: false,
   loan_reminders: false,
   contact_reminders: false,
+  family_reminders: false,
   task_lead_days: 1,
   bill_lead_days: 3,
   document_lead_days: 30,
   subscription_lead_days: 7,
   loan_lead_days: 3,
   contact_lead_days: 1,
+  family_lead_days: 7,
   reminder_hour: 9,
   reminder_timezone: 'UTC',
 };
@@ -328,6 +377,8 @@ export interface TableRows {
   loans: Loan;
   contacts: Contact;
   contact_links: ContactLink;
+  household_members: HouseholdMember;
+  household_entries: HouseholdEntry;
   loan_repayments: LoanRepayment;
 }
 type Table<R> = {
@@ -341,6 +392,38 @@ export type Database = {
     Tables: { [K in keyof TableRows]: Table<TableRows[K]> };
     Views: Record<string, never>;
     Functions: {
+      save_household_member: {
+        Args: {
+          entry: string;
+          w: string;
+          expected_revision: number | null;
+          member_name: string;
+          relation: string;
+          birthday_month_day: string | null;
+          member_notes: string;
+          sharing: Visibility;
+        };
+        Returns: string;
+      };
+      save_household_entry: {
+        Args: {
+          entry: string;
+          w: string;
+          expected_revision: number | null;
+          entry_title: string;
+          entry_kind: string;
+          entry_date: string | null;
+          repeats_annually: boolean;
+          household_member: string | null;
+          entry_notes: string;
+          sharing: Visibility;
+        };
+        Returns: string;
+      };
+      set_household_status: {
+        Args: { record_kind: string; entry: string; expected_revision: number; target: string };
+        Returns: undefined;
+      };
       save_contact: {
         Args: {
           entry: string;
@@ -441,6 +524,8 @@ export type Database = {
           loan_days: number;
           contacts_enabled: boolean;
           contact_days: number;
+          family_enabled: boolean;
+          family_days: number;
         };
         Returns: undefined;
       };

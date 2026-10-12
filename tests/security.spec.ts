@@ -2,6 +2,7 @@ import { PGlite } from '@electric-sql/pglite';
 import { readFileSync, readdirSync } from 'node:fs';
 import { beforeAll, afterAll, describe, it, expect } from 'vitest';
 import { contactSecurityTests } from './contact-security';
+import { householdSecurityTests } from './household-security';
 import { reportSecurityTests } from './report-security';
 import { loanSecurityTests } from './loan-security';
 import { subscriptionSecurityTests } from './subscription-security';
@@ -114,7 +115,7 @@ describe('Actual PostgreSQL RLS and permission boundaries', () => {
         "select tablename,rowsecurity from pg_tables where schemaname='public'",
       )
     ).rows;
-    expect(rows.length).toBe(26);
+    expect(rows.length).toBe(28);
     expect(rows.every((r) => r.rowsecurity)).toBe(true);
   });
   it('denies anonymous reads and workspace creation', async () => {
@@ -1087,3 +1088,4 @@ loanSecurityTests(() => db, asUser, A, B, C);
 reportSecurityTests(() => db, asUser, A, B);
 
 contactSecurityTests(() => db, asUser, A, B);
+householdSecurityTests(() => db, asUser, A, B, C);
