@@ -74,6 +74,15 @@
           <option [value]="list.id">{{ list.name }}{{ list.archived ? ' · archived' : '' }}</option>
         }
       </select>
+      <select
+        aria-label="Assignment filter"
+        [value]="assignmentFilter()"
+        (change)="assignmentFilter.set($any($event.target).value)"
+      >
+        <option value="all">All assignments</option>
+        <option value="me">Assigned to me</option>
+        <option value="unassigned">Unassigned</option>
+      </select>
       <div class="segmented">
         <button [class.selected]="view() === 'list'" (click)="view.set('list')">List</button
         ><button [class.selected]="view() === 'board'" (click)="view.set('board')">Board</button>
@@ -171,6 +180,29 @@
               : 'To do'
         }}
       </p>
+      @if (task.visibility === 'workspace') {
+        <div class="task-assignment">
+          <label
+            >Assigned member<select
+              [value]="task.assignee_id ?? ''"
+              (change)="assign(task, $event)"
+              [disabled]="busy() || !store.canEdit(task)"
+            >
+              <option value="">Unassigned</option>
+              @for (member of store.taskMembers(); track member.user_id) {
+                <option [value]="member.user_id">
+                  {{ member.display_name || 'Member ' + member.user_id.slice(0, 8) }} ·
+                  {{ member.role }}
+                </option>
+              }
+            </select></label
+          >
+          <p class="muted">
+            Assignment keeps current access permissions. The creator and workspace owner control
+            shared task status; members with write access can record their own time.
+          </p>
+        </div>
+      }
       @if (task.visibility === 'private' && task.owner_id === store.profile()?.id) {
         <form [formGroup]="taskConfig" (ngSubmit)="configureTask()">
           <div class="form-row">
@@ -284,6 +316,9 @@
     </section>
   }
 }
+@if (page === 'tasks' || page === 'inbox') {
+  <app-task-time [selectedTask]="detailedTask()" />
+}
 @switch (page) {
   @case ('tasks') {
     @if (view() === 'board') {
@@ -303,7 +338,9 @@
               <article class="panel kanban-card">
                 <span [class]="'priority ' + task.priority">{{ task.priority }}</span>
                 <h3>{{ task.title }}</h3>
-                <small>{{ listName(task) }} · {{ itemCount(task) }}</small
+                <small
+                  >{{ listName(task) }} · {{ itemCount(task) ? itemCount(task) + ' · ' : ''
+                  }}{{ assigneeName(task) }}</small
                 ><button
                   class="button subtle"
                   (click)="openTask(task)"
@@ -600,7 +637,10 @@
 <ng-template #taskList
   ><section class="panel">
     <div class="panel-heading">
-      <h2>{{ tasks().length }} tasks <span class="muted">· A little at a time</span></h2>
+      <h2>
+        {{ tasks().length }} {{ tasks().length === 1 ? 'task' : 'tasks' }}
+        <span class="muted">· A little at a time</span>
+      </h2>
     </div>
     @for (t of tasks(); track t.id) {
       <div class="task-row full-task-row" [class.completed]="t.status === 'done'">
@@ -622,7 +662,8 @@
             {{
               t.due_date ? (t.due_date + 'T00:00:00Z' | date: 'd MMM yyyy' : 'UTC') : 'No due date'
             }}
-            · {{ listName(t) }} · {{ itemCount(t) }}{{ t.series_id ? ' · repeats' : '' }}</small
+            · {{ listName(t) }} · {{ itemCount(t) }} · {{ assigneeName(t)
+            }}{{ t.series_id ? ' · repeats' : '' }}</small
           >
         </div>
         <button

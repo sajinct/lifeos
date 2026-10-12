@@ -40,6 +40,8 @@ import {
   Project,
   Task,
   TaskList,
+  TaskTime,
+  TaskMember,
   TaskSeries,
   TaskChecklist,
   Transaction,
@@ -62,6 +64,8 @@ export class LifeStore {
   readonly workspaces = signal<Workspace[]>([]);
   readonly workspace = signal<Workspace | null>(null);
   readonly members = signal<Member[]>([]);
+  readonly taskTimes = signal<TaskTime[]>([]);
+  readonly taskMembers = signal<TaskMember[]>([]);
   readonly taskLists = signal<TaskList[]>([]);
   readonly taskSeries = signal<TaskSeries[]>([]);
   readonly taskChecklist = signal<TaskChecklist[]>([]);
@@ -210,6 +214,10 @@ export class LifeStore {
     this.habits.set(d.habits);
     this.habitPeriods.set(d.habitPeriods);
     this.habitCheckins.set(d.habitCheckins);
+    this.taskTimes.set(d.taskTimes);
+    this.taskMembers.set([
+      { user_id: this.profile()!.id, display_name: this.profile()!.display_name, role: 'owner' },
+    ]);
     this.taskLists.set(d.taskLists);
     this.taskSeries.set(d.taskSeries);
     this.taskChecklist.set(d.taskChecklist);
@@ -245,6 +253,8 @@ export class LifeStore {
     this.habits.set([]);
     this.habitPeriods.set([]);
     this.habitCheckins.set([]);
+    this.taskTimes.set([]);
+    this.taskMembers.set([]);
     this.taskLists.set([]);
     this.taskSeries.set([]);
     this.taskChecklist.set([]);
@@ -296,6 +306,7 @@ export class LifeStore {
         habits: this.habits(),
         habitPeriods: this.habitPeriods(),
         habitCheckins: this.habitCheckins(),
+        taskTimes: this.taskTimes(),
         taskLists: this.taskLists(),
         taskSeries: this.taskSeries(),
         taskChecklist: this.taskChecklist(),
@@ -337,6 +348,14 @@ export class LifeStore {
         this.habits.set(d.habits);
         this.habitPeriods.set(d.habitPeriods);
         this.habitCheckins.set(d.habitCheckins);
+        this.taskTimes.set(d.taskTimes);
+        this.taskMembers.set([
+          {
+            user_id: this.profile()!.id,
+            display_name: this.profile()!.display_name,
+            role: 'owner',
+          },
+        ]);
         this.taskLists.set(d.taskLists);
         this.taskSeries.set(d.taskSeries);
         this.taskChecklist.set(d.taskChecklist);
@@ -354,6 +373,13 @@ export class LifeStore {
         this.activity.set(d.activity);
         this.notifications.set(d.notifications);
       }
+      this.taskMembers.set([
+        {
+          user_id: 'demo-user',
+          display_name: this.profile()?.display_name ?? 'Alex',
+          role: 'owner',
+        },
+      ]);
       this.members.set([{ workspace_id: w.id, user_id: 'demo-user', role: 'owner' }]);
       this.loading.set(false);
       return;
@@ -620,6 +646,31 @@ export class LifeStore {
           taskRows.push(...page.data);
           if (page.data.length < 500) break;
         }
+      const timeRows: TaskTime[] = [],
+        directory: TaskMember[] = [];
+      for (let offset = 0; ; offset += 500) {
+        const page = await c
+          .from('task_time_entries')
+          .select('*')
+          .eq('workspace_id', w.id)
+          .order('created_at')
+          .order('id')
+          .range(offset, offset + 499);
+        if (page.error) throw page.error;
+        if (run !== this.generation) return;
+        timeRows.push(...page.data);
+        if (page.data.length < 500) break;
+      }
+      for (let offset = 0; ; offset += 500) {
+        const page = await c.rpc('workspace_task_members', { w: w.id }).range(offset, offset + 499);
+        if (page.error) throw page.error;
+        if (run !== this.generation) return;
+        directory.push(...page.data);
+        if (page.data.length < 500) break;
+      }
+      if (run !== this.generation) return;
+      this.taskTimes.set(timeRows);
+      this.taskMembers.set(directory);
       const taskLists: TaskList[] = [],
         taskSeries: TaskSeries[] = [],
         taskChecklist: TaskChecklist[] = [];
@@ -945,6 +996,7 @@ export class LifeStore {
           ...b,
           title,
           status: 'todo',
+          assignee_id: null,
           revision: 1,
           list_id: null,
           series_id: null,
@@ -954,7 +1006,8 @@ export class LifeStore {
           project_id: input.project_id || null,
         };
         if (!this.auth.demo()) {
-          const { revision, list_id, series_id, occurrence_index, ...insert } = row;
+          const { assignee_id, revision, list_id, series_id, occurrence_index, ...insert } = row;
+          void assignee_id;
           void revision;
           void list_id;
           void series_id;
@@ -1421,6 +1474,7 @@ export class LifeStore {
       habits: this.habits(),
       habitPeriods: this.habitPeriods(),
       habitCheckins: this.habitCheckins(),
+      taskTimes: this.taskTimes(),
       taskLists: this.taskLists(),
       taskSeries: this.taskSeries(),
       taskChecklist: this.taskChecklist(),

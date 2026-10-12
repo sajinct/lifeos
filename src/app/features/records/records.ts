@@ -14,18 +14,39 @@ import {
   Frequency,
 } from '../../core/models/domain';
 import { TaskLibrary } from '../../core/services/tasks';
+import { TaskWork } from '../../core/services/task-work';
+import { TaskTimePanel } from './task-time-panel';
 import { Icon } from '../../shared/components/icon';
 import { accountBalance, localDate, csv } from '../../shared/utilities/finance';
 import { FinancePlanning } from './finance-planning';
 import { toSignal } from '@angular/core/rxjs-interop';
 @Component({
   selector: 'app-records',
-  imports: [Icon, DatePipe, DecimalPipe, NgTemplateOutlet, ReactiveFormsModule, FinancePlanning],
+  imports: [
+    Icon,
+    DatePipe,
+    DecimalPipe,
+    NgTemplateOutlet,
+    ReactiveFormsModule,
+    FinancePlanning,
+    TaskTimePanel,
+  ],
   templateUrl: './records.html',
 })
 export class Records {
   readonly store = inject(LifeStore);
   readonly library = inject(TaskLibrary);
+  readonly work = inject(TaskWork);
+  readonly assignmentFilter = signal('all');
+  assigneeName(task: Task) {
+    const member = this.store.taskMembers().find((m) => m.user_id === task.assignee_id);
+    return member?.display_name || (task.assignee_id ? 'Workspace member' : 'Unassigned');
+  }
+  async assign(task: Task, event: Event) {
+    const select = event.target as HTMLSelectElement;
+    await this.taskAction(() => this.work.assign(task, select.value), 'Task assignment updated');
+    select.value = this.store.tasks().find((t) => t.id === task.id)?.assignee_id ?? '';
+  }
   readonly taskListFilter = signal('all');
   readonly taskDetailsId = signal('');
   readonly detailedTask = computed(() =>
@@ -68,6 +89,7 @@ export class Records {
         list: this.listName(t),
         project: this.store.projectTitle(t.project_id),
         visibility: t.visibility,
+        assignee: this.assigneeName(t),
         repeat: this.store.taskSeries().find((s) => s.id === t.series_id)?.frequency ?? '',
         checklist: this.store
           .taskChecklist()
@@ -95,6 +117,7 @@ export class Records {
       this.taskDetailsId.set('');
       this.listEditor.set(false);
       this.taskListFilter.set('all');
+      this.assignmentFilter.set('all');
     });
   }
   openTask(task: Task) {
@@ -236,7 +259,11 @@ export class Records {
       .filter((t) =>
         this.reminderId()
           ? t.id === this.reminderId()
-          : this.matches(t.title) &&
+          : (this.assignmentFilter() === 'all' ||
+              (this.assignmentFilter() === 'me'
+                ? t.assignee_id === this.store.profile()?.id
+                : !t.assignee_id)) &&
+            this.matches(t.title) &&
             (this.filter() === 'all' || t.status === this.filter()) &&
             (this.taskListFilter() === 'all' ||
               (this.taskListFilter() === 'unlisted'

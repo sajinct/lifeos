@@ -57,6 +57,7 @@ export function demoData() {
   ];
   const tasks: Task[] = [
     {
+      assignee_id: null,
       revision: 1,
       list_id: null,
       series_id: null,
@@ -69,6 +70,7 @@ export function demoData() {
       project_id: 'p1',
     },
     {
+      assignee_id: null,
       revision: 1,
       list_id: null,
       series_id: null,
@@ -81,6 +83,7 @@ export function demoData() {
       project_id: null,
     },
     {
+      assignee_id: null,
       revision: 1,
       list_id: null,
       series_id: null,
@@ -93,6 +96,7 @@ export function demoData() {
       project_id: null,
     },
     {
+      assignee_id: null,
       revision: 1,
       list_id: null,
       series_id: null,
@@ -105,6 +109,7 @@ export function demoData() {
       project_id: 'p3',
     },
     {
+      assignee_id: null,
       revision: 1,
       list_id: null,
       series_id: null,
@@ -117,6 +122,7 @@ export function demoData() {
       project_id: 'p2',
     },
     {
+      assignee_id: null,
       revision: 1,
       list_id: null,
       series_id: null,
@@ -129,6 +135,7 @@ export function demoData() {
       project_id: 'p3',
     },
     {
+      assignee_id: null,
       revision: 1,
       list_id: null,
       series_id: null,
@@ -349,6 +356,7 @@ export function demoData() {
     habits: [] as import('../models/domain').Habit[],
     habitPeriods: [] as import('../models/domain').HabitPeriod[],
     habitCheckins: [] as import('../models/domain').HabitCheckin[],
+    taskTimes: [] as import('../models/domain').TaskTime[],
     taskLists: [] as import('../models/domain').TaskList[],
     taskSeries: [] as import('../models/domain').TaskSeries[],
     taskChecklist: [] as import('../models/domain').TaskChecklist[],

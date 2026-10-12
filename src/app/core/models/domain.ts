@@ -26,6 +26,7 @@ export interface Member {
   role: 'owner' | 'editor' | 'viewer';
 }
 export interface Task extends OwnedRecord {
+  assignee_id: string | null;
   revision: number;
   list_id: string | null;
   series_id: string | null;
@@ -35,6 +36,25 @@ export interface Task extends OwnedRecord {
   priority: 'low' | 'medium' | 'high';
   due_date: string | null;
   project_id: string | null;
+}
+export interface TaskMember {
+  user_id: string;
+  display_name: string;
+  role: Member['role'];
+}
+export interface TaskTime extends OwnedRecord {
+  task_id: string | null;
+  task_title: string;
+  project_id: string | null;
+  project_title: string;
+  mode: 'manual' | 'timer';
+  status: 'running' | 'recorded' | 'void';
+  logged_on: string;
+  seconds: number;
+  started_at: string | null;
+  ended_at: string | null;
+  notes: string;
+  revision: number;
 }
 export interface TaskList extends OwnedRecord {
   name: string;
@@ -558,6 +578,7 @@ export type CareerInput = Pick<
   document_ids: string[];
 };
 export interface TableRows {
+  task_time_entries: TaskTime;
   task_lists: TaskList;
   task_series: TaskSeries;
   task_checklist: TaskChecklist;
@@ -607,6 +628,31 @@ export type Database = {
     Tables: { [K in keyof TableRows]: Table<TableRows[K]> };
     Views: Record<string, never>;
     Functions: {
+      workspace_task_members: { Args: { w: string }; Returns: TaskMember[] };
+      assign_workspace_task: {
+        Args: { entry: string; expected_revision: number; assignee: string | null };
+        Returns: undefined;
+      };
+      save_manual_task_time: {
+        Args: {
+          entry: string;
+          w: string;
+          expected_revision: number | null;
+          parent: string | null;
+          work_day: string;
+          duration_seconds: number;
+          entry_notes: string;
+        };
+        Returns: string;
+      };
+      start_task_timer: {
+        Args: { entry: string; w: string; parent: string; entry_notes: string };
+        Returns: string;
+      };
+      act_on_task_time: {
+        Args: { entry: string; expected_revision: number; action: string };
+        Returns: undefined;
+      };
       remove_task_checklist: {
         Args: { entry: string; expected_revision: number };
         Returns: undefined;

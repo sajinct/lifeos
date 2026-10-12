@@ -3598,3 +3598,66 @@ td:last-child {
   flex: 1;
   min-width: 180px;
 }
+.task-time-panel {
+  margin-block: 24px;
+  padding: 24px;
+}
+.task-time-panel .panel-heading {
+  padding: 0 0 16px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.task-time-panel form {
+  margin-block: 20px;
+}
+.task-time-panel .heading-actions {
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.running-task-timer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 16px;
+  background: var(--accent-bg);
+  border-radius: 12px;
+}
+.running-task-timer > div {
+  flex: 1;
+  min-width: 160px;
+}
+.time-filters {
+  align-items: end;
+  flex-wrap: wrap;
+}
+.time-filters label {
+  flex: 1;
+  min-width: 140px;
+}
+.time-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-block: 16px;
+}
+.time-summary-grid > div {
+  padding: 16px;
+}
+.time-history article {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.time-history article > div:first-child {
+  flex: 1;
+  min-width: 180px;
+}
+.time-notes {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

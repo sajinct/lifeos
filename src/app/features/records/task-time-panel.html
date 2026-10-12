@@ -1,0 +1,193 @@
+<section class="panel task-time-panel">
+  <div class="panel-heading">
+    <div>
+      <h2>Your time & productivity</h2>
+      <p>
+        {{ format(totals()) }} recorded · {{ sessions() }}
+        {{ sessions() === 1 ? 'session' : 'sessions' }} in selected period
+      </p>
+    </div>
+    <button class="button subtle" (click)="open.set(!open())" [attr.aria-expanded]="open()">
+      {{ open() ? 'Hide time tracking' : 'Show time tracking' }}
+    </button>
+  </div>
+  @if (running(); as timer) {
+    <div class="running-task-timer">
+      <div>
+        <strong>{{ timer.task_title }}</strong>
+        <p>
+          Running · {{ elapsed() }} · {{ timer.logged_on + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }}
+        </p>
+      </div>
+      <button
+        class="button primary"
+        (click)="act(timer, 'stop')"
+        [disabled]="busy() || !store.writable()"
+      >
+        Stop timer</button
+      ><button
+        class="button subtle"
+        (click)="act(timer, 'void')"
+        [disabled]="busy() || !store.writable()"
+      >
+        Discard timer
+      </button>
+    </div>
+  }
+  @if (error()) {
+    <p role="alert" class="form-error">{{ error() }}</p>
+  }
+  @if (open()) {
+    <p class="muted">
+      Your time records are private. One timer can run per workspace. Timers cap at 24 hours and use
+      the start date in your profile time zone.
+    </p>
+    <form [formGroup]="form" (ngSubmit)="record()">
+      <h3>{{ previous() ? 'Edit manual time · ' + previous()!.task_title : 'Record work' }}</h3>
+      <div class="form-row">
+        <label
+          >Time tracking task<select formControlName="task">
+            <option value="">Choose a task</option>
+            @for (task of store.tasks(); track task.id) {
+              <option [value]="task.id">
+                {{ task.title }}{{ task.due_date ? ' · ' + task.due_date : '' }}
+              </option>
+            }
+          </select></label
+        ><label
+          >Work date<input
+            type="date"
+            formControlName="day"
+            min="1900-01-01"
+            [max]="work.today()" /></label
+        ><label
+          >Minutes<input formControlName="minutes" inputmode="numeric" placeholder="30"
+        /></label>
+      </div>
+      <label
+        >Work notes<textarea
+          formControlName="notes"
+          maxlength="2000"
+          rows="2"
+          placeholder="What did you work on?"
+        ></textarea>
+      </label>
+      <div class="heading-actions">
+        <button class="button primary" [disabled]="busy() || !store.writable()">
+          {{ previous() ? 'Save manual time' : 'Record manual time' }}
+        </button>
+        @if (previous()) {
+          <button type="button" class="button subtle" (click)="reset()" [disabled]="busy()">
+            Cancel time edit
+          </button>
+        } @else {
+          <button
+            type="button"
+            class="button subtle"
+            (click)="start()"
+            [disabled]="busy() || !store.writable() || !!running()"
+          >
+            Start timer
+          </button>
+        }
+      </div>
+    </form>
+    <p class="muted">Date and minutes apply to manual entries. A timer starts now.</p>
+    <div class="records-toolbar time-filters">
+      <label
+        >Time from<input
+          type="date"
+          [value]="from()"
+          (input)="from.set($any($event.target).value)" /></label
+      ><label
+        >Time through<input
+          type="date"
+          [value]="until()"
+          (input)="until.set($any($event.target).value)" /></label
+      ><label
+        >Summarize by<select [value]="group()" (change)="group.set($any($event.target).value)">
+          <option value="task">Task</option>
+          <option value="project">Project</option>
+        </select></label
+      ><label
+        ><input
+          type="checkbox"
+          [checked]="showVoid()"
+          (change)="showVoid.set($any($event.target).checked)"
+        />Show discarded entries</label
+      ><button class="button subtle" (click)="export()" [disabled]="rangeError()">
+        Export time CSV
+      </button>
+    </div>
+    @if (rangeError()) {
+      <p class="form-error">
+        Choose valid dates from 1900 to 2100, with the start before or equal to the end.
+      </p>
+    }
+    <div class="time-summary-grid">
+      @for (row of summaries(); track $index) {
+        <div class="panel">
+          <strong>{{ row.label }}</strong>
+          <p>
+            {{ format(row.seconds) }} · {{ row.sessions }}
+            {{ row.sessions === 1 ? 'session' : 'sessions' }}
+          </p>
+        </div>
+      } @empty {
+        <p class="muted">No completed time in this period.</p>
+      }
+    </div>
+    <h3>Your time history</h3>
+    <div class="time-history">
+      @for (entry of history(); track entry.id) {
+        <article>
+          <div>
+            <strong>{{ entry.task_title }}</strong>
+            <p>
+              {{ entry.logged_on + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }} ·
+              {{ format(entry.seconds) }} · {{ entry.mode
+              }}{{ entry.status === 'void' ? ' · discarded' : ''
+              }}{{ entry.project_title ? ' · ' + entry.project_title : '' }}
+            </p>
+            @if (entry.notes) {
+              <p class="time-notes">{{ entry.notes }}</p>
+            }
+          </div>
+          <div class="heading-actions">
+            @if (entry.status === 'recorded') {
+              @if (entry.mode === 'manual') {
+                <button
+                  class="button subtle"
+                  (click)="edit(entry)"
+                  [disabled]="busy() || !store.writable()"
+                  [attr.aria-label]="'Edit time for ' + entry.task_title"
+                >
+                  Edit
+                </button>
+              }
+              <button
+                class="button subtle"
+                (click)="act(entry, 'void')"
+                [disabled]="busy() || !store.writable()"
+                [attr.aria-label]="'Discard time for ' + entry.task_title"
+              >
+                Discard
+              </button>
+            } @else {
+              <button
+                class="button subtle"
+                (click)="act(entry, 'restore')"
+                [disabled]="busy() || !store.writable()"
+                [attr.aria-label]="'Restore time for ' + entry.task_title"
+              >
+                Restore
+              </button>
+            }
+          </div>
+        </article>
+      } @empty {
+        <p class="muted">Time you record will appear here. Stopping a timer saves it once.</p>
+      }
+    </div>
+  }
+</section>
