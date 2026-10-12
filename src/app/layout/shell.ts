@@ -51,6 +51,7 @@ export class Shell implements OnInit {
   readonly life = [
     { path: '/finance', name: 'Finance', icon: 'wallet' },
     { path: '/family', name: 'Family & household', icon: 'family' },
+    { path: '/career', name: 'Career', icon: 'project' },
     { path: '/assets', name: 'Assets & maintenance', icon: 'project' },
     { path: '/contacts', name: 'Contacts', icon: 'contacts' },
     { path: '/loans', name: 'Loans & repayments', icon: 'wallet' },

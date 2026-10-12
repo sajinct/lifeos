@@ -4,6 +4,7 @@ import { beforeAll, afterAll, describe, it, expect } from 'vitest';
 import { contactSecurityTests } from './contact-security';
 import { householdSecurityTests } from './household-security';
 import { assetSecurityTests } from './asset-security';
+import { careerSecurityTests } from './career-security';
 import { reportSecurityTests } from './report-security';
 import { loanSecurityTests } from './loan-security';
 import { subscriptionSecurityTests } from './subscription-security';
@@ -116,7 +117,7 @@ describe('Actual PostgreSQL RLS and permission boundaries', () => {
         "select tablename,rowsecurity from pg_tables where schemaname='public'",
       )
     ).rows;
-    expect(rows.length).toBe(32);
+    expect(rows.length).toBe(34);
     expect(rows.every((r) => r.rowsecurity)).toBe(true);
   });
   it('denies anonymous reads and workspace creation', async () => {
@@ -1091,3 +1092,4 @@ reportSecurityTests(() => db, asUser, A, B);
 contactSecurityTests(() => db, asUser, A, B);
 householdSecurityTests(() => db, asUser, A, B, C);
 assetSecurityTests(() => db, asUser, A, B);
+careerSecurityTests(() => db, asUser, A, B);

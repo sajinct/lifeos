@@ -117,6 +117,31 @@ import { UiService } from '../../core/services/ui';
             step="1"
         /></label>
       </div>
+      <label class="reminder-toggle"
+        ><input type="checkbox" formControlName="career_reminders" />Career follow-ups, interviews
+        and certifications</label
+      >
+      <div class="form-grid">
+        <label
+          >Application reminder lead time (days)<input
+            type="number"
+            formControlName="career_lead_days"
+            min="0"
+            max="90"
+            step="1" /></label
+        ><label
+          >Certification reminder lead time (days)<input
+            type="number"
+            formControlName="certification_lead_days"
+            min="0"
+            max="90"
+            step="1"
+        /></label>
+      </div>
+      <p class="form-hint">
+        Closed or archived applications stop alerts. Mark a follow-up or interview done to clear its
+        date. Archived certifications stop expiry alerts.
+      </p>
       <div class="form-grid">
         <label
           >Daily delivery hour<select formControlName="reminder_hour">
@@ -190,6 +215,9 @@ export class ReminderSettings {
     loan_reminders: false,
     contact_reminders: false,
     family_reminders: false,
+    career_reminders: false,
+    career_lead_days: [1, [Validators.required, Validators.min(0), Validators.max(90)]],
+    certification_lead_days: [30, [Validators.required, Validators.min(0), Validators.max(90)]],
     asset_reminders: false,
     warranty_lead_days: [30, [Validators.required, Validators.min(0), Validators.max(90)]],
     maintenance_lead_days: [7, [Validators.required, Validators.min(0), Validators.max(90)]],

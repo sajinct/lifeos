@@ -1,0 +1,308 @@
+<div class="page-heading">
+  <div>
+    <span class="eyebrow">Your professional life</span>
+    <h1>Career</h1>
+    <p>Employment, applications and certifications, kept private.</p>
+  </div>
+  <button
+    class="button primary"
+    (click)="add()"
+    [disabled]="busy() || store.loading() || !store.writable()"
+  >
+    Add
+    {{
+      section() === 'employment'
+        ? 'employment'
+        : section() === 'application'
+          ? 'application'
+          : 'certification'
+    }}
+  </button>
+</div>
+<div class="contact-stats">
+  <section class="panel">
+    <span>Employment records</span><strong>{{ counts().employment }}</strong>
+  </section>
+  <section class="panel">
+    <span>Open applications</span><strong>{{ counts().applications }}</strong>
+  </section>
+  <section class="panel">
+    <span>Active certifications</span><strong>{{ counts().certifications }}</strong>
+  </section>
+</div>
+<p class="form-hint">
+  Only you can access these records, including in shared workspaces. Interview dates are day
+  reminders; keep exact times in your calendar. Reminder delivery can be enabled in
+  <a routerLink="/settings">Settings</a>.
+</p>
+<div class="records-toolbar contact-toolbar">
+  <div class="segmented">
+    <button [class.selected]="section() === 'employment'" (click)="tab('employment')">
+      Employment & skills</button
+    ><button [class.selected]="section() === 'application'" (click)="tab('application')">
+      Job applications</button
+    ><button [class.selected]="section() === 'certification'" (click)="tab('certification')">
+      Certifications
+    </button>
+  </div>
+  <label class="filter-search"
+    ><span class="sr-only">Search career records</span
+    ><input
+      placeholder="Search roles, companies or skills"
+      [value]="search()"
+      (input)="search.set($any($event.target).value)" /></label
+  ><label
+    ><span class="sr-only">Career status filter</span
+    ><select [value]="status()" (change)="status.set($any($event.target).value)">
+      <option value="open">Open / active</option>
+      <option value="all">All statuses</option>
+      @for (s of statuses[section()]; track s) {
+        <option [value]="s">{{ s | titlecase }}</option>
+      }
+    </select></label
+  ><button
+    class="button"
+    (click)="export()"
+    [disabled]="!rows().length || store.loading() || !!store.error()"
+  >
+    Export CSV
+  </button>
+</div>
+@if (selectedId()) {
+  <div class="file-reminder-banner">
+    Showing the selected career record. <a routerLink="/career">Show all records</a>
+  </div>
+}
+@if (error() || store.error()) {
+  <p class="error-banner" role="alert">{{ error() || store.error() }}</p>
+}
+@if (formOpen()) {
+  <section class="panel subscription-form">
+    <h2>{{ editing() ? 'Edit' : 'New' }} {{ form.controls.kind.value }}</h2>
+    <form [formGroup]="form" (ngSubmit)="save()">
+      <div class="form-grid">
+        <label
+          >{{ form.controls.kind.value === 'certification' ? 'Certification name' : 'Role title'
+          }}<input formControlName="title" maxlength="200" required /></label
+        ><label
+          >{{ form.controls.kind.value === 'certification' ? 'Issuing organization' : 'Company'
+          }}<input formControlName="organization" maxlength="200" required
+        /></label>
+        <label>Location<input formControlName="location" maxlength="200" /></label
+        ><label
+          >Status<select formControlName="status">
+            @for (s of statuses[form.controls.kind.value]; track s) {
+              <option [value]="s">{{ s | titlecase }}</option>
+            }
+          </select></label
+        >
+        @if (form.controls.kind.value === 'employment') {
+          <label
+            >Employment start date<input
+              type="date"
+              formControlName="starts_on"
+              min="1900-01-01"
+              [max]="library.today()"
+              required /></label
+          ><label
+            >Employment end date (leave empty for current role)<input
+              type="date"
+              formControlName="ends_on"
+              min="1900-01-01"
+              [max]="library.today()"
+          /></label>
+        } @else if (form.controls.kind.value === 'application') {
+          <label
+            >Applied on<input
+              type="date"
+              formControlName="applied_on"
+              min="1900-01-01"
+              [max]="library.today()"
+              required /></label
+          ><label
+            >Interview date (optional)<input
+              type="date"
+              formControlName="interview_on"
+              min="1900-01-01"
+              max="2100-12-31" /></label
+          ><label
+            >Next follow-up date (optional)<input
+              type="date"
+              formControlName="follow_up_on"
+              min="1900-01-01"
+              max="2100-12-31"
+          /></label>
+        } @else {
+          <label
+            >Issued on (optional)<input
+              type="date"
+              formControlName="starts_on"
+              min="1900-01-01"
+              [max]="library.today()" /></label
+          ><label
+            >Certification expires on (optional)<input
+              type="date"
+              formControlName="expires_on"
+              min="1900-01-01"
+              max="2100-12-31"
+          /></label>
+        }
+        <label
+          >Related link (optional)<input
+            formControlName="url"
+            maxlength="2000"
+            placeholder="https://"
+        /></label>
+      </div>
+      <label
+        >Skills (comma separated)<input
+          formControlName="skills"
+          maxlength="2000"
+          placeholder="Angular, project management, communication" /></label
+      ><label
+        >Career notes<textarea formControlName="notes" maxlength="4000" rows="3"></textarea>
+      </label>
+      <fieldset class="asset-document-picker">
+        <legend>Link your CV, certificate or offer documents</legend>
+        @for (f of library.documents(); track f.id) {
+          <label class="asset-document-option"
+            ><input
+              type="checkbox"
+              [checked]="form.controls.document_ids.value.includes(f.id)"
+              (change)="selectDocument(f.id, $any($event.target).checked)"
+            />{{ f.name }}
+            @if (f.status === 'archived') {
+              <small>Archived version</small>
+            }
+          </label>
+        } @empty {
+          <p class="form-hint">
+            Upload documents in the Documents library, then return to link them.
+          </p>
+        }
+      </fieldset>
+      <p class="form-hint">
+        Links keep the selected file version. Application status changes do not create employment
+        records or send messages.
+      </p>
+      <div class="heading-actions">
+        <button type="submit" class="button primary" [disabled]="busy()">Save career record</button
+        ><button type="button" class="button" (click)="formOpen.set(false)" [disabled]="busy()">
+          Cancel
+        </button>
+      </div>
+    </form>
+  </section>
+}
+@if (store.loading()) {
+  <p class="empty-state">Loading career records…</p>
+} @else {
+  <div class="contact-cards">
+    @for (r of rows(); track r.id) {
+      <article class="panel contact-card">
+        <div class="contact-card-heading">
+          <div>
+            <span class="eyebrow">{{ r.kind | titlecase }}</span>
+            <h2>{{ r.title }}</h2>
+            <p>
+              {{ r.organization }}
+              @if (r.location) {
+                · {{ r.location }}
+              }
+            </p>
+          </div>
+          <span class="priority">{{ r.status | titlecase }}</span>
+        </div>
+        <span class="priority">Private</span>
+        <dl class="career-details">
+          @if (r.starts_on) {
+            <div>
+              <dt>{{ r.kind === 'certification' ? 'Issued' : 'Started' }}</dt>
+              <dd>
+                {{ r.starts_on + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }}
+                @if (r.kind === 'employment') {
+                  –
+                  {{ r.ends_on ? (r.ends_on + 'T00:00:00Z' | date: 'd MMM y' : 'UTC') : 'Present' }}
+                }
+              </dd>
+            </div>
+          }
+          @if (r.applied_on) {
+            <div>
+              <dt>Applied</dt>
+              <dd>{{ r.applied_on + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }}</dd>
+            </div>
+          }
+          @if (r.interview_on) {
+            <div>
+              <dt>Interview</dt>
+              <dd>{{ r.interview_on + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }}</dd>
+            </div>
+          }
+          @if (r.follow_up_on) {
+            <div>
+              <dt>Follow-up</dt>
+              <dd>{{ r.follow_up_on + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }}</dd>
+            </div>
+          }
+          @if (r.expires_on) {
+            <div>
+              <dt>Expires</dt>
+              <dd>{{ r.expires_on + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }}</dd>
+            </div>
+          }
+          @if (r.skills) {
+            <div>
+              <dt>Skills</dt>
+              <dd>{{ r.skills }}</dd>
+            </div>
+          }
+        </dl>
+        @if (r.url) {
+          <a [href]="r.url" target="_blank" rel="noopener noreferrer">Open related link</a>
+        }
+        @if (r.notes) {
+          <p class="contact-notes">{{ r.notes }}</p>
+        }
+        <div class="heading-actions">
+          @for (l of links(r); track l.id) {
+            <button class="button" (click)="openDocument(l.attachment_id)" [disabled]="busy()">
+              {{ documentName(l.attachment_id) }}
+            </button>
+          }
+        </div>
+        @if (store.writable()) {
+          <div class="heading-actions">
+            <button class="button" (click)="add(r)" [disabled]="busy()">Edit</button>
+            @if (r.kind === 'application' && open(r)) {
+              @if (r.follow_up_on) {
+                <button class="button" (click)="act(r, 'follow_up')" [disabled]="busy()">
+                  Follow-up done
+                </button>
+              }
+              @if (r.interview_on) {
+                <button class="button" (click)="act(r, 'interview')" [disabled]="busy()">
+                  Interview done
+                </button>
+              }
+            }
+            @if (r.status === 'archived') {
+              <button class="button" (click)="act(r, 'restore')" [disabled]="busy()">
+                {{ r.kind === 'application' ? 'Restore as applied' : 'Restore' }}
+              </button>
+            } @else {
+              <button class="button" (click)="act(r, 'archive')" [disabled]="busy()">
+                Archive
+              </button>
+            }
+          </div>
+        }
+      </article>
+    } @empty {
+      <div class="panel empty-state">
+        <h2>No matching career records</h2>
+        <p>Add your first {{ section() }} record or adjust the filters.</p>
+      </div>
+    }
+  </div>
+}

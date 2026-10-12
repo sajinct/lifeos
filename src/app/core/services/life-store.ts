@@ -22,6 +22,8 @@ import {
   Contact,
   ContactLink,
   HouseholdMember,
+  CareerRecord,
+  CareerDocument,
   Asset,
   AssetDocument,
   MaintenancePlan,
@@ -65,6 +67,8 @@ export class LifeStore {
   readonly recurring = signal<RecurringTransaction[]>([]);
   readonly householdMembers = signal<HouseholdMember[]>([]);
   readonly householdEntries = signal<HouseholdEntry[]>([]);
+  readonly careerRecords = signal<CareerRecord[]>([]);
+  readonly careerDocuments = signal<CareerDocument[]>([]);
   readonly assets = signal<Asset[]>([]);
   readonly assetDocuments = signal<AssetDocument[]>([]);
   readonly maintenancePlans = signal<MaintenancePlan[]>([]);
@@ -189,6 +193,8 @@ export class LifeStore {
     this.loans.set(d.loans);
     this.householdMembers.set(d.householdMembers);
     this.householdEntries.set(d.householdEntries);
+    this.careerRecords.set(d.careerRecords);
+    this.careerDocuments.set(d.careerDocuments);
     this.assets.set(d.assets);
     this.assetDocuments.set(d.assetDocuments);
     this.maintenancePlans.set(d.maintenancePlans);
@@ -215,6 +221,8 @@ export class LifeStore {
     this.loans.set([]);
     this.householdMembers.set([]);
     this.householdEntries.set([]);
+    this.careerRecords.set([]);
+    this.careerDocuments.set([]);
     this.assets.set([]);
     this.assetDocuments.set([]);
     this.maintenancePlans.set([]);
@@ -257,6 +265,8 @@ export class LifeStore {
         loans: this.loans(),
         householdMembers: this.householdMembers(),
         householdEntries: this.householdEntries(),
+        careerRecords: this.careerRecords(),
+        careerDocuments: this.careerDocuments(),
         assets: this.assets(),
         assetDocuments: this.assetDocuments(),
         maintenancePlans: this.maintenancePlans(),
@@ -289,6 +299,8 @@ export class LifeStore {
         this.loans.set(d.loans);
         this.householdMembers.set(d.householdMembers);
         this.householdEntries.set(d.householdEntries);
+        this.careerRecords.set(d.careerRecords);
+        this.careerDocuments.set(d.careerDocuments);
         this.assets.set(d.assets);
         this.assetDocuments.set(d.assetDocuments);
         this.maintenancePlans.set(d.maintenancePlans);
@@ -528,6 +540,26 @@ export class LifeStore {
           else allEntries.push(...(page.data as HouseholdEntry[]));
           if (page.data.length < 500) break;
         }
+      const careerRecords: CareerRecord[] = [],
+        careerDocuments: CareerDocument[] = [];
+      for (const table of ['career_records', 'career_documents'] as const)
+        for (let offset = 0; ; offset += 500) {
+          const page = await c
+            .from(table)
+            .select('*')
+            .eq('workspace_id', w.id)
+            .order('created_at')
+            .order('id')
+            .range(offset, offset + 499);
+          if (page.error) throw page.error;
+          if (run !== this.generation) return;
+          if (table === 'career_records') careerRecords.push(...(page.data as CareerRecord[]));
+          else careerDocuments.push(...(page.data as CareerDocument[]));
+          if (page.data.length < 500) break;
+        }
+      if (run !== this.generation) return;
+      this.careerRecords.set(careerRecords);
+      this.careerDocuments.set(careerDocuments);
       const allAssets: Asset[] = [],
         allAssetDocuments: AssetDocument[] = [],
         allMaintenance: MaintenancePlan[] = [],
@@ -1137,6 +1169,8 @@ export class LifeStore {
       loans: this.loans(),
       householdMembers: this.householdMembers(),
       householdEntries: this.householdEntries(),
+      careerRecords: this.careerRecords(),
+      careerDocuments: this.careerDocuments(),
       assets: this.assets(),
       assetDocuments: this.assetDocuments(),
       maintenancePlans: this.maintenancePlans(),

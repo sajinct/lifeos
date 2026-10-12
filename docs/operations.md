@@ -1,5 +1,15 @@
 # Setup, deployment, and recovery
 
+## Career and professional records
+
+Employment, applications and certifications are private to their creator, even in shared workspaces. Use Career to record employment dates and skills, application stages and dates, and certificate issue/expiry dates. Dates support 1900–2100; employment and application/issue dates must be today or earlier in the profile time zone. Interviews use day reminders; store exact appointment times in Calendar.
+
+Link up to 50 own ready/archived files in the current workspace. Links retain the exact selected version. A renewed CV or certificate must be selected explicitly. Storage access remains private, and no bytes are cached offline.
+
+Enable Career reminders in Settings. Follow-ups and interviews have a shared lead time; certification expiry has a separate one. Defaults are disabled. Accepted, rejected, withdrawn and archived applications stop notices. Follow-up done and Interview done clear the respective date with revision protection. Archive keeps all details and links. Restore as applied explicitly reopens an archived application; adjust its dates/status as needed. Archived certifications stop expiry alerts. Reusing an already delivered source/date/phase does not issue that notice again.
+
+Application changes do not send messages, create employment or post Finance entries. CSV follows the visible section/search/status filter (or selected reminder record), escapes spreadsheet formulas and includes document names/IDs. Workspace JSON contains all accessible career records and links through full pagination. File bytes require the existing separate Storage backup. Live verification is in scripts/career-cloud-smoke.sql and rolls back synthetic identities/records.
+
 ## Assets & maintenance
 
 Open **Assets & maintenance** to add an appliance, electronic device, vehicle or other possession. Store name/category, make/model, serial or registration number, location, optional purchase date/price/currency, warranty end and notes. Purchase must be today or earlier; warranty must follow purchase when known. Prices use non-negative amounts with at most two decimal places, below one trillion. The register is private to its owner, even in family workspaces; workspace owners cannot read another member's assets. Viewers can read their previously owned records but cannot write. Removed members lose access.

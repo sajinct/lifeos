@@ -3384,6 +3384,20 @@ td:last-child {
 .contact-details strong {
   font-weight: 400;
 }
+.career-details div {
+  display: grid;
+  grid-template-columns: 85px 1fr;
+  gap: 10px;
+  margin: 12px 0;
+  font-size: 13px;
+}
+.career-details dt {
+  color: var(--secondary);
+}
+.career-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
 .contact-details a {
   overflow-wrap: anywhere;
 }

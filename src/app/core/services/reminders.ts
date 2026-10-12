@@ -43,6 +43,7 @@ export class Reminders {
         new Date(this.now()),
         this.store.assets(),
         this.store.maintenancePlans(),
+        this.store.careerRecords(),
       );
       const prefs = this.store.reminderPreferences();
       const workspace = this.store.workspace();
@@ -162,6 +163,8 @@ export class Reminders {
       [p.family_lead_days, 90],
       [p.warranty_lead_days, 90],
       [p.maintenance_lead_days, 90],
+      [p.career_lead_days, 90],
+      [p.certification_lead_days, 90],
       [p.reminder_hour, 23],
     ])
       if (!Number.isInteger(value) || value < 0 || value > max)
@@ -191,6 +194,9 @@ export class Reminders {
         assets_enabled: p.asset_reminders,
         warranty_days: p.warranty_lead_days,
         maintenance_days: p.maintenance_lead_days,
+        career_enabled: p.career_reminders,
+        career_days: p.career_lead_days,
+        certification_days: p.certification_lead_days,
       });
       if (error) throw error;
     }
@@ -215,25 +221,27 @@ export class Reminders {
       const c = this.backend.requireClient();
       // Fetch the exact source even when it falls outside a screen's newest-500 window.
       const table =
-        n.source_kind === 'warranty'
-          ? 'assets'
-          : n.source_kind === 'maintenance'
-            ? 'maintenance_plans'
-            : n.source_kind === 'family_birthday'
-              ? 'household_members'
-              : n.source_kind === 'family_task' || n.source_kind === 'family_date'
-                ? 'household_entries'
-                : n.source_kind === 'task'
-                  ? 'tasks'
-                  : n.source_kind === 'bill'
-                    ? 'bills'
-                    : n.source_kind === 'document'
-                      ? 'attachments'
-                      : n.source_kind === 'loan'
-                        ? 'loans'
-                        : n.source_kind === 'contact'
-                          ? 'contacts'
-                          : 'subscriptions';
+        n.source_kind.startsWith('career_') || n.source_kind === 'certification'
+          ? 'career_records'
+          : n.source_kind === 'warranty'
+            ? 'assets'
+            : n.source_kind === 'maintenance'
+              ? 'maintenance_plans'
+              : n.source_kind === 'family_birthday'
+                ? 'household_members'
+                : n.source_kind === 'family_task' || n.source_kind === 'family_date'
+                  ? 'household_entries'
+                  : n.source_kind === 'task'
+                    ? 'tasks'
+                    : n.source_kind === 'bill'
+                      ? 'bills'
+                      : n.source_kind === 'document'
+                        ? 'attachments'
+                        : n.source_kind === 'loan'
+                          ? 'loans'
+                          : n.source_kind === 'contact'
+                            ? 'contacts'
+                            : 'subscriptions';
       const { data, error } = await c
         .from(table)
         .select('*')
@@ -274,7 +282,9 @@ export class Reminders {
           ...rows.filter((r) => r.id !== data.id),
           data,
         ]);
-      } else if ('serial_number' in data)
+      } else if ('skills' in data)
+        this.store.careerRecords.update((rows) => [...rows.filter((r) => r.id !== data.id), data]);
+      else if ('serial_number' in data)
         this.store.assets.update((rows) => [...rows.filter((r) => r.id !== data.id), data]);
       else if ('birthday' in data)
         this.store.householdMembers.update((rows) => [
@@ -375,20 +385,22 @@ export class Reminders {
     }
   }
   path(n: Notification) {
-    return n.source_kind === 'warranty' || n.source_kind === 'maintenance'
-      ? '/assets'
-      : n.source_kind?.startsWith('family_')
-        ? '/family'
-        : n.source_kind === 'task'
-          ? '/tasks'
-          : n.source_kind === 'bill'
-            ? '/finance'
-            : n.source_kind === 'document'
-              ? '/documents'
-              : n.source_kind === 'loan'
-                ? '/loans'
-                : n.source_kind === 'contact'
-                  ? '/contacts'
-                  : '/subscriptions';
+    return n.source_kind?.startsWith('career_') || n.source_kind === 'certification'
+      ? '/career'
+      : n.source_kind === 'warranty' || n.source_kind === 'maintenance'
+        ? '/assets'
+        : n.source_kind?.startsWith('family_')
+          ? '/family'
+          : n.source_kind === 'task'
+            ? '/tasks'
+            : n.source_kind === 'bill'
+              ? '/finance'
+              : n.source_kind === 'document'
+                ? '/documents'
+                : n.source_kind === 'loan'
+                  ? '/loans'
+                  : n.source_kind === 'contact'
+                    ? '/contacts'
+                    : '/subscriptions';
   }
 }

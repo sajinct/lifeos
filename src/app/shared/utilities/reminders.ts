@@ -9,6 +9,7 @@ import {
   Contact,
   HouseholdMember,
   HouseholdEntry,
+  CareerRecord,
   Asset,
   MaintenancePlan,
 } from '../../core/models/domain';
@@ -35,9 +36,31 @@ export function reminderSources(
   now: Date = new Date(),
   assets: Asset[] = [],
   maintenance: MaintenancePlan[] = [],
+  career: CareerRecord[] = [],
 ): ReminderSource[] {
   const today = reminderClock(now, p.reminder_timezone).day;
   return [
+    ...career.flatMap((r) => {
+      if (!p.career_reminders) return [];
+      const dates: [ReminderSource['kind'], string | null, number][] =
+        r.kind === 'certification' && r.status === 'active'
+          ? [['certification', r.expires_on, p.certification_lead_days]]
+          : r.kind === 'application' && ['applied', 'interview', 'offer'].includes(r.status)
+            ? [
+                ['career_follow_up', r.follow_up_on, p.career_lead_days],
+                ['career_interview', r.interview_on, p.career_lead_days],
+              ]
+            : [];
+      return dates
+        .filter(([, d]) => d)
+        .map(([kind, date, days]) => ({
+          ...r,
+          title: r.title + ' · ' + r.organization,
+          kind,
+          date: date!,
+          days,
+        }));
+    }),
     ...assets
       .filter((a) => p.asset_reminders && a.status === 'active' && a.warranty_until)
       .map((a) => ({
@@ -147,31 +170,37 @@ export function reminderPhase(source: ReminderSource, day: string): Notification
 }
 export function reminderTitle(s: ReminderSource, phase: Notification['phase']) {
   const label =
-    s.kind === 'warranty'
-      ? 'Asset warranty'
-      : s.kind === 'maintenance'
-        ? 'Maintenance'
-        : s.kind === 'family_birthday'
-          ? 'Birthday'
-          : s.kind === 'family_task'
-            ? 'Household task'
-            : s.kind === 'family_date'
-              ? 'Important date'
-              : s.kind === 'task'
-                ? 'Task'
-                : s.kind === 'bill'
-                  ? 'Bill'
-                  : s.kind === 'document'
-                    ? 'Document'
-                    : s.kind === 'trial'
-                      ? 'Trial'
-                      : s.kind === 'loan'
-                        ? 'Loan repayment'
-                        : s.kind === 'contact'
-                          ? 'Contact follow-up'
-                          : 'Subscription';
+    s.kind === 'career_follow_up'
+      ? 'Application follow-up'
+      : s.kind === 'career_interview'
+        ? 'Interview'
+        : s.kind === 'certification'
+          ? 'Certification'
+          : s.kind === 'warranty'
+            ? 'Asset warranty'
+            : s.kind === 'maintenance'
+              ? 'Maintenance'
+              : s.kind === 'family_birthday'
+                ? 'Birthday'
+                : s.kind === 'family_task'
+                  ? 'Household task'
+                  : s.kind === 'family_date'
+                    ? 'Important date'
+                    : s.kind === 'task'
+                      ? 'Task'
+                      : s.kind === 'bill'
+                        ? 'Bill'
+                        : s.kind === 'document'
+                          ? 'Document'
+                          : s.kind === 'trial'
+                            ? 'Trial'
+                            : s.kind === 'loan'
+                              ? 'Loan repayment'
+                              : s.kind === 'contact'
+                                ? 'Contact follow-up'
+                                : 'Subscription';
   const overdue =
-    s.kind === 'document' || s.kind === 'warranty'
+    s.kind === 'document' || s.kind === 'warranty' || s.kind === 'certification'
       ? 'expired'
       : s.kind === 'trial'
         ? 'ended'
@@ -179,7 +208,7 @@ export function reminderTitle(s: ReminderSource, phase: Notification['phase']) {
           ? 'renewal overdue'
           : 'overdue';
   const verb =
-    s.kind === 'document' || s.kind === 'warranty'
+    s.kind === 'document' || s.kind === 'warranty' || s.kind === 'certification'
       ? 'expires'
       : s.kind === 'trial'
         ? 'ends'

@@ -306,6 +306,8 @@ export function demoData() {
     notifications: [] as import('../models/domain').Notification[],
     householdMembers: [] as import('../models/domain').HouseholdMember[],
     householdEntries: [] as import('../models/domain').HouseholdEntry[],
+    careerRecords: [] as import('../models/domain').CareerRecord[],
+    careerDocuments: [] as import('../models/domain').CareerDocument[],
     assets: [] as import('../models/domain').Asset[],
     assetDocuments: [] as import('../models/domain').AssetDocument[],
     maintenancePlans: [] as import('../models/domain').MaintenancePlan[],

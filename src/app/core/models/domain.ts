@@ -288,6 +288,9 @@ export interface Notification extends OwnedRecord {
     | 'family_task'
     | 'family_date'
     | 'warranty'
+    | 'career_follow_up'
+    | 'career_interview'
+    | 'certification'
     | 'maintenance'
     | null;
   source_id: string | null;
@@ -304,6 +307,9 @@ export interface ReminderPreferences {
   loan_reminders: boolean;
   contact_reminders: boolean;
   family_reminders: boolean;
+  career_reminders: boolean;
+  career_lead_days: number;
+  certification_lead_days: number;
   asset_reminders: boolean;
   warranty_lead_days: number;
   maintenance_lead_days: number;
@@ -325,6 +331,9 @@ export const DEFAULT_REMINDERS: ReminderPreferences = {
   loan_reminders: false,
   contact_reminders: false,
   family_reminders: false,
+  career_reminders: false,
+  career_lead_days: 1,
+  certification_lead_days: 30,
   asset_reminders: false,
   warranty_lead_days: 30,
   maintenance_lead_days: 7,
@@ -429,7 +438,50 @@ export interface ServiceInput {
   cost: string;
   notes: string;
 }
+export interface CareerRecord extends OwnedRecord {
+  kind: 'employment' | 'application' | 'certification';
+  title: string;
+  organization: string;
+  location: string;
+  skills: string;
+  starts_on: string | null;
+  ends_on: string | null;
+  applied_on: string | null;
+  interview_on: string | null;
+  follow_up_on: string | null;
+  expires_on: string | null;
+  url: string;
+  notes: string;
+  status:
+    | 'active'
+    | 'applied'
+    | 'interview'
+    | 'offer'
+    | 'accepted'
+    | 'rejected'
+    | 'withdrawn'
+    | 'archived';
+  revision: number;
+}
+export interface CareerDocument extends OwnedRecord {
+  record_id: string;
+  attachment_id: string;
+}
+export type CareerInput = Pick<
+  CareerRecord,
+  'kind' | 'title' | 'organization' | 'location' | 'skills' | 'url' | 'notes' | 'status'
+> & {
+  starts_on: string;
+  ends_on: string;
+  applied_on: string;
+  interview_on: string;
+  follow_up_on: string;
+  expires_on: string;
+  document_ids: string[];
+};
 export interface TableRows {
+  career_records: CareerRecord;
+  career_documents: CareerDocument;
   profiles: Profile;
   workspaces: Workspace;
   workspace_members: Member;
@@ -470,6 +522,20 @@ export type Database = {
     Tables: { [K in keyof TableRows]: Table<TableRows[K]> };
     Views: Record<string, never>;
     Functions: {
+      save_career_record: {
+        Args: {
+          entry: string;
+          w: string;
+          expected_revision: number | null;
+          details: { [key: string]: string | null };
+          documents: string[];
+        };
+        Returns: string;
+      };
+      act_on_career_record: {
+        Args: { entry: string; expected_revision: number; action: string };
+        Returns: undefined;
+      };
       save_asset: {
         Args: {
           entry: string;
@@ -660,6 +726,9 @@ export type Database = {
           assets_enabled: boolean;
           warranty_days: number;
           maintenance_days: number;
+          career_enabled: boolean;
+          career_days: number;
+          certification_days: number;
         };
         Returns: undefined;
       };
