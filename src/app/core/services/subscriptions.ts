@@ -196,6 +196,14 @@ export class SubscriptionLibrary {
       recurring_id: plan?.id ?? null,
     };
     this.store.subscriptions.update((rows) => [row, ...rows.filter((s) => s.id !== id)]);
+    if (plan)
+      this.store.transactions.update((rows) =>
+        rows.map((t) =>
+          t.recurring_id === plan.id && t.kind === 'expense' && !t.subscription_id
+            ? { ...t, subscription_id: id }
+            : t,
+        ),
+      );
     if (v.status === 'trial' && plan)
       this.store.recurring.update((rows) =>
         rows.map((r) => (r.id === plan!.id ? { ...r, active: false, automatic: false } : r)),

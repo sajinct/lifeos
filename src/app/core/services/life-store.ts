@@ -305,7 +305,13 @@ export class LifeStore {
           .eq('workspace_id', w.id)
           .order('created_at', { ascending: false })
           .limit(500),
-        c.from('accounts').select('*').eq('workspace_id', w.id).order('created_at').limit(500),
+        c
+          .from('accounts')
+          .select('*')
+          .eq('workspace_id', w.id)
+          .order('created_at')
+          .order('id')
+          .range(0, 499),
         c
           .from('transactions')
           .select('*')
@@ -331,8 +337,9 @@ export class LifeStore {
           .from('budgets')
           .select('*')
           .eq('workspace_id', w.id)
-          .order('month', { ascending: false })
-          .limit(500),
+          .order('created_at')
+          .order('id')
+          .range(0, 499),
         c
           .from('bills')
           .select('*')
@@ -404,6 +411,25 @@ export class LifeStore {
         ledger.push(...page.data);
         if (page.data.length < 500) break;
       }
+      const accountRows = [...(a.data ?? [])],
+        budgetRows = [...(budgets.data ?? [])];
+      for (const table of ['accounts', 'budgets'] as const) {
+        const first = table === 'accounts' ? a : budgets;
+        if (first.data?.length === 500)
+          for (let offset = 500; ; offset += 500) {
+            const page = await c
+              .from(table)
+              .select('*')
+              .eq('workspace_id', w.id)
+              .order('created_at')
+              .order('id')
+              .range(offset, offset + 499);
+            if (page.error) throw page.error;
+            if (table === 'accounts') accountRows.push(...(page.data as Account[]));
+            else budgetRows.push(...(page.data as Budget[]));
+            if (page.data.length < 500) break;
+          }
+      }
       const allLoans: Loan[] = [],
         allPayments: LoanRepayment[] = [];
       for (const table of ['loans', 'loan_repayments'] as const) {
@@ -429,9 +455,9 @@ export class LifeStore {
       this.events.set(e.data ?? []);
       this.notes.set(n.data ?? []);
       this.goals.set(g.data ?? []);
-      this.accounts.set(a.data ?? []);
+      this.accounts.set(accountRows);
       this.transactions.set(ledger);
-      this.budgets.set(budgets.data ?? []);
+      this.budgets.set(budgetRows);
       this.bills.set(bills.data ?? []);
       this.recurring.set(recurring.data ?? []);
       this.subscriptions.set(subscriptionRows);
@@ -934,6 +960,8 @@ export class LifeStore {
         booked_on: next,
         transfer_id: null,
         project_id: null,
+        subscription_id:
+          this.subscriptions().find((s) => s.recurring_id === current.id)?.id ?? null,
         recurring_id: current.id,
         occurrence_on: next,
       });

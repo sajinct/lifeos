@@ -23,7 +23,8 @@ Open http://127.0.0.1:4200 and choose **Explore a demo workspace**. Sample recor
 - Private subscriptions and free trials, monthly/yearly cost estimates by currency, renewal alerts, optional recurring expense links and cancellation that stops future recording.
 - Private loans borrowed/lent, fixed simple-interest schedules, partial/early repayments, owner-only reminders and atomic principal/interest entries in Finance.
 - Private-by-default records, 24 RLS-protected application tables, private Storage policies, typed client access and server-only reminder dispatch.
-- Currency-aware summaries, linked project records, CSV/JSON exports and idempotent transfer requests.
+- Date-filtered Finance reports with separate currency totals, monthly cash flow, category trends, budget comparisons, recorded subscription expenses and loan interest, plus filtered CSV and workspace JSON exports.
+- Currency-aware summaries, linked project records and idempotent transfer requests.
 - Installable PWA manifest/service worker that caches static assets only; offline indication.
 - GitHub Actions checks and Pages deployment supporting repository paths and custom domains.
 

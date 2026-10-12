@@ -1,6 +1,7 @@
 import { PGlite } from '@electric-sql/pglite';
 import { readFileSync, readdirSync } from 'node:fs';
 import { beforeAll, afterAll, describe, it, expect } from 'vitest';
+import { reportSecurityTests } from './report-security';
 import { loanSecurityTests } from './loan-security';
 import { subscriptionSecurityTests } from './subscription-security';
 const A = '11111111-1111-4111-8111-111111111111',
@@ -1081,3 +1082,5 @@ describe('Automated reminder isolation and lifecycle', () => {
 subscriptionSecurityTests(() => db, asUser, A, B, C);
 
 loanSecurityTests(() => db, asUser, A, B, C);
+
+reportSecurityTests(() => db, asUser, A, B);

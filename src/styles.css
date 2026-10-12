@@ -3076,3 +3076,166 @@ td:last-child {
   font-weight: 600;
   padding: 12px 0;
 }
+
+.report-filters,
+.report-panel {
+  padding: 24px;
+  margin-bottom: 24px;
+}
+.report-filters .form-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.report-presets {
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+.report-period {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 28px 0 16px;
+}
+.report-period h2 {
+  font-size: 19px;
+}
+.report-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.report-stat {
+  padding: 22px;
+}
+.report-stat span {
+  display: block;
+  color: var(--secondary);
+  font-size: 13px;
+}
+.report-stat strong {
+  display: block;
+  font-size: 26px;
+  overflow-wrap: anywhere;
+  margin-top: 12px;
+}
+.report-panel h3 {
+  font-size: 17px;
+  margin-bottom: 8px;
+}
+.report-panel .panel-heading {
+  padding: 0;
+  border: 0;
+  margin-bottom: 20px;
+}
+.report-legend {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+}
+.report-legend span {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.report-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  display: inline-block;
+}
+.report-dot.income,
+.report-bar.income {
+  background: var(--green);
+}
+.report-dot.expense,
+.report-bar.expense {
+  background: var(--orange);
+}
+.report-chart {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding: 8px 0 12px;
+  border-bottom: 1px solid var(--border);
+}
+.report-month {
+  flex: 1;
+  min-width: 66px;
+  max-width: 160px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--secondary);
+}
+.report-bars {
+  height: 160px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 7px;
+  margin-bottom: 12px;
+}
+.report-bar {
+  width: 22px;
+  border-radius: 5px 5px 0 0;
+}
+.report-cash-totals {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 20px 0;
+}
+.report-cash-totals span,
+.report-cash-totals small {
+  display: block;
+  color: var(--secondary);
+  font-size: 12px;
+}
+.report-cash-totals strong {
+  display: block;
+  font-size: 21px;
+  margin: 8px 0;
+}
+.report-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 12px 0;
+}
+.report-category-table .bar-track {
+  width: 150px;
+  margin: 8px 0;
+}
+.report-panel table {
+  width: 100%;
+}
+.report-panel table small {
+  display: block;
+}
+.report-currency {
+  margin-bottom: 36px;
+}
+@media (max-width: 680px) {
+  .report-summary,
+  .report-cash-totals,
+  .report-filters .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .report-period {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .report-panel,
+  .report-filters {
+    padding: 18px;
+  }
+  .report-panel .panel-heading {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .report-stat strong {
+    font-size: 23px;
+  }
+}

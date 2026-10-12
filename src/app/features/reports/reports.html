@@ -1,0 +1,328 @@
+<section class="page-heading">
+  <div>
+    <span class="eyebrow">SEE THE PATTERNS IN YOUR EVERYDAY</span>
+    <h1>Finance reports</h1>
+    <p>Where your money comes from, where it goes, and how your plans compare.</p>
+  </div>
+  <div class="heading-actions">
+    <button
+      class="button primary"
+      (click)="exportCsv()"
+      [disabled]="!result().report || store.loading() || !!store.error()"
+    >
+      <app-icon name="download" />Export report CSV</button
+    ><button
+      class="button subtle"
+      (click)="store.download('json')"
+      [disabled]="store.loading() || !!store.error()"
+    >
+      Workspace JSON
+    </button>
+  </div>
+</section>
+<div class="file-library-note">
+  <app-icon name="lock" /><span
+    >Your reports use your recorded Finance entries in this workspace. Each currency stays
+    separate.</span
+  ><a routerLink="/finance">Open Finance</a>
+</div>
+<section class="panel report-filters">
+  <div class="form-grid">
+    <label
+      >From date<input
+        type="date"
+        [value]="from()"
+        (input)="from.set($any($event.target).value)" /></label
+    ><label
+      >To date<input
+        type="date"
+        [value]="to()"
+        (input)="to.set($any($event.target).value)" /></label
+    ><label
+      >Report currency<select
+        [value]="currency()"
+        (change)="currency.set($any($event.target).value)"
+      >
+        <option value="all">All currencies, shown separately</option>
+        @for (c of currencies(); track c) {
+          <option [value]="c">{{ c }}</option>
+        }
+      </select></label
+    >
+  </div>
+  <div class="heading-actions report-presets">
+    <button class="button subtle" (click)="preset(1)">This month</button
+    ><button class="button subtle" (click)="preset(6)">Last 6 months</button
+    ><button class="button subtle" (click)="preset(12)">Last 12 months</button>
+  </div>
+  <p class="form-hint">
+    Dates include both endpoints and follow each entry’s booking date. Choose up to 120 calendar
+    months. The first and last months may be partial.
+  </p>
+</section>
+@if (store.loading()) {
+  <p role="status">Loading your complete Finance records…</p>
+}
+@if (store.error()) {
+  <p class="error-banner" role="alert">{{ store.error() }}</p>
+}
+@if (result().error) {
+  <p class="error-banner" role="alert">{{ result().error }}</p>
+}
+@if (!store.loading() && !store.error()) {
+  @if (result().report; as report) {
+    @for (r of report.rows; track r.currency) {
+      <section class="report-currency" [attr.aria-label]="r.currency + ' finance report'">
+        <div class="report-period">
+          <h2>
+            {{ r.currency }} · {{ from() | date: 'd MMM yyyy' }} – {{ to() | date: 'd MMM yyyy' }}
+          </h2>
+          <span class="muted">{{ r.count }} recorded entries</span>
+        </div>
+        <div class="report-summary">
+          <section class="panel report-stat">
+            <span>Income</span><strong class="green-text">{{ money(r.income, r.currency) }}</strong>
+          </section>
+          <section class="panel report-stat">
+            <span>Expenses</span
+            ><strong class="orange-text">{{ money(r.expenses, r.currency) }}</strong>
+          </section>
+          <section class="panel report-stat">
+            <span>Net savings</span
+            ><strong [class.orange-text]="r.savings < 0">{{ money(r.savings, r.currency) }}</strong>
+          </section>
+        </div>
+        <p class="form-hint">
+          Net savings = income − expenses. Loan principal and transfers between your accounts are
+          excluded from these three totals.
+        </p>
+        <section class="panel report-panel">
+          <div class="panel-heading">
+            <div>
+              <h3>Monthly cash flow</h3>
+              <p class="muted">Income and expenses for the selected dates.</p>
+            </div>
+            <div class="report-legend">
+              <span><i class="report-dot income"></i>Income</span
+              ><span><i class="report-dot expense"></i>Expenses</span>
+            </div>
+          </div>
+          <div class="report-chart" aria-hidden="true">
+            @for (m of r.monthly; track m.month) {
+              <div class="report-month">
+                <div class="report-bars">
+                  <i
+                    class="report-bar income"
+                    [style.height.%]="bar(m.income, monthMax(r.monthly))"
+                    [title]="money(m.income, r.currency)"
+                  ></i
+                  ><i
+                    class="report-bar expense"
+                    [style.height.%]="bar(m.expenses, monthMax(r.monthly))"
+                    [title]="money(m.expenses, r.currency)"
+                  ></i>
+                </div>
+                <span>{{ m.month + '-01T00:00:00Z' | date: 'MMM yy' : 'UTC' }}</span>
+              </div>
+            }
+          </div>
+          <div class="report-cash-totals">
+            <div>
+              <span>Cash received</span><strong>{{ money(r.cashIn, r.currency) }}</strong
+              ><small>Includes {{ money(r.principalIn, r.currency) }} loan principal</small>
+            </div>
+            <div>
+              <span>Cash paid out</span><strong>{{ money(r.cashOut, r.currency) }}</strong
+              ><small>Includes {{ money(r.principalOut, r.currency) }} loan principal</small>
+            </div>
+            <div>
+              <span>Net cash flow</span><strong>{{ money(r.cashNet, r.currency) }}</strong
+              ><small>Transfers between your accounts excluded</small>
+            </div>
+          </div>
+          <details class="report-details">
+            <summary>Monthly cash-flow figures</summary>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Month</th>
+                    <th>Income</th>
+                    <th>Expenses</th>
+                    <th>Net savings</th>
+                    <th>Principal in / out</th>
+                    <th>Net cash flow</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (m of r.monthly; track m.month) {
+                    <tr>
+                      <td>{{ m.month + '-01T00:00:00Z' | date: 'MMM yyyy' : 'UTC' }}</td>
+                      <td>{{ money(m.income, r.currency) }}</td>
+                      <td>{{ money(m.expenses, r.currency) }}</td>
+                      <td>{{ money(m.savings, r.currency) }}</td>
+                      <td>
+                        {{ money(m.principalIn, r.currency) }} /
+                        {{ money(m.principalOut, r.currency) }}
+                      </td>
+                      <td>{{ money(m.cashNet, r.currency) }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </section>
+        <section class="panel report-panel">
+          <h3>Spending by category</h3>
+          <p class="form-hint">
+            Compare the selected dates with {{ report.period.previousFrom | date: 'd MMM yyyy' }} –
+            {{ report.period.previousTo | date: 'd MMM yyyy' }}, the immediately preceding period of
+            equal length.
+          </p>
+          <div class="table-wrap">
+            <table class="report-category-table">
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th>Selected period</th>
+                  <th>Previous period</th>
+                  <th>Change</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (c of r.categories; track c.category) {
+                  <tr>
+                    <td>
+                      <strong>{{ c.category }}</strong>
+                      <div class="bar-track">
+                        <i class="bar-fill purple" [style.width.%]="c.share"></i>
+                      </div>
+                      <small>{{ c.share | number: '1.0-1' }}% of expenses</small>
+                    </td>
+                    <td>{{ money(c.spent, r.currency) }}</td>
+                    <td>{{ money(c.previous, r.currency) }}</td>
+                    <td>
+                      {{ money(c.change, r.currency)
+                      }}<small>{{
+                        c.percent === null
+                          ? 'No previous spending'
+                          : (c.percent > 0 ? '+' : '') + c.percent + '%'
+                      }}</small>
+                    </td>
+                  </tr>
+                } @empty {
+                  <tr>
+                    <td colspan="4" class="empty-state">No expenses recorded in either period.</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section class="panel report-panel">
+          <h3>Budget versus actual</h3>
+          <p class="form-hint">
+            Actual spending follows your selected dates. Limits are the full monthly budgets and are
+            not prorated for partial months. Negative remaining amounts are over budget.
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Month / category</th>
+                  <th>Monthly limit</th>
+                  <th>Actual spending</th>
+                  <th>Remaining</th>
+                  <th>Used</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (b of r.budgets; track b.id) {
+                  <tr>
+                    <td>
+                      <strong>{{ b.category }}</strong
+                      ><small>{{ b.month + '-01T00:00:00Z' | date: 'MMM yyyy' : 'UTC' }}</small>
+                    </td>
+                    <td>{{ money(b.limit, r.currency) }}</td>
+                    <td>{{ money(b.spent, r.currency) }}</td>
+                    <td [class.orange-text]="b.remaining < 0">
+                      {{ money(b.remaining, r.currency) }}
+                    </td>
+                    <td>{{ b.percent | number: '1.0-1' }}%</td>
+                  </tr>
+                } @empty {
+                  <tr>
+                    <td colspan="5" class="empty-state">
+                      No budgets set for this period and currency.
+                      <a routerLink="/finance">Set a budget in Finance</a>.
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section class="panel report-panel">
+          <h3>Subscriptions & loan interest</h3>
+          <p class="form-hint">
+            These recorded amounts are already included in income and expenses above. Future
+            renewals, estimated plan costs and tracking-only repayments are excluded.
+          </p>
+          <div class="report-cash-totals">
+            <div>
+              <span>Subscription expenses</span
+              ><strong>{{ money(r.subscriptionExpenses, r.currency) }}</strong>
+            </div>
+            <div>
+              <span>Loan interest paid</span
+              ><strong>{{ money(r.loanInterestPaid, r.currency) }}</strong>
+            </div>
+            <div>
+              <span>Loan interest received</span
+              ><strong>{{ money(r.loanInterestReceived, r.currency) }}</strong>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Subscription</th>
+                  <th>Recorded expenses</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (s of r.subscriptionBreakdown; track s.id) {
+                  <tr>
+                    <td>{{ s.title }}</td>
+                    <td>{{ money(s.spent, r.currency) }}</td>
+                  </tr>
+                } @empty {
+                  <tr>
+                    <td colspan="2" class="empty-state">
+                      No attributed subscription expenses in this period.
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <p class="form-hint">
+            Expense attribution stays with recorded entries after schedule changes. Older schedules
+            disconnected before this feature may have expenses without a subscription label.
+          </p>
+        </section>
+      </section>
+    } @empty {
+      <section class="panel empty-state">
+        No accounts or budgets match this currency.
+        <a routerLink="/finance">Add an account in Finance</a> to start reporting.
+      </section>
+    }
+  }
+}
+<p class="form-hint">
+  Report CSV includes the selected summaries, monthly figures, categories, budgets, subscription
+  breakdown and matching transactions. Workspace JSON exports your loaded workspace records
+  separately.
+</p>

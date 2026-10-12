@@ -74,6 +74,7 @@ export interface Transaction extends OwnedRecord {
   booked_on: string;
   transfer_id: string | null;
   project_id: string | null;
+  subscription_id?: string | null;
   loan_id?: string | null;
   loan_repayment_id?: string | null;
   bill_id?: string | null;

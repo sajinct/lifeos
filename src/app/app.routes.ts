@@ -15,12 +15,14 @@ export const routes: Routes = [
         path: '',
         loadComponent: () => import('./features/dashboard/dashboard').then((m) => m.Dashboard),
       },
-      ...['inbox', 'tasks', 'calendar', 'finance', 'projects', 'goals', 'notes', 'reports'].map(
-        (path) => ({
-          path,
-          loadComponent: () => import('./features/records/records').then((m) => m.Records),
-        }),
-      ),
+      ...['inbox', 'tasks', 'calendar', 'finance', 'projects', 'goals', 'notes'].map((path) => ({
+        path,
+        loadComponent: () => import('./features/records/records').then((m) => m.Records),
+      })),
+      {
+        path: 'reports',
+        loadComponent: () => import('./features/reports/reports').then((m) => m.ReportsPage),
+      },
       {
         path: 'documents',
         loadComponent: () => import('./features/documents/documents').then((m) => m.DocumentsPage),

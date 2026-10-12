@@ -377,46 +377,6 @@
       </div>
     </section>
   }
-  @case ('reports') {
-    <div class="record-cards">
-      <article class="panel record-card">
-        <span class="icon-tile purple"><app-icon name="chart" /></span>
-        <h2>Your month in money</h2>
-        <p>
-          {{ store.money(store.income()) }} earned.<br />{{
-            store.money(store.expenses())
-          }}
-          spent.<br />{{ store.money(store.income() - store.expenses()) }} net savings.
-        </p>
-        <button class="button subtle" (click)="store.download('csv')">
-          <app-icon name="download" />Download financial report
-        </button>
-      </article>
-      <article class="panel record-card">
-        <span class="icon-tile green"><app-icon name="task" /></span>
-        <h2>Your progress</h2>
-        <p>
-          {{ store.tasks().length - store.pending().length }} tasks completed.<br />{{
-            store.pending().length
-          }}
-          tasks ahead.<br />{{ store.projects().length }} projects in your workspace.
-        </p>
-      </article>
-      <article class="panel record-card">
-        <span class="icon-tile blue"><app-icon name="download" /></span>
-        <h2>Take your data with you</h2>
-        <p>
-          Export all loaded productivity records and the complete visible financial ledger as JSON.
-          File uploads are backed up separately.
-        </p>
-        <button class="button primary" (click)="store.download('json')">Export workspace</button>
-      </article>
-    </div>
-    <p class="form-hint">
-      Productivity views include the newest 500 records per module. See the backup guide for a
-      complete database backup.
-    </p>
-  }
 }
 <ng-template #taskList
   ><section class="panel">
