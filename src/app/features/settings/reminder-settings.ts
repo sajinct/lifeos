@@ -93,7 +93,8 @@ import { UiService } from '../../core/services/ui';
       <p class="form-hint">
         In-app delivery is checked every five minutes after your chosen local hour. You receive one
         upcoming reminder and one overdue reminder per due date. Completed tasks, paid or cancelled
-        bills, and archived documents stop their reminders.
+        bills, archived documents, cancelled subscriptions, and fully repaid loans stop their
+        reminders.
       </p>
       <p class="form-hint">
         Document reminders apply to ready documents with an expiry date. Open a document reminder to
