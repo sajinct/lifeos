@@ -27,7 +27,8 @@ Open http://127.0.0.1:4200 and choose **Explore a demo workspace**. Sample recor
 - Private assets with purchase/warranty details, owned document/receipt links, maintenance schedules, immutable service history, personal alerts and CSV exports.
 - Private Career employment/skills, job applications and certifications, owned document links, follow-up/interview/expiry reminders, archives and CSV exports.
 - Goals & Habits with monthly/annual/long-term targets, private milestones, scheduled weekday habits, routine groups, daily check-ins/undo, pause/archive history, streaks and consistency statistics.
-- Private-by-default records, 38 RLS-protected application tables, private Storage policies, typed client access and server-only reminder dispatch.
+- Task lists with rename/archive, parent-scoped subtask checklists with edit/undo/removal, anchored recurring tasks with pause/resume, full task pagination and CSV/JSON exports.
+- Private-by-default records, 41 RLS-protected application tables, private Storage policies, typed client access and server-only reminder dispatch.
 - Date-filtered Finance reports with separate currency totals, monthly cash flow, category trends, budget comparisons, recorded subscription expenses and loan interest, plus filtered CSV and workspace JSON exports.
 - Currency-aware summaries, linked project records and idempotent transfer requests.
 - Installable PWA manifest/service worker that caches static assets only; offline indication.

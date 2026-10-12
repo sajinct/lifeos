@@ -5,6 +5,7 @@ import { contactSecurityTests } from './contact-security';
 import { householdSecurityTests } from './household-security';
 import { assetSecurityTests } from './asset-security';
 import { careerSecurityTests } from './career-security';
+import { taskSecurityTests } from './task-security';
 import { habitSecurityTests } from './habit-security';
 import { reportSecurityTests } from './report-security';
 import { loanSecurityTests } from './loan-security';
@@ -118,7 +119,7 @@ describe('Actual PostgreSQL RLS and permission boundaries', () => {
         "select tablename,rowsecurity from pg_tables where schemaname='public'",
       )
     ).rows;
-    expect(rows.length).toBe(38);
+    expect(rows.length).toBe(41);
     expect(rows.every((r) => r.rowsecurity)).toBe(true);
   });
   it('denies anonymous reads and workspace creation', async () => {
@@ -925,7 +926,10 @@ describe('Automated reminder isolation and lifecycle', () => {
       ).rows,
     ).toHaveLength(1);
     await asUser(A);
-    await db.query("update public.tasks set status='done' where id=$1", [task]);
+    await db.query(
+      "select public.set_task_status($1,(select revision from public.tasks where id=$1),'done')",
+      [task],
+    );
     expect(
       (
         await db.query(
@@ -1095,3 +1099,5 @@ householdSecurityTests(() => db, asUser, A, B, C);
 assetSecurityTests(() => db, asUser, A, B);
 careerSecurityTests(() => db, asUser, A, B);
 habitSecurityTests(() => db, asUser, A, B);
+
+taskSecurityTests(() => db, asUser, A, B);

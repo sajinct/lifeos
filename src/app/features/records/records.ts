@@ -1,12 +1,21 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, effect } from '@angular/core';
 import { DatePipe, DecimalPipe, NgTemplateOutlet } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { LifeStore } from '../../core/services/life-store';
 import { UiService } from '../../core/services/ui';
-import { CaptureKind, Goal, Note, Task } from '../../core/models/domain';
+import {
+  CaptureKind,
+  Goal,
+  Note,
+  Task,
+  TaskList,
+  TaskChecklist,
+  Frequency,
+} from '../../core/models/domain';
+import { TaskLibrary } from '../../core/services/tasks';
 import { Icon } from '../../shared/components/icon';
-import { accountBalance, localDate } from '../../shared/utilities/finance';
+import { accountBalance, localDate, csv } from '../../shared/utilities/finance';
 import { FinancePlanning } from './finance-planning';
 import { toSignal } from '@angular/core/rxjs-interop';
 @Component({
@@ -16,6 +25,171 @@ import { toSignal } from '@angular/core/rxjs-interop';
 })
 export class Records {
   readonly store = inject(LifeStore);
+  readonly library = inject(TaskLibrary);
+  readonly taskListFilter = signal('all');
+  readonly taskDetailsId = signal('');
+  readonly detailedTask = computed(() =>
+    this.store.tasks().find((t) => t.id === this.taskDetailsId()),
+  );
+  readonly detailedItems = computed(() =>
+    this.store
+      .taskChecklist()
+      .filter((i) => i.task_id === this.taskDetailsId())
+      .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id)),
+  );
+  readonly detailedSeries = computed(() =>
+    this.store.taskSeries().find((s) => s.id === this.detailedTask()?.series_id),
+  );
+  readonly activeLists = computed(() => this.store.taskLists().filter((l) => !l.archived));
+  readonly listEditor = signal(false);
+  readonly previousList = signal<TaskList | undefined>(undefined);
+  readonly previousItem = signal<TaskChecklist | undefined>(undefined);
+  editItem(item: TaskChecklist) {
+    this.previousItem.set(item);
+    this.itemRequest = item.id as typeof this.itemRequest;
+    this.itemForm.reset({ title: item.title });
+  }
+  newItem() {
+    this.previousItem.set(undefined);
+    this.itemRequest = crypto.randomUUID();
+    this.itemForm.reset();
+  }
+  async removeItem(item: TaskChecklist) {
+    await this.taskAction(() => this.library.removeItem(item), 'Checklist item removed');
+    if (this.previousItem()?.id === item.id) this.newItem();
+  }
+  exportTasks() {
+    const text = csv(
+      this.tasks().map((t) => ({
+        title: t.title,
+        status: t.status,
+        priority: t.priority,
+        due_date: t.due_date ?? '',
+        list: this.listName(t),
+        project: this.store.projectTitle(t.project_id),
+        visibility: t.visibility,
+        repeat: this.store.taskSeries().find((s) => s.id === t.series_id)?.frequency ?? '',
+        checklist: this.store
+          .taskChecklist()
+          .filter((i) => i.task_id === t.id)
+          .map((i) => `${i.done ? '[x]' : '[ ]'} ${i.title}`)
+          .join('\n'),
+      })),
+    );
+    const url = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `lifeos-tasks-${localDate()}.csv`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  private listRequest: string = crypto.randomUUID();
+  private itemRequest = crypto.randomUUID();
+  readonly listForm = inject(FormBuilder).nonNullable.group({ name: ['', Validators.required] });
+  readonly itemForm = inject(FormBuilder).nonNullable.group({ title: ['', Validators.required] });
+  readonly taskConfig = inject(FormBuilder).nonNullable.group({ list: [''], frequency: [''] });
+  constructor() {
+    effect(() => {
+      this.store.workspace();
+      this.store.fileSession();
+      this.taskDetailsId.set('');
+      this.listEditor.set(false);
+      this.taskListFilter.set('all');
+    });
+  }
+  openTask(task: Task) {
+    this.taskDetailsId.set(task.id);
+    this.taskConfig.reset({ list: task.list_id ?? '', frequency: '' });
+    this.itemForm.reset();
+    this.previousItem.set(undefined);
+    this.itemRequest = crypto.randomUUID();
+    this.error.set('');
+  }
+  openList(list?: TaskList) {
+    this.previousList.set(list);
+    this.listRequest = list?.id ?? crypto.randomUUID();
+    this.listForm.reset({ name: list?.name ?? '' });
+    this.listEditor.set(true);
+    this.error.set('');
+  }
+  listName(task: Task) {
+    return this.store.taskLists().find((l) => l.id === task.list_id)?.name ?? 'Unlisted';
+  }
+  itemCount(task: Task) {
+    const items = this.store.taskChecklist().filter((i) => i.task_id === task.id);
+    return items.length ? `${items.filter((i) => i.done).length}/${items.length} steps` : '';
+  }
+  private async taskAction(action: () => Promise<unknown>, message: string) {
+    if (this.busy()) return;
+    this.busy.set(true);
+    this.error.set('');
+    const workspace = this.store.workspace()?.id,
+      session = this.store.fileSession();
+    try {
+      await action();
+      if (workspace === this.store.workspace()?.id && session === this.store.fileSession())
+        this.ui.notify(message);
+    } catch (e) {
+      if (workspace === this.store.workspace()?.id && session === this.store.fileSession())
+        this.error.set(this.store.message(e));
+    } finally {
+      this.busy.set(false);
+    }
+  }
+  async saveList() {
+    await this.taskAction(async () => {
+      await this.library.saveList(
+        this.listRequest,
+        this.listForm.getRawValue().name,
+        this.previousList()?.archived ?? false,
+        this.previousList(),
+      );
+      this.listEditor.set(false);
+    }, 'Task list saved');
+  }
+  async archiveList(list: TaskList) {
+    await this.taskAction(
+      () => this.library.saveList(list.id, list.name, !list.archived, list),
+      'Task list updated',
+    );
+  }
+  async configureTask() {
+    const task = this.detailedTask();
+    if (!task) return;
+    const v = this.taskConfig.getRawValue();
+    await this.taskAction(
+      () => this.library.configure(task, v.list, v.frequency as '' | Frequency),
+      'Task organization saved',
+    );
+    this.taskConfig.controls.frequency.setValue('');
+  }
+  async addItem() {
+    const task = this.detailedTask();
+    if (!task) return;
+    await this.taskAction(async () => {
+      await this.library.saveItem(
+        this.itemRequest,
+        task,
+        this.itemForm.getRawValue().title,
+        this.previousItem()?.done ?? false,
+        this.previousItem(),
+      );
+      this.newItem();
+    }, 'Checklist item added');
+  }
+  async toggleItem(item: TaskChecklist) {
+    const task = this.detailedTask();
+    if (task)
+      await this.taskAction(
+        () => this.library.saveItem(item.id, task, item.title, !item.done, item),
+        'Checklist updated',
+      );
+  }
+  async repeat() {
+    const series = this.detailedSeries();
+    if (series)
+      await this.taskAction(() => this.library.setRepeat(series, !series.active), 'Repeat updated');
+  }
   readonly ui = inject(UiService);
   readonly route = inject(ActivatedRoute);
   readonly router = inject(Router);
@@ -62,7 +236,12 @@ export class Records {
       .filter((t) =>
         this.reminderId()
           ? t.id === this.reminderId()
-          : this.matches(t.title) && (this.filter() === 'all' || t.status === this.filter()),
+          : this.matches(t.title) &&
+            (this.filter() === 'all' || t.status === this.filter()) &&
+            (this.taskListFilter() === 'all' ||
+              (this.taskListFilter() === 'unlisted'
+                ? !t.list_id
+                : t.list_id === this.taskListFilter())),
       ),
   );
   readonly linkedId = computed(() => this.params()?.get('linked'));
@@ -126,11 +305,10 @@ export class Records {
     return this.tasks().filter((t) => t.status === status);
   }
   async toggle(task: Task) {
-    try {
-      await this.store.toggleTask(task);
-    } catch (e) {
-      this.ui.notify(this.store.message(e));
-    }
+    await this.taskAction(
+      () => this.store.toggleTask(task),
+      task.status === 'done' ? 'Task reopened' : 'Task completed',
+    );
   }
   async status(task: Task, event: Event) {
     try {

@@ -26,11 +26,32 @@ export interface Member {
   role: 'owner' | 'editor' | 'viewer';
 }
 export interface Task extends OwnedRecord {
+  revision: number;
+  list_id: string | null;
+  series_id: string | null;
+  occurrence_index: number | null;
   title: string;
   status: 'todo' | 'in_progress' | 'done';
   priority: 'low' | 'medium' | 'high';
   due_date: string | null;
   project_id: string | null;
+}
+export interface TaskList extends OwnedRecord {
+  name: string;
+  archived: boolean;
+  revision: number;
+}
+export interface TaskSeries extends OwnedRecord {
+  frequency: Frequency;
+  anchor_on: string;
+  active: boolean;
+  revision: number;
+}
+export interface TaskChecklist extends OwnedRecord {
+  task_id: string;
+  title: string;
+  done: boolean;
+  revision: number;
 }
 export interface Project extends OwnedRecord {
   title: string;
@@ -537,6 +558,9 @@ export type CareerInput = Pick<
   document_ids: string[];
 };
 export interface TableRows {
+  task_lists: TaskList;
+  task_series: TaskSeries;
+  task_checklist: TaskChecklist;
   habits: Habit;
   habit_periods: HabitPeriod;
   habit_checkins: HabitCheckin;
@@ -583,6 +607,47 @@ export type Database = {
     Tables: { [K in keyof TableRows]: Table<TableRows[K]> };
     Views: Record<string, never>;
     Functions: {
+      remove_task_checklist: {
+        Args: { entry: string; expected_revision: number };
+        Returns: undefined;
+      };
+      save_task_list: {
+        Args: {
+          entry: string;
+          w: string;
+          expected_revision: number | null;
+          list_name: string;
+          is_archived: boolean;
+        };
+        Returns: string;
+      };
+      configure_task: {
+        Args: {
+          entry: string;
+          expected_revision: number;
+          task_list: string | null;
+          repeat_frequency: string | null;
+        };
+        Returns: undefined;
+      };
+      set_task_status: {
+        Args: { entry: string; expected_revision: number; target: string };
+        Returns: undefined;
+      };
+      set_task_series_active: {
+        Args: { entry: string; expected_revision: number; enabled: boolean };
+        Returns: undefined;
+      };
+      save_task_checklist: {
+        Args: {
+          entry: string;
+          parent: string;
+          expected_revision: number | null;
+          item_title: string;
+          completed: boolean;
+        };
+        Returns: string;
+      };
       save_personal_goal: {
         Args: {
           entry: string;

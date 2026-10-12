@@ -3570,3 +3570,31 @@ td:last-child {
     min-width: 120px;
   }
 }
+.task-list-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.task-list-chips > div {
+  display: flex;
+  align-items: center;
+  padding: 4px;
+}
+.task-detail {
+  padding: 24px;
+  margin-bottom: 24px;
+}
+.task-detail form {
+  margin-block: 16px;
+}
+.task-item-form {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.task-item-form label {
+  flex: 1;
+  min-width: 180px;
+}

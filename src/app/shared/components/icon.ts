@@ -40,6 +40,7 @@ const paths: Record<string, string> = {
   coffee: 'M4 8h12v7a6 6 0 0 1-12 0z M16 8h2a3 3 0 0 1 0 6h-2 M3 22h15 M7 2v3 M12 2v3',
   arrowDown: 'M12 5v14 M7 14l5 5 5-5',
   trash: 'M4 6h16 M9 6V3h6v3 M6 6l1 15h10l1-15 M10 10v7 M14 10v7',
+  edit: 'M14 4l6 6 M4 20l4-1L21 6l-4-4L4 15z',
 };
 @Component({
   selector: 'app-icon',

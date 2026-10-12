@@ -5,6 +5,14 @@
     <p>{{ descriptions[page] }}</p>
   </div>
   <div class="heading-actions">
+    @if (page === 'tasks' || page === 'inbox') {
+      <button class="button subtle" (click)="openList()" [disabled]="!store.writable() || busy()">
+        Add task list
+      </button>
+    }
+    @if (page === 'tasks' || page === 'inbox') {
+      <button class="button subtle" (click)="exportTasks()">Export tasks CSV</button>
+    }
     @if (page === 'reports') {
       <button class="button subtle" (click)="store.download('csv')">
         <app-icon name="download" />Finance CSV</button
@@ -30,7 +38,7 @@
 }
 @if (reminderId() && page === 'tasks') {
   <div class="file-library-note">
-    <span>Showing the reminded task.</span
+    <span>Showing the selected task.</span
     ><button class="button subtle" (click)="clearReminder()">Show all tasks</button>
   </div>
 }
@@ -54,6 +62,17 @@
         <option value="todo">To do</option>
         <option value="in_progress">In progress</option>
         <option value="done">Completed</option>
+      </select>
+      <select
+        aria-label="Task list filter"
+        [value]="taskListFilter()"
+        (change)="taskListFilter.set($any($event.target).value)"
+      >
+        <option value="all">All lists</option>
+        <option value="unlisted">Unlisted</option>
+        @for (list of store.taskLists(); track list.id) {
+          <option [value]="list.id">{{ list.name }}{{ list.archived ? ' · archived' : '' }}</option>
+        }
       </select>
       <div class="segmented">
         <button [class.selected]="view() === 'list'" (click)="view.set('list')">List</button
@@ -83,6 +102,188 @@
     }
   </div>
 }
+@if (page === 'tasks' || page === 'inbox') {
+  @if (error()) {
+    <p class="form-error" role="alert">{{ error() }}</p>
+  }
+  @if (store.taskLists().length) {
+    <div class="task-list-chips">
+      @for (list of store.taskLists(); track list.id) {
+        <div class="panel">
+          <button class="button subtle" (click)="taskListFilter.set(list.id)">
+            {{ list.name }}{{ list.archived ? ' · archived' : '' }}</button
+          ><button
+            class="icon-button"
+            [attr.aria-label]="'Edit list ' + list.name"
+            (click)="openList(list)"
+            [disabled]="busy() || !store.writable()"
+          >
+            <app-icon name="edit" /></button
+          ><button
+            class="button subtle"
+            (click)="archiveList(list)"
+            [disabled]="busy() || !store.writable()"
+          >
+            {{ list.archived ? 'Restore' : 'Archive' }}
+          </button>
+        </div>
+      }
+    </div>
+  }
+  @if (listEditor()) {
+    <form class="panel task-detail" [formGroup]="listForm" (ngSubmit)="saveList()">
+      <div class="panel-heading">
+        <h2>{{ previousList() ? 'Edit task list' : 'New task list' }}</h2>
+        <button
+          type="button"
+          class="button subtle"
+          (click)="listEditor.set(false)"
+          [disabled]="busy()"
+        >
+          Close
+        </button>
+      </div>
+      <label>List name<input formControlName="name" maxlength="100" /></label>
+      <p class="muted">Lists are private. Archiving a list keeps its tasks and history.</p>
+      <button class="button primary" [disabled]="busy()">Save task list</button>
+    </form>
+  }
+  @if (detailedTask(); as task) {
+    <section class="panel task-detail">
+      <div class="panel-heading">
+        <div>
+          <span class="eyebrow">TASK DETAILS · {{ task.visibility }}</span>
+          <h2>{{ task.title }}</h2>
+        </div>
+        <button class="button subtle" (click)="taskDetailsId.set('')">Close details</button>
+      </div>
+      <p>
+        {{ listName(task) }} ·
+        {{
+          task.due_date ? (task.due_date + 'T00:00:00Z' | date: 'd MMM y' : 'UTC') : 'No due date'
+        }}
+        ·
+        {{
+          task.status === 'done'
+            ? 'Completed'
+            : task.status === 'in_progress'
+              ? 'In progress'
+              : 'To do'
+        }}
+      </p>
+      @if (task.visibility === 'private' && task.owner_id === store.profile()?.id) {
+        <form [formGroup]="taskConfig" (ngSubmit)="configureTask()">
+          <div class="form-row">
+            <label
+              >Task list<select formControlName="list">
+                <option value="">Unlisted</option>
+                @for (list of activeLists(); track list.id) {
+                  <option [value]="list.id">{{ list.name }}</option>
+                }
+              </select></label
+            >
+            @if (!task.series_id) {
+              <label
+                >Repeat task<select formControlName="frequency" [attr.aria-label]="'Repeat task'">
+                  <option value="">One-off task</option>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="yearly">Yearly</option>
+                </select></label
+              >
+            }
+          </div>
+          <button class="button subtle" [disabled]="busy() || !store.writable()">
+            Save organization
+          </button>
+        </form>
+      }
+      @if (detailedSeries(); as series) {
+        <div class="file-library-note">
+          <span
+            >Repeats {{ series.frequency }} · {{ series.active ? 'active' : 'paused' }} · occurrence
+            {{ (task.occurrence_index ?? 0) + 1 }}</span
+          ><button
+            class="button subtle"
+            (click)="repeat()"
+            [disabled]="busy() || !store.writable()"
+          >
+            {{ series.active ? 'Pause repeat' : 'Resume repeat' }}
+          </button>
+        </div>
+      }
+      <p class="muted">
+        For repeating tasks, completion creates one next occurrence from the original due date and
+        copies every checklist step as unchecked. Reopening keeps that next task. Pausing keeps
+        existing tasks; resuming creates a missing next task after a completed occurrence.
+      </p>
+      <h3>Subtasks & checklist</h3>
+      <div class="goal-milestones">
+        @for (item of detailedItems(); track item.id) {
+          <div class="milestone-item">
+            <button
+              class="task-checkbox"
+              [class.checked]="item.done"
+              [attr.aria-label]="(item.done ? 'Undo ' : 'Complete ') + item.title"
+              (click)="toggleItem(item)"
+              [disabled]="busy() || !store.canEdit(task) || task.status === 'done'"
+            >
+              @if (item.done) {
+                <app-icon name="check" />
+              }</button
+            ><span>{{ item.title }}</span>
+            @if (store.canEdit(task) && task.status !== 'done') {
+              <button
+                class="icon-button"
+                [attr.aria-label]="'Edit step ' + item.title"
+                (click)="editItem(item)"
+                [disabled]="busy()"
+              >
+                <app-icon name="edit" /></button
+              ><button
+                class="icon-button"
+                [attr.aria-label]="'Remove step ' + item.title"
+                (click)="removeItem(item)"
+                [disabled]="busy()"
+              >
+                <app-icon name="trash" />
+              </button>
+            }
+          </div>
+        } @empty {
+          <p class="muted">Break the task into smaller steps.</p>
+        }
+      </div>
+      @if (store.canEdit(task) && task.status !== 'done') {
+        <form [formGroup]="itemForm" (ngSubmit)="addItem()" class="task-item-form">
+          <label
+            >Checklist item<input
+              formControlName="title"
+              maxlength="200"
+              placeholder="Your next small step" /></label
+          ><button class="button subtle" [disabled]="busy()">
+            {{ previousItem() ? 'Save checklist item' : 'Add checklist item' }}
+          </button>
+          @if (previousItem()) {
+            <button type="button" class="button subtle" (click)="newItem()">Cancel edit</button>
+          }
+        </form>
+      }
+      <button
+        class="button primary"
+        (click)="toggle(task)"
+        [disabled]="busy() || !store.canEdit(task)"
+      >
+        {{ task.status === 'done' ? 'Reopen task' : 'Complete task' }}
+      </button>
+      <p class="muted">
+        Checklists follow the task’s sharing. Checking steps does not automatically complete the
+        parent task.
+      </p>
+    </section>
+  }
+}
 @switch (page) {
   @case ('tasks') {
     @if (view() === 'board') {
@@ -102,9 +303,21 @@
               <article class="panel kanban-card">
                 <span [class]="'priority ' + task.priority">{{ task.priority }}</span>
                 <h3>{{ task.title }}</h3>
+                <small>{{ listName(task) }} · {{ itemCount(task) }}</small
+                ><button
+                  class="button subtle"
+                  (click)="openTask(task)"
+                  [attr.aria-label]="'Details for ' + task.title"
+                >
+                  Details
+                </button>
                 <small
                   >{{ store.projectTitle(task.project_id) }} ·
-                  {{ task.due_date | date: 'd MMM' }}</small
+                  {{
+                    task.due_date
+                      ? (task.due_date + 'T00:00:00Z' | date: 'd MMM' : 'UTC')
+                      : 'No due date'
+                  }}</small
                 ><select
                   aria-label="Change task status"
                   [value]="task.status"
@@ -406,9 +619,19 @@
           <strong>{{ t.title }}</strong
           ><small
             >{{ store.projectTitle(t.project_id) }} ·
-            {{ t.due_date ? (t.due_date | date: 'd MMM yyyy') : 'No due date' }}</small
+            {{
+              t.due_date ? (t.due_date + 'T00:00:00Z' | date: 'd MMM yyyy' : 'UTC') : 'No due date'
+            }}
+            · {{ listName(t) }} · {{ itemCount(t) }}{{ t.series_id ? ' · repeats' : '' }}</small
           >
         </div>
+        <button
+          class="button subtle"
+          (click)="openTask(t)"
+          [attr.aria-label]="'Details for ' + t.title"
+        >
+          Details
+        </button>
         <span [class]="'priority ' + t.priority">{{ t.priority }}</span
         ><select
           aria-label="Task status"

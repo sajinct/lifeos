@@ -190,7 +190,8 @@ export class SearchDialog implements AfterViewInit {
       result.path === '/family' ||
         result.path === '/assets' ||
         result.path === '/career' ||
-        result.path === '/goals'
+        result.path === '/goals' ||
+        result.path === '/tasks'
         ? result.path + '?reminder=' + encodeURIComponent(result.id)
         : result.path,
       {

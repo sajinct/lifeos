@@ -57,6 +57,10 @@ export function demoData() {
   ];
   const tasks: Task[] = [
     {
+      revision: 1,
+      list_id: null,
+      series_id: null,
+      occurrence_index: null,
       ...base('t1'),
       title: 'Finish the homepage wireframes',
       status: 'todo',
@@ -65,6 +69,10 @@ export function demoData() {
       project_id: 'p1',
     },
     {
+      revision: 1,
+      list_id: null,
+      series_id: null,
+      occurrence_index: null,
       ...base('t2'),
       title: 'Review this month’s budget',
       status: 'todo',
@@ -73,6 +81,10 @@ export function demoData() {
       project_id: null,
     },
     {
+      revision: 1,
+      list_id: null,
+      series_id: null,
+      occurrence_index: null,
       ...base('t3'),
       title: 'Book the annual health checkup',
       status: 'todo',
@@ -81,6 +93,10 @@ export function demoData() {
       project_id: null,
     },
     {
+      revision: 1,
+      list_id: null,
+      series_id: null,
+      occurrence_index: null,
       ...base('t4'),
       title: 'Read 20 pages',
       status: 'done',
@@ -89,6 +105,10 @@ export function demoData() {
       project_id: 'p3',
     },
     {
+      revision: 1,
+      list_id: null,
+      series_id: null,
+      occurrence_index: null,
       ...base('t5'),
       title: 'Choose plants for the living room',
       status: 'in_progress',
@@ -97,6 +117,10 @@ export function demoData() {
       project_id: 'p2',
     },
     {
+      revision: 1,
+      list_id: null,
+      series_id: null,
+      occurrence_index: null,
       ...base('t6'),
       title: 'Complete the TypeScript lesson',
       status: 'todo',
@@ -105,6 +129,10 @@ export function demoData() {
       project_id: 'p3',
     },
     {
+      revision: 1,
+      list_id: null,
+      series_id: null,
+      occurrence_index: null,
       ...base('t7'),
       title: 'Set up website repository',
       status: 'done',
@@ -321,6 +349,9 @@ export function demoData() {
     habits: [] as import('../models/domain').Habit[],
     habitPeriods: [] as import('../models/domain').HabitPeriod[],
     habitCheckins: [] as import('../models/domain').HabitCheckin[],
+    taskLists: [] as import('../models/domain').TaskList[],
+    taskSeries: [] as import('../models/domain').TaskSeries[],
+    taskChecklist: [] as import('../models/domain').TaskChecklist[],
     goalMilestones: [] as import('../models/domain').GoalMilestone[],
     careerRecords: [] as import('../models/domain').CareerRecord[],
     careerDocuments: [] as import('../models/domain').CareerDocument[],

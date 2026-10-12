@@ -39,6 +39,9 @@ import {
   Profile,
   Project,
   Task,
+  TaskList,
+  TaskSeries,
+  TaskChecklist,
   Transaction,
   Workspace,
   WorkspaceKind,
@@ -59,6 +62,9 @@ export class LifeStore {
   readonly workspaces = signal<Workspace[]>([]);
   readonly workspace = signal<Workspace | null>(null);
   readonly members = signal<Member[]>([]);
+  readonly taskLists = signal<TaskList[]>([]);
+  readonly taskSeries = signal<TaskSeries[]>([]);
+  readonly taskChecklist = signal<TaskChecklist[]>([]);
   readonly tasks = signal<Task[]>([]);
   readonly projects = signal<Project[]>([]);
   readonly events = signal<CalendarEvent[]>([]);
@@ -204,6 +210,9 @@ export class LifeStore {
     this.habits.set(d.habits);
     this.habitPeriods.set(d.habitPeriods);
     this.habitCheckins.set(d.habitCheckins);
+    this.taskLists.set(d.taskLists);
+    this.taskSeries.set(d.taskSeries);
+    this.taskChecklist.set(d.taskChecklist);
     this.goalMilestones.set(d.goalMilestones);
     this.careerRecords.set(d.careerRecords);
     this.careerDocuments.set(d.careerDocuments);
@@ -236,6 +245,9 @@ export class LifeStore {
     this.habits.set([]);
     this.habitPeriods.set([]);
     this.habitCheckins.set([]);
+    this.taskLists.set([]);
+    this.taskSeries.set([]);
+    this.taskChecklist.set([]);
     this.goalMilestones.set([]);
     this.careerRecords.set([]);
     this.careerDocuments.set([]);
@@ -284,6 +296,9 @@ export class LifeStore {
         habits: this.habits(),
         habitPeriods: this.habitPeriods(),
         habitCheckins: this.habitCheckins(),
+        taskLists: this.taskLists(),
+        taskSeries: this.taskSeries(),
+        taskChecklist: this.taskChecklist(),
         goalMilestones: this.goalMilestones(),
         careerRecords: this.careerRecords(),
         careerDocuments: this.careerDocuments(),
@@ -322,6 +337,9 @@ export class LifeStore {
         this.habits.set(d.habits);
         this.habitPeriods.set(d.habitPeriods);
         this.habitCheckins.set(d.habitCheckins);
+        this.taskLists.set(d.taskLists);
+        this.taskSeries.set(d.taskSeries);
+        this.taskChecklist.set(d.taskChecklist);
         this.goalMilestones.set(d.goalMilestones);
         this.careerRecords.set(d.careerRecords);
         this.careerDocuments.set(d.careerDocuments);
@@ -364,7 +382,8 @@ export class LifeStore {
           .select('*')
           .eq('workspace_id', w.id)
           .order('created_at', { ascending: false })
-          .limit(500),
+          .order('id')
+          .range(0, 499),
         c
           .from('projects')
           .select('*')
@@ -586,6 +605,44 @@ export class LifeStore {
           else milestoneRows.push(...(page.data as GoalMilestone[]));
           if (page.data.length < 500) break;
         }
+      const taskRows = [...(t.data ?? [])];
+      if (taskRows.length === 500)
+        for (let offset = 500; ; offset += 500) {
+          const page = await c
+            .from('tasks')
+            .select('*')
+            .eq('workspace_id', w.id)
+            .order('created_at', { ascending: false })
+            .order('id')
+            .range(offset, offset + 499);
+          if (page.error) throw page.error;
+          if (run !== this.generation) return;
+          taskRows.push(...page.data);
+          if (page.data.length < 500) break;
+        }
+      const taskLists: TaskList[] = [],
+        taskSeries: TaskSeries[] = [],
+        taskChecklist: TaskChecklist[] = [];
+      for (const table of ['task_lists', 'task_series', 'task_checklist'] as const)
+        for (let offset = 0; ; offset += 500) {
+          const page = await c
+            .from(table)
+            .select('*')
+            .eq('workspace_id', w.id)
+            .order('created_at')
+            .order('id')
+            .range(offset, offset + 499);
+          if (page.error) throw page.error;
+          if (run !== this.generation) return;
+          if (table === 'task_lists') taskLists.push(...(page.data as TaskList[]));
+          else if (table === 'task_series') taskSeries.push(...(page.data as TaskSeries[]));
+          else taskChecklist.push(...(page.data as TaskChecklist[]));
+          if (page.data.length < 500) break;
+        }
+      if (run !== this.generation) return;
+      this.taskLists.set(taskLists);
+      this.taskSeries.set(taskSeries);
+      this.taskChecklist.set(taskChecklist);
       const goalRows = [...(g.data ?? [])];
       if (goalRows.length === 500)
         for (let offset = 500; ; offset += 500) {
@@ -665,7 +722,7 @@ export class LifeStore {
       this.contactLinks.set(allContactLinks);
       this.loans.set(allLoans);
       this.loanRepayments.set(allPayments);
-      this.tasks.set(t.data ?? []);
+      this.tasks.set(taskRows);
       this.projects.set(p.data ?? []);
       this.events.set(e.data ?? []);
       this.notes.set(n.data ?? []);
@@ -741,30 +798,86 @@ export class LifeStore {
     await this.switchWorkspace(this.workspace()!);
   }
   async toggleTask(task: Task) {
-    if (!this.canEdit(task)) throw new Error('You cannot edit this task.');
-    const status = task.status === 'done' ? 'todo' : 'done';
-    if (!this.auth.demo()) {
-      const { error } = await this.backend
-        .requireClient()
-        .from('tasks')
-        .update({ status })
-        .eq('id', task.id);
-      if (error) throw error;
-    }
-    this.tasks.update((list) => list.map((t) => (t.id === task.id ? { ...t, status } : t)));
-    this.log(`${status === 'done' ? 'Completed' : 'Reopened'} “${task.title}”`);
+    await this.setTaskStatus(task, task.status === 'done' ? 'todo' : 'done');
   }
   async setTaskStatus(task: Task, status: Task['status']) {
-    if (!this.canEdit(task)) throw new Error('You cannot edit this task.');
+    if (
+      task.workspace_id !== this.workspace()?.id ||
+      !this.canEdit(task) ||
+      !['todo', 'in_progress', 'done'].includes(status)
+    )
+      throw new Error('You cannot edit this task.');
+    const generation = this.generation,
+      session = this.fileSession();
     if (!this.auth.demo()) {
-      const { error } = await this.backend
-        .requireClient()
-        .from('tasks')
-        .update({ status })
-        .eq('id', task.id);
+      const { error } = await this.backend.requireClient().rpc('set_task_status', {
+        entry: task.id,
+        expected_revision: task.revision,
+        target: status,
+      });
       if (error) throw error;
+      if (generation !== this.generation || session !== this.fileSession()) return;
+      await this.switchWorkspace(this.workspace()!);
+      if (this.error()) throw new Error(this.error());
+      return;
     }
-    this.tasks.update((list) => list.map((t) => (t.id === task.id ? { ...t, status } : t)));
+    const current = this.tasks().find((t) => t.id === task.id);
+    if (!current) throw new Error('Task is inaccessible.');
+    if (current.status !== status && current.revision !== task.revision)
+      throw new Error('Task changed; refresh and try again.');
+    const row =
+      current.status === status ? current : { ...current, status, revision: current.revision + 1 };
+    this.tasks.update((rows) => rows.map((t) => (t.id === row.id ? row : t)));
+    this.generateNextTask(row);
+  }
+  generateNextTask(task: Task) {
+    if (
+      !this.auth.demo() ||
+      task.status !== 'done' ||
+      !task.series_id ||
+      task.occurrence_index === null
+    )
+      return;
+    const series = this.taskSeries().find((s) => s.id === task.series_id);
+    if (
+      !series?.active ||
+      this.tasks().some(
+        (t) => t.series_id === series.id && (t.occurrence_index ?? -1) > task.occurrence_index!,
+      )
+    )
+      return;
+    const due = recurrenceDate(series.anchor_on, series.frequency, task.occurrence_index + 1);
+    if (due > '2100-12-31' || task.occurrence_index >= 100000) {
+      this.taskSeries.update((rows) =>
+        rows.map((s) =>
+          s.id === series.id ? { ...s, active: false, revision: s.revision + 1 } : s,
+        ),
+      );
+      return;
+    }
+    const next: Task = {
+      ...task,
+      id: crypto.randomUUID(),
+      status: 'todo',
+      due_date: due,
+      occurrence_index: task.occurrence_index + 1,
+      revision: 1,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    const items = this.taskChecklist()
+      .filter((i) => i.task_id === task.id)
+      .map((i) => ({
+        ...i,
+        id: crypto.randomUUID(),
+        task_id: next.id,
+        done: false,
+        revision: 1,
+        created_at: next.created_at,
+        updated_at: next.updated_at,
+      }));
+    this.tasks.update((rows) => [next, ...rows]);
+    this.taskChecklist.update((rows) => [...rows, ...items]);
   }
   async updateGoal(goal: Goal, value: string) {
     if (!this.canEdit(goal) || !/^\d+(\.\d{1,2})?$/.test(value))
@@ -832,11 +945,22 @@ export class LifeStore {
           ...b,
           title,
           status: 'todo',
+          revision: 1,
+          list_id: null,
+          series_id: null,
+          occurrence_index: null,
           priority: input.priority,
           due_date: input.date || null,
           project_id: input.project_id || null,
         };
-        if (!this.auth.demo()) check((await c!.from('tasks').insert(row)).error);
+        if (!this.auth.demo()) {
+          const { revision, list_id, series_id, occurrence_index, ...insert } = row;
+          void revision;
+          void list_id;
+          void series_id;
+          void occurrence_index;
+          check((await c!.from('tasks').insert(insert)).error);
+        }
         this.tasks.update((v) => [row, ...v]);
         break;
       }
@@ -1297,6 +1421,9 @@ export class LifeStore {
       habits: this.habits(),
       habitPeriods: this.habitPeriods(),
       habitCheckins: this.habitCheckins(),
+      taskLists: this.taskLists(),
+      taskSeries: this.taskSeries(),
+      taskChecklist: this.taskChecklist(),
       goalMilestones: this.goalMilestones(),
       careerRecords: this.careerRecords(),
       careerDocuments: this.careerDocuments(),
