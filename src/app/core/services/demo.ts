@@ -304,5 +304,6 @@ export function demoData() {
     recurring,
     attachments,
     notifications: [] as import('../models/domain').Notification[],
+    subscriptions: [] as import('../models/domain').Subscription[],
   };
 }

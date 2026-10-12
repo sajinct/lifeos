@@ -4,12 +4,13 @@ import {
   Task,
   ReminderPreferences,
   Notification,
+  Subscription,
 } from '../../core/models/domain';
 export interface ReminderSource {
   id: string;
   workspace_id: string;
   owner_id: string;
-  kind: 'task' | 'bill' | 'document';
+  kind: 'task' | 'bill' | 'document' | 'subscription' | 'trial';
   title: string;
   date: string;
   days: number;
@@ -19,8 +20,17 @@ export function reminderSources(
   tasks: Task[],
   bills: Bill[],
   files: Attachment[],
+  subscriptions: Subscription[] = [],
 ): ReminderSource[] {
   return [
+    ...subscriptions
+      .filter((s) => p.subscription_reminders && s.status !== 'cancelled')
+      .map((s) => ({
+        ...s,
+        kind: s.status === 'trial' ? ('trial' as const) : ('subscription' as const),
+        date: s.status === 'trial' ? s.trial_ends_on! : s.next_on,
+        days: p.subscription_lead_days,
+      })),
     ...tasks
       .filter((t) => p.task_reminders && t.status !== 'done' && t.due_date)
       .map((t) => ({ ...t, kind: 'task' as const, date: t.due_date!, days: p.task_lead_days })),
@@ -62,8 +72,33 @@ export function reminderPhase(source: ReminderSource, day: string): Notification
   return difference < 0 ? 'overdue' : difference <= source.days ? 'upcoming' : null;
 }
 export function reminderTitle(s: ReminderSource, phase: Notification['phase']) {
-  const label = s.kind === 'task' ? 'Task' : s.kind === 'bill' ? 'Bill' : 'Document';
-  return `${label} ${phase === 'overdue' ? (s.kind === 'document' ? 'expired' : 'overdue') : `${s.kind === 'document' ? 'expires' : 'due'} ${s.date}`}: ${s.title}`;
+  const label =
+    s.kind === 'task'
+      ? 'Task'
+      : s.kind === 'bill'
+        ? 'Bill'
+        : s.kind === 'document'
+          ? 'Document'
+          : s.kind === 'trial'
+            ? 'Trial'
+            : 'Subscription';
+  const overdue =
+    s.kind === 'document'
+      ? 'expired'
+      : s.kind === 'trial'
+        ? 'ended'
+        : s.kind === 'subscription'
+          ? 'renewal overdue'
+          : 'overdue';
+  const verb =
+    s.kind === 'document'
+      ? 'expires'
+      : s.kind === 'trial'
+        ? 'ends'
+        : s.kind === 'subscription'
+          ? 'renews'
+          : 'due';
+  return `${label} ${phase === 'overdue' ? overdue : `${verb} ${s.date}`}: ${s.title}`;
 }
 export function notificationVisible(n: Notification, now: number) {
   return !n.dismissed_at && (!n.snoozed_until || Date.parse(n.snoozed_until) <= now);

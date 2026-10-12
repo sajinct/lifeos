@@ -35,6 +35,7 @@ export class Reminders {
         this.store.tasks(),
         this.store.bills(),
         this.store.attachments(),
+        this.store.subscriptions(),
       );
       const prefs = this.store.reminderPreferences();
       const workspace = this.store.workspace();
@@ -148,6 +149,7 @@ export class Reminders {
       [p.task_lead_days, 30],
       [p.bill_lead_days, 30],
       [p.document_lead_days, 90],
+      [p.subscription_lead_days, 90],
       [p.reminder_hour, 23],
     ])
       if (!Number.isInteger(value) || value < 0 || value > max)
@@ -166,6 +168,8 @@ export class Reminders {
         document_days: p.document_lead_days,
         delivery_hour: p.reminder_hour,
         delivery_timezone: p.reminder_timezone,
+        subscriptions_enabled: p.subscription_reminders,
+        subscription_days: p.subscription_lead_days,
       });
       if (error) throw error;
     }
@@ -190,7 +194,13 @@ export class Reminders {
       const c = this.backend.requireClient();
       // Fetch the exact source even when it falls outside a screen's newest-500 window.
       const table =
-        n.source_kind === 'task' ? 'tasks' : n.source_kind === 'bill' ? 'bills' : 'attachments';
+        n.source_kind === 'task'
+          ? 'tasks'
+          : n.source_kind === 'bill'
+            ? 'bills'
+            : n.source_kind === 'document'
+              ? 'attachments'
+              : 'subscriptions';
       const { data, error } = await c
         .from(table)
         .select('*')
@@ -213,6 +223,8 @@ export class Reminders {
         this.store.bills.update((rows) => [...rows.filter((r) => r.id !== data.id), data]);
       else if ('object_path' in data)
         this.store.attachments.update((rows) => [...rows.filter((r) => r.id !== data.id), data]);
+      else if ('anchor_on' in data)
+        this.store.subscriptions.update((rows) => [...rows.filter((r) => r.id !== data.id), data]);
       return true;
     } catch (e) {
       if (
@@ -294,6 +306,8 @@ export class Reminders {
       ? '/tasks'
       : n.source_kind === 'bill'
         ? '/finance'
-        : '/documents';
+        : n.source_kind === 'document'
+          ? '/documents'
+          : '/subscriptions';
   }
 }

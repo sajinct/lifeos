@@ -1,0 +1,318 @@
+<section class="page-heading">
+  <div>
+    <span class="eyebrow">KEEP THE REPEAT THINGS SIMPLE</span>
+    <h1>Subscriptions</h1>
+    <p>A clear view of what renews, what it costs, and what’s coming next.</p>
+  </div>
+  <button
+    class="button primary"
+    (click)="add()"
+    [disabled]="!store.writable() || busy() || store.loading()"
+  >
+    <app-icon name="plus" />Add subscription
+  </button>
+</section>
+<div class="file-library-note">
+  <app-icon name="lock" /><span
+    >Subscription records stay private to you. {{ activeCount() }} active ·
+    {{ trialCount() }} trials.</span
+  ><a routerLink="/settings">Set renewal reminders</a>
+</div>
+<div class="subscription-totals">
+  @for (total of totals(); track total.currency) {
+    <section class="panel subscription-total">
+      <span class="eyebrow">{{ total.currency }} · ACTIVE PLANS</span>
+      <h2>{{ money(total.monthly, total.currency) }}<small>per month, estimated</small></h2>
+      <p>{{ money(total.annual, total.currency) }} per year</p>
+    </section>
+  } @empty {
+    <section class="panel subscription-total">
+      <h2>No active paid-plan estimates yet</h2>
+      <p>Add an active subscription to see its monthly and annual costs.</p>
+    </section>
+  }
+</div>
+<p class="form-hint">
+  Estimates normalize monthly prices × 12 and yearly prices ÷ 12. Trials and cancelled plans are
+  excluded; currencies stay separate. Actual expenses appear in Finance when recorded.
+</p>
+@if (reminderId()) {
+  <div class="file-library-note">
+    <span>Showing the reminded subscription.</span
+    ><button class="button subtle" (click)="clearReminder()">Show all subscriptions</button>
+  </div>
+}
+@if (error()) {
+  <p class="error-banner" role="alert">{{ error() }}</p>
+}
+@if (showForm()) {
+  <section class="panel subscription-form">
+    <h2>
+      {{
+        editing()
+          ? editing()?.status === 'cancelled'
+            ? 'Restart subscription'
+            : 'Edit subscription'
+          : 'Add subscription'
+      }}
+    </h2>
+    <form [formGroup]="form" (ngSubmit)="save()">
+      <div class="form-grid">
+        <label
+          >Service name<input
+            formControlName="title"
+            maxlength="200"
+            placeholder="e.g. Music membership"
+        /></label>
+        <label
+          >Plan status<select formControlName="status">
+            <option value="active">Active</option>
+            <option value="trial">Free trial</option>
+          </select></label
+        >
+        <label
+          >Expense recording<select formControlName="link_mode">
+            <option value="track">Track renewal dates only</option>
+            <option value="create">Create a recurring expense schedule</option>
+            <option
+              value="existing"
+              [disabled]="status() === 'trial' && editing()?.status !== 'trial'"
+            >
+              Link an existing expense schedule
+            </option>
+          </select></label
+        >
+        @if (mode() === 'existing') {
+          <label
+            >Expense schedule<select formControlName="recurring_id">
+              <option value="">Choose a schedule</option>
+              @for (r of plans(); track r.id) {
+                <option [value]="r.id">{{ r.title }} · {{ r.frequency }}</option>
+              }
+            </select></label
+          >
+        }
+        <label
+          >Price per billing period<input
+            formControlName="amount"
+            inputmode="decimal"
+            placeholder="0.00"
+        /></label>
+        <label
+          >Currency<select formControlName="currency">
+            @for (currency of currencies(); track currency) {
+              <option [value]="currency">{{ currency }}</option>
+            }
+          </select></label
+        >
+        <label
+          >Billing frequency<select formControlName="frequency">
+            <option value="monthly">Monthly</option>
+            <option value="yearly">Yearly</option>
+          </select></label
+        >
+        <label
+          >{{ status() === 'trial' ? 'First paid renewal date' : 'Next renewal date'
+          }}<input type="date" formControlName="next_on"
+        /></label>
+        @if (status() === 'trial') {
+          <label>Trial ends on<input type="date" formControlName="trial_ends_on" /></label>
+        }
+        @if (mode() === 'create') {
+          <label
+            >Expense account<select formControlName="account_id">
+              <option value="">Choose an account</option>
+              @for (a of accounts(); track a.id) {
+                <option [value]="a.id">{{ a.name }} · {{ a.currency }}</option>
+              }
+            </select></label
+          >
+        }
+        <label>Category<input formControlName="category" maxlength="100" /></label>
+        <label
+          >Provider website (optional)<input
+            type="url"
+            formControlName="provider_url"
+            placeholder="https://example.com"
+            maxlength="500"
+        /></label>
+      </div>
+      <label
+        >Notes (optional)<textarea formControlName="notes" rows="2" maxlength="2000"></textarea>
+      </label>
+      @if (mode() === 'create' && status() === 'active') {
+        <label class="reminder-toggle"
+          ><input type="checkbox" formControlName="automatic" />Record due expenses
+          automatically</label
+        >
+        <p class="form-hint">
+          Hourly recording adds expense entries to LifeOS on due dates. It does not charge your
+          account or pay the provider. Leave this off to record entries manually.
+        </p>
+      }
+      @if (status() === 'trial') {
+        <p class="form-hint">
+          The price is the expected paid-plan price after the trial. A trial’s linked expense
+          schedule stays paused until you explicitly start the paid plan. First paid renewal must be
+          on or after the trial end.
+        </p>
+      }
+      @if (mode() === 'existing') {
+        <p class="form-hint">
+          The linked schedule sets price, currency, frequency and renewal date. Its current
+          automatic-recording choice stays unchanged. Choose a new schedule or tracking only to
+          change these details.
+        </p>
+      }
+      @if (editing()?.recurring_id) {
+        <p class="form-hint">
+          Replacing or disconnecting the expense link pauses the previous schedule. Existing expense
+          history is preserved.
+        </p>
+      }
+      <div class="heading-actions">
+        <button class="button primary" type="submit" [disabled]="busy()">
+          {{ busy() ? 'Saving…' : 'Save subscription' }}</button
+        ><button
+          class="button subtle"
+          type="button"
+          (click)="showForm.set(false)"
+          [disabled]="busy()"
+        >
+          Close
+        </button>
+      </div>
+    </form>
+  </section>
+}
+<div class="records-toolbar">
+  <div class="filter-search">
+    <app-icon name="search" /><input
+      aria-label="Find subscriptions"
+      placeholder="Search services or categories…"
+      [value]="search()"
+      (input)="search.set($any($event.target).value)"
+    />
+  </div>
+  <select
+    aria-label="Subscription status filter"
+    [value]="filter()"
+    (change)="filter.set($any($event.target).value)"
+  >
+    <option value="all">All statuses</option>
+    <option value="active">Active</option>
+    <option value="trial">Trials</option>
+    <option value="cancelled">Cancelled</option>
+  </select>
+</div>
+<section class="panel">
+  <div class="table-wrap">
+    <table class="subscription-table">
+      <thead>
+        <tr>
+          <th>Service</th>
+          <th>Price</th>
+          <th>Renewal / trial end</th>
+          <th>Expense recording</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (s of rows(); track s.id) {
+          <tr [class.muted]="s.status === 'cancelled'">
+            <td>
+              <strong>{{ s.title }}</strong
+              ><small>{{ s.category }} · {{ s.status }}</small>
+              @if (s.provider_url) {
+                <a [href]="s.provider_url" target="_blank" rel="noopener noreferrer"
+                  >Provider website ↗</a
+                >
+              }
+              @if (s.notes) {
+                <small>{{ s.notes }}</small>
+              }
+            </td>
+            <td>
+              {{ money(s.amount, s.currency) }}<small>{{ s.frequency }}</small>
+            </td>
+            <td>
+              {{ date(s) | date: 'd MMM yyyy'
+              }}<small>{{
+                s.status === 'trial'
+                  ? 'Trial ends'
+                  : s.status === 'cancelled'
+                    ? 'Cancelled'
+                    : due(s)
+                      ? 'Due / overdue'
+                      : 'Next renewal'
+              }}</small>
+            </td>
+            <td>
+              @if (s.recurring_id) {
+                <a routerLink="/finance">Linked expense</a
+                ><small>{{
+                  s.status !== 'active'
+                    ? 'Stopped'
+                    : plan(s)
+                      ? !plan(s)?.active
+                        ? 'Paused'
+                        : plan(s)?.automatic
+                          ? 'Automatic'
+                          : 'Manual'
+                      : 'Check Finance'
+                }}</small>
+              } @else {
+                Tracking only
+              }
+            </td>
+            <td>
+              <div class="subscription-actions">
+                @if (store.canEdit(s)) {
+                  <button class="text-button" (click)="edit(s)" [disabled]="busy()">
+                    {{ s.status === 'cancelled' ? 'Restart' : 'Edit' }}
+                  </button>
+                  @if (s.status === 'trial') {
+                    <button class="text-button" (click)="edit(s, true)" [disabled]="busy()">
+                      Start paid plan
+                    </button>
+                  }
+                  @if (s.status === 'active' && due(s)) {
+                    @if (s.recurring_id) {
+                      <button
+                        class="text-button"
+                        (click)="post(s)"
+                        [disabled]="busy() || (plan(s) && !plan(s)?.active)"
+                      >
+                        Record due expenses
+                      </button>
+                    } @else {
+                      <button class="text-button" (click)="advance(s)" [disabled]="busy()">
+                        Mark renewed
+                      </button>
+                    }
+                  }
+                  @if (s.status !== 'cancelled') {
+                    <button class="text-button" (click)="cancel(s)" [disabled]="busy()">
+                      Mark cancelled
+                    </button>
+                  }
+                }
+              </div>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="5" class="empty-state">
+              No matching subscriptions. Add a service or free trial to start tracking.
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</section>
+<p class="form-hint">
+  Mark cancelled after cancelling with the provider. This updates LifeOS and stops its linked
+  expense recording. Tracking-only “Mark renewed” advances the due date without adding a ledger
+  entry.
+</p>

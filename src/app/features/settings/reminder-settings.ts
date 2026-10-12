@@ -43,6 +43,20 @@ import { UiService } from '../../core/services/ui';
           step="1"
       /></label>
       <div class="form-grid">
+        <label class="reminder-toggle"
+          ><input type="checkbox" formControlName="subscription_reminders" />Subscription renewals
+          and trials</label
+        >
+        <label
+          >Subscription reminder lead time (days)<input
+            type="number"
+            formControlName="subscription_lead_days"
+            min="0"
+            max="90"
+            step="1"
+        /></label>
+      </div>
+      <div class="form-grid">
         <label
           >Daily delivery hour<select formControlName="reminder_hour">
             @for (hour of hours; track hour) {
@@ -106,9 +120,11 @@ export class ReminderSettings {
     task_reminders: false,
     bill_reminders: false,
     document_reminders: false,
+    subscription_reminders: false,
     task_lead_days: [1, [Validators.required, Validators.min(0), Validators.max(30)]],
     bill_lead_days: [3, [Validators.required, Validators.min(0), Validators.max(30)]],
     document_lead_days: [30, [Validators.required, Validators.min(0), Validators.max(90)]],
+    subscription_lead_days: [7, [Validators.required, Validators.min(0), Validators.max(90)]],
     reminder_hour: [9, [Validators.required, Validators.min(0), Validators.max(23)]],
     reminder_timezone: ['UTC', [Validators.required, Validators.maxLength(100)]],
   });

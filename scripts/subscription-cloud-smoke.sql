@@ -1,0 +1,53 @@
+-- Server-side smoke check: all synthetic identities and data are rolled back; no mail or credential is created.
+begin;
+create temporary table lifeos_subscription_smoke(result text);
+do $$
+declare a uuid:=gen_random_uuid(); b uuid:=gen_random_uuid(); w uuid; other uuid; account uuid;
+  entry uuid:=gen_random_uuid(); trial uuid:=gen_random_uuid(); schedule uuid; old_trial_schedule uuid;
+  revision timestamptz; today date; denied boolean; total integer;
+begin
+  insert into auth.users(id,raw_user_meta_data) values(a,'{"display_name":"Disposable subscription SQL check"}'),(b,'{"display_name":"Disposable subscription viewer"}');
+  perform set_config('request.jwt.claim.sub',a::text,true); set local role authenticated;
+  today:=(now() at time zone 'Asia/Kolkata')::date;
+  w:=public.create_workspace('Disposable subscription SQL check'); perform public.set_workspace_member(w,b,'viewer');
+  insert into public.accounts(workspace_id,name) values(w,'Synthetic account') returning id into account;
+  perform public.save_subscription(entry,w,null,'Synthetic service',1,'INR','monthly',today,null,'active','Subscriptions','','Test only','create',account,null,true);
+  select recurring_id into schedule from public.subscriptions where id=entry;
+  perform public.save_subscription(entry,w,null,'Synthetic service',1,'INR','monthly',today,null,'active','Subscriptions','','Test only','create',account,null,true);
+  select count(*) into total from public.recurring_transactions where workspace_id=w;
+  if total<>1 then raise exception 'Creation retry duplicated the expense schedule'; end if;
+  total:=public.post_recurring_due(schedule);
+  if total<>1 or public.post_recurring_due(schedule)<>0 then raise exception 'Expense occurrence was not posted exactly once'; end if;
+  if not exists(select 1 from public.subscriptions where id=entry and renewal_count=1 and next_on>today) then raise exception 'Renewal cursor was not synchronized'; end if;
+  perform public.cancel_subscription(entry); perform public.cancel_subscription(entry);
+  if exists(select 1 from public.recurring_transactions where id=schedule and (active or automatic)) or public.post_recurring_due(schedule)<>0 then raise exception 'Cancelled plan still records expenses'; end if;
+  denied:=false;
+  begin update public.recurring_transactions set active=true where id=schedule; exception when others then denied:=true; end;
+  if not denied then raise exception 'Cancelled subscription schedule resumed'; end if;
+  if (select count(*) from public.transactions where recurring_id=schedule)<>1 then raise exception 'Cancellation changed ledger history'; end if;
+  perform public.save_subscription(trial,w,null,'Synthetic trial',2,'INR','monthly',today+7,today+5,'trial','Subscriptions','','Test only','create',account,null,true);
+  select recurring_id,updated_at into old_trial_schedule,revision from public.subscriptions where id=trial;
+  if exists(select 1 from public.recurring_transactions where id=old_trial_schedule and (active or automatic)) then raise exception 'Trial expense schedule was activated'; end if;
+  perform public.save_reminder_preferences(false,false,false,1,3,30,0,'UTC',true,30);
+  reset role; perform public.deliver_due_reminders(); perform public.deliver_due_reminders();
+  if (select count(*) from public.notifications where source_id=trial and source_kind='trial')<>1 then raise exception 'Trial reminder missing or duplicated'; end if;
+  set local role authenticated;
+  perform public.save_subscription(trial,w,revision,'Synthetic trial',2,'INR','monthly',today+7,null,'active','Subscriptions','','Test only','create',account,null,false);
+  reset role; perform public.deliver_due_reminders();
+  if exists(select 1 from public.notifications where source_id=trial and source_kind='trial' and dismissed_at is null)
+    or (select count(*) from public.notifications where source_id=trial and source_kind='subscription' and dismissed_at is null)<>1 then raise exception 'Trial-to-paid reminder transition failed'; end if;
+  set local role authenticated; perform set_config('request.jwt.claim.sub',b::text,true);
+  if exists(select 1 from public.subscriptions where workspace_id=w) then raise exception 'Viewer can read private subscriptions'; end if;
+  other:=public.create_workspace('Disposable unrelated subscription check');
+  denied:=false;
+  begin perform public.save_subscription(entry,other,null,'Hijack',1,'INR','monthly',today,null,'active','Subscriptions','','','track',null,null,false);
+  exception when others then denied:=true; end;
+  if not denied then raise exception 'Another owner can upsert a private subscription ID'; end if;
+  denied:=false;
+  begin perform public.cancel_subscription(entry); exception when others then denied:=true; end;
+  if not denied then raise exception 'Another owner can cancel a private subscription'; end if;
+  reset role;
+  insert into lifeos_subscription_smoke values('Passed: private reads/writes, request retries, linked posting/cursor sync, cancellation/history, paused trials and distinct renewal reminders. Synthetic data rolled back.');
+end; $$;
+select result from lifeos_subscription_smoke;
+rollback;

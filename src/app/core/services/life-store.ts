@@ -18,6 +18,7 @@ import {
   Notification,
   ReminderPreferences,
   DEFAULT_REMINDERS,
+  Subscription,
   OwnedRecord,
   Profile,
   Project,
@@ -52,6 +53,7 @@ export class LifeStore {
   readonly budgets = signal<Budget[]>([]);
   readonly bills = signal<Bill[]>([]);
   readonly recurring = signal<RecurringTransaction[]>([]);
+  readonly subscriptions = signal<Subscription[]>([]);
   readonly attachments = signal<Attachment[]>([]);
   readonly fileSession = signal(0);
   readonly activity = signal<Activity[]>([]);
@@ -163,6 +165,7 @@ export class LifeStore {
     this.budgets.set(d.budgets);
     this.bills.set(d.bills);
     this.recurring.set(d.recurring);
+    this.subscriptions.set(d.subscriptions);
     this.attachments.set(d.attachments);
     this.activity.set(d.activity);
     this.notifications.set(d.notifications);
@@ -178,6 +181,7 @@ export class LifeStore {
     this.budgets.set([]);
     this.bills.set([]);
     this.recurring.set([]);
+    this.subscriptions.set([]);
     this.attachments.set([]);
     this.activity.set([]);
     this.members.set([]);
@@ -209,6 +213,7 @@ export class LifeStore {
         budgets: this.budgets(),
         bills: this.bills(),
         recurring: this.recurring(),
+        subscriptions: this.subscriptions(),
         attachments: this.attachments(),
         activity: this.activity(),
         notifications: this.notifications(),
@@ -230,6 +235,7 @@ export class LifeStore {
         this.budgets.set(d.budgets);
         this.bills.set(d.bills);
         this.recurring.set(d.recurring);
+        this.subscriptions.set(d.subscriptions);
         this.attachments.set(d.attachments);
         this.activity.set(d.activity);
         this.notifications.set(d.notifications);
@@ -240,85 +246,107 @@ export class LifeStore {
     }
     try {
       const c = this.backend.requireClient();
-      const [t, p, e, n, g, a, x, l, m, notifications, budgets, bills, recurring, attachments] =
-        await Promise.all([
-          c
-            .from('tasks')
-            .select('*')
-            .eq('workspace_id', w.id)
-            .order('created_at', { ascending: false })
-            .limit(500),
-          c
-            .from('projects')
-            .select('*')
-            .eq('workspace_id', w.id)
-            .order('created_at', { ascending: false })
-            .limit(500),
-          c
-            .from('calendar_events')
-            .select('*')
-            .eq('workspace_id', w.id)
-            .order('starts_at', { ascending: false })
-            .limit(500),
-          c
-            .from('notes')
-            .select('*')
-            .eq('workspace_id', w.id)
-            .order('updated_at', { ascending: false })
-            .limit(500),
-          c
-            .from('goals')
-            .select('*')
-            .eq('workspace_id', w.id)
-            .order('created_at', { ascending: false })
-            .limit(500),
-          c.from('accounts').select('*').eq('workspace_id', w.id).order('created_at').limit(500),
-          c
-            .from('transactions')
-            .select('*')
-            .eq('workspace_id', w.id)
-            .order('created_at')
-            .order('id')
-            .range(0, 499),
-          c
-            .from('activity_logs')
-            .select('*')
-            .eq('workspace_id', w.id)
-            .order('created_at', { ascending: false })
-            .limit(30),
-          c.from('workspace_members').select('*').eq('workspace_id', w.id),
-          c
-            .from('notifications')
-            .select('*')
-            .eq('workspace_id', w.id)
-            .is('dismissed_at', null)
-            .order('created_at', { ascending: false })
-            .limit(100),
-          c
-            .from('budgets')
-            .select('*')
-            .eq('workspace_id', w.id)
-            .order('month', { ascending: false })
-            .limit(500),
-          c
-            .from('bills')
-            .select('*')
-            .eq('workspace_id', w.id)
-            .order('created_at', { ascending: false })
-            .limit(500),
-          c
-            .from('recurring_transactions')
-            .select('*')
-            .eq('workspace_id', w.id)
-            .order('created_at', { ascending: false })
-            .limit(500),
-          c
-            .from('attachments')
-            .select('*')
-            .eq('workspace_id', w.id)
-            .order('created_at', { ascending: false })
-            .limit(500),
-        ]);
+      const [
+        t,
+        p,
+        e,
+        n,
+        g,
+        a,
+        x,
+        l,
+        m,
+        notifications,
+        budgets,
+        bills,
+        recurring,
+        attachments,
+        subscriptions,
+      ] = await Promise.all([
+        c
+          .from('tasks')
+          .select('*')
+          .eq('workspace_id', w.id)
+          .order('created_at', { ascending: false })
+          .limit(500),
+        c
+          .from('projects')
+          .select('*')
+          .eq('workspace_id', w.id)
+          .order('created_at', { ascending: false })
+          .limit(500),
+        c
+          .from('calendar_events')
+          .select('*')
+          .eq('workspace_id', w.id)
+          .order('starts_at', { ascending: false })
+          .limit(500),
+        c
+          .from('notes')
+          .select('*')
+          .eq('workspace_id', w.id)
+          .order('updated_at', { ascending: false })
+          .limit(500),
+        c
+          .from('goals')
+          .select('*')
+          .eq('workspace_id', w.id)
+          .order('created_at', { ascending: false })
+          .limit(500),
+        c.from('accounts').select('*').eq('workspace_id', w.id).order('created_at').limit(500),
+        c
+          .from('transactions')
+          .select('*')
+          .eq('workspace_id', w.id)
+          .order('created_at')
+          .order('id')
+          .range(0, 499),
+        c
+          .from('activity_logs')
+          .select('*')
+          .eq('workspace_id', w.id)
+          .order('created_at', { ascending: false })
+          .limit(30),
+        c.from('workspace_members').select('*').eq('workspace_id', w.id),
+        c
+          .from('notifications')
+          .select('*')
+          .eq('workspace_id', w.id)
+          .is('dismissed_at', null)
+          .order('created_at', { ascending: false })
+          .limit(100),
+        c
+          .from('budgets')
+          .select('*')
+          .eq('workspace_id', w.id)
+          .order('month', { ascending: false })
+          .limit(500),
+        c
+          .from('bills')
+          .select('*')
+          .eq('workspace_id', w.id)
+          .order('created_at', { ascending: false })
+          .limit(500),
+        c
+          .from('recurring_transactions')
+          .select('*')
+          .eq('workspace_id', w.id)
+          .order('created_at', { ascending: false })
+          .limit(500),
+        c
+          .from('attachments')
+          .select('*')
+          .eq('workspace_id', w.id)
+          .order('created_at', { ascending: false })
+          .limit(500),
+        c
+          .from('subscriptions')
+          .select('*')
+          .eq('workspace_id', w.id)
+          .order('created_at')
+          .order('id')
+          .range(0, 499),
+      ]);
       for (const result of [
         t,
         p,
@@ -334,10 +362,24 @@ export class LifeStore {
         bills,
         recurring,
         attachments,
+        subscriptions,
       ])
         if (result.error) throw result.error;
       // Finance needs the complete visible ledger; page rather than silently truncating balances.
       const ledger = [...(x.data ?? [])];
+      const subscriptionRows = [...(subscriptions.data ?? [])];
+      for (let offset = 500; subscriptions.data?.length === 500; offset += 500) {
+        const page = await c
+          .from('subscriptions')
+          .select('*')
+          .eq('workspace_id', w.id)
+          .order('created_at')
+          .order('id')
+          .range(offset, offset + 499);
+        if (page.error) throw page.error;
+        subscriptionRows.push(...page.data);
+        if (page.data.length < 500) break;
+      }
       for (let offset = 500; x.data?.length === 500; offset += 500) {
         const page = await c
           .from('transactions')
@@ -361,6 +403,7 @@ export class LifeStore {
       this.budgets.set(budgets.data ?? []);
       this.bills.set(bills.data ?? []);
       this.recurring.set(recurring.data ?? []);
+      this.subscriptions.set(subscriptionRows);
       this.attachments.set(attachments.data ?? []);
       this.activity.set(l.data ?? []);
       this.members.set(m.data ?? []);
@@ -815,6 +858,11 @@ export class LifeStore {
   async setRecurringActive(plan: RecurringTransaction) {
     if (!this.canEdit(plan)) throw new Error('You cannot change this schedule.');
     const active = !plan.active;
+    if (
+      active &&
+      this.subscriptions().some((s) => s.recurring_id === plan.id && s.status !== 'active')
+    )
+      throw new Error('Trial or cancelled subscriptions cannot resume expense recording.');
     if (!this.auth.demo()) {
       const { error } = await this.backend
         .requireClient()
@@ -838,6 +886,8 @@ export class LifeStore {
     }
     const current = this.recurring().find((r) => r.id === plan.id);
     if (!current?.active) return 0;
+    if (this.subscriptions().some((s) => s.recurring_id === current.id && s.status !== 'active'))
+      return 0;
     let count = current.occurrence_count;
     let next = current.next_on;
     let posted = 0;
@@ -862,6 +912,13 @@ export class LifeStore {
     this.transactions.update((list) => [...list, ...entries]);
     this.recurring.update((list) =>
       list.map((r) => (r.id === current.id ? { ...r, next_on: next, occurrence_count: count } : r)),
+    );
+    this.subscriptions.update((rows) =>
+      rows.map((s) =>
+        s.recurring_id === current.id
+          ? { ...s, next_on: next, renewal_count: count, updated_at: new Date().toISOString() }
+          : s,
+      ),
     );
     return posted;
   }
@@ -900,6 +957,7 @@ export class LifeStore {
       budgets: this.budgets(),
       bills: this.bills(),
       recurring: this.recurring(),
+      subscriptions: this.subscriptions(),
       attachments: this.attachments(),
     };
     const text =

@@ -118,6 +118,37 @@ export interface FinancePlanInput {
   kind: 'income' | 'expense';
   automatic: boolean;
 }
+export interface Subscription extends OwnedRecord {
+  title: string;
+  amount: number;
+  currency: string;
+  frequency: 'monthly' | 'yearly';
+  anchor_on: string;
+  next_on: string;
+  renewal_count: number;
+  status: 'active' | 'trial' | 'cancelled';
+  trial_ends_on: string | null;
+  category: string;
+  provider_url: string;
+  notes: string;
+  recurring_id: string | null;
+}
+export interface SubscriptionInput {
+  title: string;
+  amount: string;
+  currency: string;
+  frequency: Subscription['frequency'];
+  next_on: string;
+  status: 'active' | 'trial';
+  trial_ends_on: string;
+  category: string;
+  provider_url: string;
+  notes: string;
+  link_mode: 'track' | 'create' | 'existing';
+  account_id: string;
+  recurring_id: string;
+  automatic: boolean;
+}
 export interface Activity extends OwnedRecord {
   title: string;
 }
@@ -125,7 +156,7 @@ export interface Notification extends OwnedRecord {
   title: string;
   reminder_id: string | null;
   read_at: string | null;
-  source_kind: 'task' | 'bill' | 'document' | null;
+  source_kind: 'task' | 'bill' | 'document' | 'subscription' | 'trial' | null;
   source_id: string | null;
   occurrence_on: string | null;
   phase: 'upcoming' | 'overdue' | null;
@@ -136,9 +167,11 @@ export interface ReminderPreferences {
   task_reminders: boolean;
   bill_reminders: boolean;
   document_reminders: boolean;
+  subscription_reminders: boolean;
   task_lead_days: number;
   bill_lead_days: number;
   document_lead_days: number;
+  subscription_lead_days: number;
   reminder_hour: number;
   reminder_timezone: string;
 }
@@ -146,9 +179,11 @@ export const DEFAULT_REMINDERS: ReminderPreferences = {
   task_reminders: false,
   bill_reminders: false,
   document_reminders: false,
+  subscription_reminders: false,
   task_lead_days: 1,
   bill_lead_days: 3,
   document_lead_days: 30,
+  subscription_lead_days: 7,
   reminder_hour: 9,
   reminder_timezone: 'UTC',
 };
@@ -195,6 +230,7 @@ export interface TableRows {
   notifications: Notification;
   app_settings: Settings;
   attachments: Attachment;
+  subscriptions: Subscription;
 }
 type Table<R> = {
   Row: { [P in keyof R]: R[P] };
@@ -207,6 +243,30 @@ export type Database = {
     Tables: { [K in keyof TableRows]: Table<TableRows[K]> };
     Views: Record<string, never>;
     Functions: {
+      save_subscription: {
+        Args: {
+          entry: string;
+          w: string;
+          revision: string | null;
+          service_name: string;
+          price: number;
+          price_currency: string;
+          billing_frequency: string;
+          first_renewal: string;
+          trial_end: string | null;
+          subscription_status: string;
+          service_category: string;
+          service_url: string;
+          service_notes: string;
+          link_mode: string;
+          expense_account: string | null;
+          existing_schedule: string | null;
+          auto_record: boolean;
+        };
+        Returns: string;
+      };
+      cancel_subscription: { Args: { entry: string }; Returns: undefined };
+      advance_subscription: { Args: { entry: string; expected_date: string }; Returns: undefined };
       save_reminder_preferences: {
         Args: {
           tasks_enabled: boolean;
@@ -217,6 +277,8 @@ export type Database = {
           document_days: number;
           delivery_hour: number;
           delivery_timezone: string;
+          subscriptions_enabled: boolean;
+          subscription_days: number;
         };
         Returns: undefined;
       };

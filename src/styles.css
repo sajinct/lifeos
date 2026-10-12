@@ -652,6 +652,79 @@ nav > a.active:before {
   min-height: 16px;
   accent-color: var(--accent);
 }
+.subscription-totals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 18px;
+  margin: 20px 0 8px;
+}
+.subscription-total {
+  padding: 22px;
+}
+.subscription-total h2 {
+  margin: 12px 0;
+  font-size: 24px;
+}
+.subscription-total small {
+  display: block;
+  font-size: 12px;
+  color: var(--secondary);
+  font-weight: 400;
+  margin-top: 5px;
+}
+.subscription-total p {
+  color: var(--secondary);
+  font-size: 12px;
+}
+.subscription-form {
+  padding: 24px;
+  margin: 22px 0;
+}
+.subscription-form h2 {
+  margin-bottom: 20px;
+}
+.subscription-form form {
+  display: grid;
+  gap: 16px;
+}
+.subscription-table {
+  width: 100%;
+}
+.subscription-table td {
+  vertical-align: top;
+}
+.subscription-table td small {
+  display: block;
+  max-width: 250px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  color: var(--secondary);
+  font-size: 11px;
+  margin-top: 5px;
+}
+.subscription-table td a {
+  font-size: 11px;
+  color: var(--accent);
+}
+.subscription-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  max-width: 240px;
+}
+.subscription-table .text-button {
+  font-size: 11px;
+}
+.subscription-form .form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+@media (max-width: 680px) {
+  .subscription-form .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
 .notification-panel button {
   display: block;
   text-align: left;

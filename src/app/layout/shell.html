@@ -162,7 +162,9 @@
                           ? 'Open document'
                           : n.source_kind === 'bill'
                             ? 'Open finance'
-                            : 'Open tasks'
+                            : n.source_kind === 'task'
+                              ? 'Open tasks'
+                              : 'Open subscription'
                       }}
                     </button>
                   }
