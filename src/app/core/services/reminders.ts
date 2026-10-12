@@ -36,6 +36,7 @@ export class Reminders {
         this.store.bills(),
         this.store.attachments(),
         this.store.subscriptions(),
+        this.store.loans(),
       );
       const prefs = this.store.reminderPreferences();
       const workspace = this.store.workspace();
@@ -150,6 +151,7 @@ export class Reminders {
       [p.bill_lead_days, 30],
       [p.document_lead_days, 90],
       [p.subscription_lead_days, 90],
+      [p.loan_lead_days, 90],
       [p.reminder_hour, 23],
     ])
       if (!Number.isInteger(value) || value < 0 || value > max)
@@ -170,6 +172,8 @@ export class Reminders {
         delivery_timezone: p.reminder_timezone,
         subscriptions_enabled: p.subscription_reminders,
         subscription_days: p.subscription_lead_days,
+        loans_enabled: p.loan_reminders,
+        loan_days: p.loan_lead_days,
       });
       if (error) throw error;
     }
@@ -200,7 +204,9 @@ export class Reminders {
             ? 'bills'
             : n.source_kind === 'document'
               ? 'attachments'
-              : 'subscriptions';
+              : n.source_kind === 'loan'
+                ? 'loans'
+                : 'subscriptions';
       const { data, error } = await c
         .from(table)
         .select('*')
@@ -223,6 +229,8 @@ export class Reminders {
         this.store.bills.update((rows) => [...rows.filter((r) => r.id !== data.id), data]);
       else if ('object_path' in data)
         this.store.attachments.update((rows) => [...rows.filter((r) => r.id !== data.id), data]);
+      else if ('principal_paid' in data)
+        this.store.loans.update((rows) => [...rows.filter((r) => r.id !== data.id), data]);
       else if ('anchor_on' in data)
         this.store.subscriptions.update((rows) => [...rows.filter((r) => r.id !== data.id), data]);
       return true;
@@ -308,6 +316,8 @@ export class Reminders {
         ? '/finance'
         : n.source_kind === 'document'
           ? '/documents'
-          : '/subscriptions';
+          : n.source_kind === 'loan'
+            ? '/loans'
+            : '/subscriptions';
   }
 }

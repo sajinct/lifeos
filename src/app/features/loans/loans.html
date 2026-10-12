@@ -1,0 +1,338 @@
+<section class="page-heading">
+  <div>
+    <span class="eyebrow">KNOW WHAT YOU OWE AND WHAT’S OWED TO YOU</span>
+    <h1>Loans & repayments</h1>
+    <p>Borrowed or lent, every balance and repayment in one place.</p>
+  </div>
+  <button
+    class="button primary"
+    (click)="add()"
+    [disabled]="!store.writable() || busy() || store.loading()"
+  >
+    <app-icon name="plus" />Add loan
+  </button>
+</section>
+<div class="file-library-note">
+  <app-icon name="lock" /><span>Loan records and counterparties stay private to you.</span
+  ><a routerLink="/settings">Set repayment reminders</a>
+</div>
+<div class="subscription-totals">
+  @for (t of totals(); track t.currency) {
+    <section class="panel subscription-total">
+      <span class="eyebrow">{{ t.currency }} · OUTSTANDING</span>
+      <h2>{{ money(t.borrowed, t.currency) }}<small>you owe, including agreed interest</small></h2>
+      <p>{{ money(t.lent, t.currency) }} owed to you</p>
+    </section>
+  } @empty {
+    <section class="panel subscription-total">
+      <h2>A clearer view of your loans</h2>
+      <p>Add money borrowed or lent to track balances and due dates.</p>
+    </section>
+  }
+</div>
+@if (reminderId()) {
+  <div class="file-library-note">
+    <span>Showing the reminded loan.</span
+    ><button class="button subtle" (click)="clearReminder()">Show all loans</button>
+  </div>
+}
+@if (error()) {
+  <p class="error-banner" role="alert">{{ error() }}</p>
+}
+@if (showForm()) {
+  <section class="panel subscription-form">
+    <h2>Add loan</h2>
+    <form [formGroup]="form" (ngSubmit)="save()">
+      <div class="form-grid">
+        <label
+          >Loan name<input
+            formControlName="title"
+            maxlength="200"
+            placeholder="e.g. Education loan"
+        /></label>
+        <label
+          >Lender / borrower<input
+            formControlName="counterparty"
+            maxlength="200"
+            placeholder="Person or institution"
+        /></label>
+        <label
+          >Direction<select formControlName="direction">
+            <option value="borrowed">I borrowed this money</option>
+            <option value="lent">I lent this money</option>
+          </select></label
+        >
+        <label
+          >Currency<select formControlName="currency">
+            @for (c of currencies(); track c) {
+              <option [value]="c">{{ c }}</option>
+            }
+          </select></label
+        >
+        <label
+          >Principal<input formControlName="principal" inputmode="decimal" placeholder="0.00"
+        /></label>
+        <label
+          >Annual simple interest rate (%)<input formControlName="annual_rate" inputmode="decimal"
+        /></label>
+        <label
+          >Monthly installments<input
+            type="number"
+            formControlName="installments"
+            min="1"
+            max="600"
+            step="1"
+        /></label>
+        <label>Loan started on<input type="date" formControlName="opened_on" /></label>
+        <label>First installment due on<input type="date" formControlName="first_due_on" /></label>
+        <label
+          >Initial principal in Finance<select formControlName="account_id">
+            <option value="">Tracking only / already recorded</option>
+            @for (a of accounts(); track a.id) {
+              <option [value]="a.id">Record in {{ a.name }} · {{ a.currency }}</option>
+            }
+          </select></label
+        >
+      </div>
+      <label
+        >Notes (optional)<textarea formControlName="notes" maxlength="2000" rows="2"></textarea>
+      </label>
+      <p class="form-hint">
+        Fixed simple interest = principal × annual rate × months ÷ 1200. This schedule uses equal
+        monthly amounts with a smaller final installment when rounding requires it. It does not
+        compound, reduce interest after early repayment, or calculate bank EMIs.
+      </p>
+      @if (estimate(); as e) {
+        <p class="loan-estimate">
+          <strong>{{ money(e.installment, form.controls.currency.value) }} per month</strong> ·
+          {{ money(e.interest, form.controls.currency.value) }} agreed interest ·
+          {{ money(e.total, form.controls.currency.value) }} total
+        </p>
+      }
+      <p class="form-hint">
+        Choose an account only if the initial principal is missing from Finance. Borrowed principal
+        increases its balance; lent principal decreases it. Principal is excluded from income and
+        expense totals. Saved terms and repayments are permanent records; check the details before
+        saving.
+      </p>
+      <div class="heading-actions">
+        <button type="submit" class="button primary" [disabled]="busy() || !store.writable()">
+          {{ busy() ? 'Saving…' : 'Save loan' }}</button
+        ><button
+          type="button"
+          class="button subtle"
+          (click)="showForm.set(false)"
+          [disabled]="busy()"
+        >
+          Close
+        </button>
+      </div>
+    </form>
+  </section>
+}
+<div class="records-toolbar">
+  <div class="filter-search">
+    <app-icon name="search" /><input
+      aria-label="Find loans"
+      placeholder="Search loans or people…"
+      [value]="search()"
+      (input)="search.set($any($event.target).value)"
+    />
+  </div>
+  <select
+    aria-label="Loan filter"
+    [value]="filter()"
+    (change)="filter.set($any($event.target).value)"
+  >
+    <option value="all">All loans</option>
+    <option value="borrowed">Borrowed</option>
+    <option value="lent">Lent</option>
+    <option value="active">Active</option>
+    <option value="paid">Fully repaid</option>
+  </select>
+</div>
+<section class="panel">
+  <div class="table-wrap">
+    <table class="subscription-table">
+      <thead>
+        <tr>
+          <th>Loan</th>
+          <th>Outstanding</th>
+          <th>Next due</th>
+          <th>Schedule</th>
+          <th>Details</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (l of rows(); track l.id) {
+          <tr>
+            <td>
+              <strong>{{ l.title }}</strong
+              ><small
+                >{{ l.counterparty }} ·
+                {{ l.direction === 'borrowed' ? 'Borrowed' : 'Lent' }}</small
+              >
+            </td>
+            <td>
+              {{ money(balance(l).total, l.currency)
+              }}<small>{{ money(balance(l).principal, l.currency) }} principal</small>
+            </td>
+            <td>
+              @if (l.next_due_on) {
+                {{ l.next_due_on | date: 'd MMM yyyy'
+                }}<small>{{ l.next_due_on < library.today() ? 'Overdue' : 'Upcoming' }}</small>
+              } @else {
+                Fully repaid
+              }
+            </td>
+            <td>
+              {{ money(l.installment_amount, l.currency) }} / month<small
+                >{{ l.installments }} installments · {{ l.annual_rate }}% simple interest</small
+              >
+            </td>
+            <td>
+              <button class="button subtle" (click)="select(l)" [disabled]="busy()">
+                View repayments
+              </button>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="5" class="empty-state">
+              No matching loans. Add your first loan to get started.
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</section>
+@if (selected(); as l) {
+  <section class="panel loan-detail">
+    <div class="page-heading">
+      <div>
+        <span class="eyebrow"
+          >{{ l.direction === 'borrowed' ? 'BORROWED FROM' : 'LENT TO' }} {{ l.counterparty }}</span
+        >
+        <h2>{{ l.title }}</h2>
+        <p>
+          {{ money(balance(l).principal, l.currency) }} principal +
+          {{ money(balance(l).interest, l.currency) }} interest remaining.
+        </p>
+      </div>
+      <button
+        class="button primary"
+        (click)="repay()"
+        [disabled]="busy() || !store.writable() || store.loading() || l.status === 'paid'"
+      >
+        Record repayment
+      </button>
+    </div>
+    <p class="form-hint">
+      Started {{ l.opened_on | date: 'd MMM yyyy' }} ·
+      {{ money(l.principal, l.currency) }} principal ·
+      {{ money(l.interest_total, l.currency) }} agreed interest. Partial payments keep the current
+      due date until that scheduled amount is covered. Extra payments advance the schedule; interest
+      stays fixed.
+    </p>
+    @if (l.notes) {
+      <p>{{ l.notes }}</p>
+    }
+    @if (showRepayment()) {
+      <form class="subscription-form" [formGroup]="payment" (ngSubmit)="savePayment()">
+        <h3>Record a repayment</h3>
+        <div class="form-grid">
+          <label>Principal repaid<input inputmode="decimal" formControlName="principal" /></label
+          ><label>Interest paid<input inputmode="decimal" formControlName="interest" /></label
+          ><label>Payment date<input type="date" formControlName="date" /></label
+          ><label
+            >Record in Finance<select formControlName="account_id">
+              <option value="">Tracking only / already recorded</option>
+              @for (a of paymentAccounts(); track a.id) {
+                <option [value]="a.id">{{ a.name }} · {{ a.currency }}</option>
+              }
+            </select></label
+          >
+        </div>
+        <label
+          >Repayment notes<textarea formControlName="notes" maxlength="2000" rows="2"></textarea>
+        </label>
+        <p class="form-hint">
+          Amounts suggest the next remaining installment. Adjust them to your agreement. Enter the
+          principal and interest actually paid. Selecting an account records both parts once in
+          Finance. Choose tracking only if you already recorded the payment. No money is sent.
+        </p>
+        <div class="heading-actions">
+          <button type="submit" class="button primary" [disabled]="busy() || !store.writable()">
+            Save repayment</button
+          ><button
+            type="button"
+            class="button subtle"
+            (click)="showRepayment.set(false)"
+            [disabled]="busy()"
+          >
+            Close
+          </button>
+        </div>
+      </form>
+    }
+    <h3>Repayment history</h3>
+    <div class="table-wrap">
+      <table class="subscription-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Principal</th>
+            <th>Interest</th>
+            <th>Finance / notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (p of history(); track p.id) {
+            <tr>
+              <td>{{ p.booked_on | date: 'd MMM yyyy' }}</td>
+              <td>{{ money(p.principal_amount, l.currency) }}</td>
+              <td>{{ money(p.interest_amount, l.currency) }}</td>
+              <td>
+                {{ accountName(p.account_id) }}<small>{{ p.notes }}</small>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="4" class="empty-state">No repayments recorded yet.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <details class="loan-schedule">
+      <summary>Monthly repayment schedule · {{ l.installments }} installments</summary>
+      <div class="table-wrap">
+        <table class="subscription-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Due date</th>
+              <th>Scheduled amount</th>
+              <th>Remaining</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (p of schedule(); track p.number) {
+              <tr>
+                <td>{{ p.number }}</td>
+                <td>{{ p.date | date: 'd MMM yyyy' }}</td>
+                <td>{{ money(p.amount, l.currency) }}</td>
+                <td>{{ p.remaining === 0 ? 'Covered' : money(p.remaining, l.currency) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </details>
+    <p class="form-hint">
+      <a routerLink="/finance">Open Finance</a> to review linked cash movements and interest
+      entries.
+    </p>
+  </section>
+}

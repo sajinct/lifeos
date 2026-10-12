@@ -164,7 +164,9 @@
                             ? 'Open finance'
                             : n.source_kind === 'task'
                               ? 'Open tasks'
-                              : 'Open subscription'
+                              : n.source_kind === 'loan'
+                                ? 'Open loan'
+                                : 'Open subscription'
                       }}
                     </button>
                   }

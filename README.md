@@ -21,12 +21,13 @@ Open http://127.0.0.1:4200 and choose **Explore a demo workspace**. Sample recor
 - Private document/receipt uploads, category and expiry filters, authenticated downloads, immutable versions, reversible archives and links to projects/finance entries.
 - Opt-in task, bill and document-expiry reminders with personal lead times/time zones, five-minute in-app delivery, snooze/dismiss and direct source links.
 - Private subscriptions and free trials, monthly/yearly cost estimates by currency, renewal alerts, optional recurring expense links and cancellation that stops future recording.
-- Private-by-default records, 22 RLS-protected application tables, private Storage policies, typed client access and server-only reminder dispatch.
+- Private loans borrowed/lent, fixed simple-interest schedules, partial/early repayments, owner-only reminders and atomic principal/interest entries in Finance.
+- Private-by-default records, 24 RLS-protected application tables, private Storage policies, typed client access and server-only reminder dispatch.
 - Currency-aware summaries, linked project records, CSV/JSON exports and idempotent transfer requests.
 - Installable PWA manifest/service worker that caches static assets only; offline indication.
 - GitHub Actions checks and Pages deployment supporting repository paths and custom domains.
 
-This is **Phase 1 plus an initial Phase 2 slice**, not the complete fifteen-module ERP. Family, assets, contacts, loans, habits, career, health, travel, email automation, imports and AI are subsequent milestones. The app does not expose empty routes for those modules.
+This is **Phase 1 plus an initial Phase 2 slice**, not the complete fifteen-module ERP. Family, assets, contacts, habits, career, health, travel, email automation, imports and AI are subsequent milestones. The app does not expose empty routes for those modules.
 
 ## Connect and deploy
 

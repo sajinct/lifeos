@@ -19,6 +19,8 @@ import {
   ReminderPreferences,
   DEFAULT_REMINDERS,
   Subscription,
+  Loan,
+  LoanRepayment,
   OwnedRecord,
   Profile,
   Project,
@@ -53,6 +55,8 @@ export class LifeStore {
   readonly budgets = signal<Budget[]>([]);
   readonly bills = signal<Bill[]>([]);
   readonly recurring = signal<RecurringTransaction[]>([]);
+  readonly loans = signal<Loan[]>([]);
+  readonly loanRepayments = signal<LoanRepayment[]>([]);
   readonly subscriptions = signal<Subscription[]>([]);
   readonly attachments = signal<Attachment[]>([]);
   readonly fileSession = signal(0);
@@ -166,6 +170,8 @@ export class LifeStore {
     this.bills.set(d.bills);
     this.recurring.set(d.recurring);
     this.subscriptions.set(d.subscriptions);
+    this.loans.set(d.loans);
+    this.loanRepayments.set(d.loanRepayments);
     this.attachments.set(d.attachments);
     this.activity.set(d.activity);
     this.notifications.set(d.notifications);
@@ -182,6 +188,8 @@ export class LifeStore {
     this.bills.set([]);
     this.recurring.set([]);
     this.subscriptions.set([]);
+    this.loans.set([]);
+    this.loanRepayments.set([]);
     this.attachments.set([]);
     this.activity.set([]);
     this.members.set([]);
@@ -214,6 +222,8 @@ export class LifeStore {
         bills: this.bills(),
         recurring: this.recurring(),
         subscriptions: this.subscriptions(),
+        loans: this.loans(),
+        loanRepayments: this.loanRepayments(),
         attachments: this.attachments(),
         activity: this.activity(),
         notifications: this.notifications(),
@@ -236,6 +246,8 @@ export class LifeStore {
         this.bills.set(d.bills);
         this.recurring.set(d.recurring);
         this.subscriptions.set(d.subscriptions);
+        this.loans.set(d.loans);
+        this.loanRepayments.set(d.loanRepayments);
         this.attachments.set(d.attachments);
         this.activity.set(d.activity);
         this.notifications.set(d.notifications);
@@ -392,7 +404,26 @@ export class LifeStore {
         ledger.push(...page.data);
         if (page.data.length < 500) break;
       }
+      const allLoans: Loan[] = [],
+        allPayments: LoanRepayment[] = [];
+      for (const table of ['loans', 'loan_repayments'] as const) {
+        for (let offset = 0; ; offset += 500) {
+          const page = await c
+            .from(table)
+            .select('*')
+            .eq('workspace_id', w.id)
+            .order('created_at')
+            .order('id')
+            .range(offset, offset + 499);
+          if (page.error) throw page.error;
+          if (table === 'loans') allLoans.push(...(page.data as Loan[]));
+          else allPayments.push(...(page.data as LoanRepayment[]));
+          if (page.data.length < 500) break;
+        }
+      }
       if (run !== this.generation) return;
+      this.loans.set(allLoans);
+      this.loanRepayments.set(allPayments);
       this.tasks.set(t.data ?? []);
       this.projects.set(p.data ?? []);
       this.events.set(e.data ?? []);
@@ -958,6 +989,8 @@ export class LifeStore {
       bills: this.bills(),
       recurring: this.recurring(),
       subscriptions: this.subscriptions(),
+      loans: this.loans(),
+      loanRepayments: this.loanRepayments(),
       attachments: this.attachments(),
     };
     const text =

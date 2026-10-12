@@ -74,6 +74,8 @@ export interface Transaction extends OwnedRecord {
   booked_on: string;
   transfer_id: string | null;
   project_id: string | null;
+  loan_id?: string | null;
+  loan_repayment_id?: string | null;
   bill_id?: string | null;
   recurring_id?: string | null;
   occurrence_on?: string | null;
@@ -149,6 +151,52 @@ export interface SubscriptionInput {
   recurring_id: string;
   automatic: boolean;
 }
+export interface Loan extends OwnedRecord {
+  title: string;
+  counterparty: string;
+  direction: 'borrowed' | 'lent';
+  currency: string;
+  principal: number;
+  annual_rate: number;
+  interest_total: number;
+  installments: number;
+  installment_amount: number;
+  opened_on: string;
+  first_due_on: string;
+  next_due_on: string | null;
+  principal_paid: number;
+  interest_paid: number;
+  status: 'active' | 'paid';
+  notes: string;
+}
+export interface LoanRepayment extends OwnedRecord {
+  loan_id: string;
+  principal_amount: number;
+  interest_amount: number;
+  booked_on: string;
+  account_id: string | null;
+  notes: string;
+}
+export interface LoanInput {
+  title: string;
+  counterparty: string;
+  direction: Loan['direction'];
+  currency: string;
+  principal: string;
+  annual_rate: string;
+  installments: number;
+  opened_on: string;
+  first_due_on: string;
+  notes: string;
+  account_id: string;
+}
+export interface RepaymentInput {
+  principal: string;
+  interest: string;
+  date: string;
+  account_id: string;
+  notes: string;
+}
 export interface Activity extends OwnedRecord {
   title: string;
 }
@@ -156,7 +204,7 @@ export interface Notification extends OwnedRecord {
   title: string;
   reminder_id: string | null;
   read_at: string | null;
-  source_kind: 'task' | 'bill' | 'document' | 'subscription' | 'trial' | null;
+  source_kind: 'task' | 'bill' | 'document' | 'subscription' | 'trial' | 'loan' | null;
   source_id: string | null;
   occurrence_on: string | null;
   phase: 'upcoming' | 'overdue' | null;
@@ -168,10 +216,12 @@ export interface ReminderPreferences {
   bill_reminders: boolean;
   document_reminders: boolean;
   subscription_reminders: boolean;
+  loan_reminders: boolean;
   task_lead_days: number;
   bill_lead_days: number;
   document_lead_days: number;
   subscription_lead_days: number;
+  loan_lead_days: number;
   reminder_hour: number;
   reminder_timezone: string;
 }
@@ -180,10 +230,12 @@ export const DEFAULT_REMINDERS: ReminderPreferences = {
   bill_reminders: false,
   document_reminders: false,
   subscription_reminders: false,
+  loan_reminders: false,
   task_lead_days: 1,
   bill_lead_days: 3,
   document_lead_days: 30,
   subscription_lead_days: 7,
+  loan_lead_days: 3,
   reminder_hour: 9,
   reminder_timezone: 'UTC',
 };
@@ -231,6 +283,8 @@ export interface TableRows {
   app_settings: Settings;
   attachments: Attachment;
   subscriptions: Subscription;
+  loans: Loan;
+  loan_repayments: LoanRepayment;
 }
 type Table<R> = {
   Row: { [P in keyof R]: R[P] };
@@ -243,6 +297,36 @@ export type Database = {
     Tables: { [K in keyof TableRows]: Table<TableRows[K]> };
     Views: Record<string, never>;
     Functions: {
+      create_loan: {
+        Args: {
+          entry: string;
+          w: string;
+          loan_title: string;
+          party: string;
+          loan_direction: string;
+          loan_currency: string;
+          principal_amount: number;
+          rate: number;
+          term: number;
+          opened: string;
+          first_due: string;
+          loan_notes: string;
+          initial_account: string | null;
+        };
+        Returns: string;
+      };
+      record_loan_repayment: {
+        Args: {
+          entry: string;
+          loan: string;
+          principal_amount: number;
+          interest_amount: number;
+          payment_date: string;
+          payment_account: string | null;
+          payment_notes: string;
+        };
+        Returns: string;
+      };
       save_subscription: {
         Args: {
           entry: string;
@@ -279,6 +363,8 @@ export type Database = {
           delivery_timezone: string;
           subscriptions_enabled: boolean;
           subscription_days: number;
+          loans_enabled: boolean;
+          loan_days: number;
         };
         Returns: undefined;
       };

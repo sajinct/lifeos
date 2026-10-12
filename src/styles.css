@@ -3049,3 +3049,30 @@ td:last-child {
     margin-left: 0;
   }
 }
+
+.loan-detail {
+  margin-top: 24px;
+  padding: 24px;
+}
+.loan-detail .page-heading {
+  margin-bottom: 12px;
+}
+.loan-detail h3 {
+  margin: 24px 0 12px;
+}
+.loan-detail .subscription-form {
+  margin: 20px 0;
+}
+.loan-estimate {
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--surface);
+}
+.loan-schedule {
+  margin: 20px 0;
+}
+.loan-schedule summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 12px 0;
+}

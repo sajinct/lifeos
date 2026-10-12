@@ -74,6 +74,13 @@ export class SearchDialog implements AfterViewInit {
     const q = this.query().toLowerCase().trim();
     if (!q) return [];
     return [
+      ...this.store.loans().map((s) => ({
+        id: s.id,
+        title: s.title + ' · ' + s.counterparty,
+        type: 'Loan',
+        icon: 'wallet',
+        path: '/loans',
+      })),
       ...this.store.subscriptions().map((s) => ({
         id: s.id,
         title: s.title,

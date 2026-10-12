@@ -5,12 +5,13 @@ import {
   ReminderPreferences,
   Notification,
   Subscription,
+  Loan,
 } from '../../core/models/domain';
 export interface ReminderSource {
   id: string;
   workspace_id: string;
   owner_id: string;
-  kind: 'task' | 'bill' | 'document' | 'subscription' | 'trial';
+  kind: 'task' | 'bill' | 'document' | 'subscription' | 'trial' | 'loan';
   title: string;
   date: string;
   days: number;
@@ -21,8 +22,12 @@ export function reminderSources(
   bills: Bill[],
   files: Attachment[],
   subscriptions: Subscription[] = [],
+  loans: Loan[] = [],
 ): ReminderSource[] {
   return [
+    ...loans
+      .filter((l) => p.loan_reminders && l.status === 'active' && l.next_due_on)
+      .map((l) => ({ ...l, kind: 'loan' as const, date: l.next_due_on!, days: p.loan_lead_days })),
     ...subscriptions
       .filter((s) => p.subscription_reminders && s.status !== 'cancelled')
       .map((s) => ({
@@ -81,7 +86,9 @@ export function reminderTitle(s: ReminderSource, phase: Notification['phase']) {
           ? 'Document'
           : s.kind === 'trial'
             ? 'Trial'
-            : 'Subscription';
+            : s.kind === 'loan'
+              ? 'Loan repayment'
+              : 'Subscription';
   const overdue =
     s.kind === 'document'
       ? 'expired'
