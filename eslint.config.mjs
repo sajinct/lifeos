@@ -6,7 +6,9 @@ export default ts.config(
   ...ts.configs.recommended,
   {
     files: ['**/*.mjs'],
-    languageOptions: { globals: { process: 'readonly', console: 'readonly', URL: 'readonly' } },
+    languageOptions: {
+      globals: { process: 'readonly', console: 'readonly', URL: 'readonly', fetch: 'readonly' },
+    },
   },
   { files: ['**/*.ts'], rules: { '@typescript-eslint/no-explicit-any': 'error' } },
 );

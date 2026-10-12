@@ -35,7 +35,7 @@ import { Icon } from './icon';
     <div class="search-results">
       <span class="eyebrow">{{ query() ? 'RESULTS' : 'QUICK ACTIONS' }}</span>
       @for (result of results(); track result.id) {
-        <button (click)="navigate(result.path)">
+        <button (click)="navigate(result)">
           <span class="icon-tile purple"><app-icon [name]="result.icon" /></span>
           <div>
             <strong>{{ result.title }}</strong
@@ -94,6 +94,17 @@ export class SearchDialog implements AfterViewInit {
         icon: 'calendar',
         path: '/calendar',
       })),
+      ...this.store
+        .attachments()
+        .filter((a) => a.status === 'ready')
+        .map((a) => ({
+          id: a.id,
+          title: a.name,
+          type: a.bucket_id === 'financial-receipts' ? 'Receipt' : 'Document',
+          icon: 'file',
+          path: '/documents',
+          bucket: a.bucket_id,
+        })),
     ]
       .filter((r) => r.title.toLowerCase().includes(q))
       .slice(0, 12);
@@ -101,9 +112,11 @@ export class SearchDialog implements AfterViewInit {
   ngAfterViewInit() {
     this.dialog.nativeElement.showModal();
   }
-  navigate(path: string) {
+  navigate(result: { path: string; bucket?: string }) {
     this.ui.searchOpen.set(false);
-    void this.router.navigateByUrl(path, { state: { search: this.query() } });
+    void this.router.navigateByUrl(result.path, {
+      state: { search: this.query(), bucket: result.bucket },
+    });
   }
   capture(kind: CaptureKind) {
     this.ui.searchOpen.set(false);

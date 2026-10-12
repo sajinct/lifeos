@@ -345,6 +345,13 @@
                 <td>
                   <strong>{{ t.title }}</strong
                   ><small>{{ t.kind.replace('_', ' ') }}</small>
+                  <button
+                    class="text-button"
+                    (click)="addReceipt(t)"
+                    [disabled]="!store.writable()"
+                  >
+                    Add receipt
+                  </button>
                 </td>
                 <td>{{ t.category }}</td>
                 <td>{{ t.booked_on | date: 'd MMM yyyy' }}</td>

@@ -41,7 +41,7 @@ beforeAll(async () => {
     grant execute on function auth.uid() to public;
     create schema storage;grant usage on schema storage to authenticated,anon;
     create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
-    create table storage.objects(id uuid default gen_random_uuid() primary key,bucket_id text,name text);
+    create table storage.objects(id uuid default gen_random_uuid() primary key,bucket_id text,name text,metadata jsonb default '{}',unique(bucket_id,name));
     alter table storage.objects enable row level security;grant select,insert,delete on storage.objects to authenticated;
     create function storage.foldername(text) returns text[] language sql immutable as $$ select (string_to_array($1,'/'))[1:array_length(string_to_array($1,'/'),1)-1] $$;
     grant execute on function storage.foldername(text) to public;
@@ -281,10 +281,17 @@ describe('Actual PostgreSQL RLS and permission boundaries', () => {
   });
   it('does not let other members read private files or upload under owner paths', async () => {
     await asUser(A);
-    const path = `${A}/${workspace}/receipt.pdf`;
-    await db.query("insert into storage.objects(bucket_id,name) values('financial-receipts',$1)", [
-      path,
-    ]);
+    const id = '44444444-4444-4444-8444-444444444444';
+    const path = `${A}/${workspace}/${id}.pdf`;
+    await db.query(
+      "insert into public.attachments(id,workspace_id,name,object_path,mime_type,size_bytes,bucket_id) values($1,$2,'receipt.pdf',$3,'application/pdf',10,'financial-receipts')",
+      [id, workspace, path],
+    );
+    await db.query(
+      'insert into storage.objects(bucket_id,name,metadata) values(\'financial-receipts\',$1,\'{"size":10,"mimetype":"application/pdf"}\')',
+      [path],
+    );
+    await db.query('select public.complete_attachment($1)', [id]);
     await asUser(B);
     expect(
       Number((await db.query<{ n: string }>('select count(*) n from storage.objects')).rows[0].n),
@@ -326,6 +333,197 @@ describe('Actual PostgreSQL RLS and permission boundaries', () => {
     await db.query('select public.remove_workspace_member($1,$2)', [workspace, B]);
     await asUser(B);
     expect(await count('tasks')).toBe(0);
+  });
+});
+
+describe('Private file reservations and lifecycle', () => {
+  let file: string;
+  let path: string;
+  let next: string;
+  it('requires a canonical private reservation and verifies object metadata before completion', async () => {
+    await asUser(A);
+    file = '55555555-5555-4555-8555-555555555555';
+    path = `${A}/${workspace}/${file}.txt`;
+    await db.query(
+      "insert into public.attachments(id,workspace_id,name,object_path,mime_type,size_bytes) values($1,$2,'sample.txt',$3,'text/plain',5)",
+      [file, workspace, path],
+    );
+    await expect(db.query('select public.complete_attachment($1)', [file])).rejects.toThrow(
+      /not found/,
+    );
+    await expect(
+      db.query("insert into storage.objects(bucket_id,name) values('financial-receipts',$1)", [
+        path,
+      ]),
+    ).rejects.toThrow(/row-level security/);
+    await db.query(
+      'insert into storage.objects(bucket_id,name,metadata) values(\'personal-documents\',$1,\'{"size":6,"mimetype":"text/plain"}\')',
+      [path],
+    );
+    await expect(db.query('select public.complete_attachment($1)', [file])).rejects.toThrow(
+      /metadata does not match/,
+    );
+    await db.query('delete from storage.objects where name=$1', [path]);
+    await db.query(
+      'insert into storage.objects(bucket_id,name,metadata) values(\'personal-documents\',$1,\'{"size":5,"mimetype":"text/plain"}\')',
+      [path],
+    );
+    await db.query('select public.complete_attachment($1)', [file]);
+    await db.query('select public.complete_attachment($1)', [file]);
+    expect(
+      (
+        await db.query<{ status: string }>('select status from public.attachments where id=$1', [
+          file,
+        ])
+      ).rows[0].status,
+    ).toBe('ready');
+  });
+  it('preserves immutable bytes and ready metadata while allowing archive/restore', async () => {
+    await asUser(A);
+    await expect(
+      db.query("update public.attachments set status='ready' where id=$1", [file]),
+    ).rejects.toThrow(/permission denied/);
+    await expect(db.query('delete from public.attachments where id=$1', [file])).rejects.toThrow(
+      /permission denied/,
+    );
+    expect((await db.query('delete from storage.objects where name=$1', [path])).affectedRows).toBe(
+      0,
+    );
+    await expect(db.query('select public.cancel_attachment_upload($1)', [file])).rejects.toThrow(
+      /Completed files/,
+    );
+    await db.query("select public.set_attachment_status($1,'archived')", [file]);
+    expect(
+      Number(
+        (
+          await db.query<{ n: string }>('select count(*) n from storage.objects where name=$1', [
+            path,
+          ])
+        ).rows[0].n,
+      ),
+    ).toBe(1);
+    await db.query("select public.set_attachment_status($1,'ready')", [file]);
+  });
+  it('rejects other users, forged paths, ready inserts and foreign finance links', async () => {
+    await asUser(B);
+    expect(await count('attachments')).toBe(0);
+    expect(
+      Number((await db.query<{ n: string }>('select count(*) n from storage.objects')).rows[0].n),
+    ).toBe(0);
+    await expect(db.query('select public.complete_attachment($1)', [file])).rejects.toThrow(
+      /owner/,
+    );
+    await expect(
+      db.query("select public.set_attachment_status($1,'archived')", [file]),
+    ).rejects.toThrow(/owner/);
+    await asUser(A);
+    await expect(
+      insert('attachments', 'workspace_id,name,object_path,mime_type,size_bytes', [
+        workspace,
+        'Bad.pdf',
+        `${A}/${workspace}/bad.pdf`,
+        'application/pdf',
+        1,
+      ]),
+    ).rejects.toThrow(/object path/);
+    const forged = '66666666-6666-4666-8666-666666666666';
+    await expect(
+      db.query(
+        "insert into public.attachments(id,workspace_id,name,object_path,mime_type,size_bytes,status) values($1,$2,'Bad.pdf',$3,'application/pdf',1,'ready')",
+        [forged, workspace, `${A}/${workspace}/${forged}.pdf`],
+      ),
+    ).rejects.toThrow(/server-owned/);
+    await expect(
+      db.query(
+        "insert into public.attachments(id,workspace_id,name,object_path,mime_type,size_bytes,bucket_id) values($1,$2,'Bad.txt',$3,'text/plain',1,'financial-receipts')",
+        [forged, workspace, `${A}/${workspace}/${forged}.txt`],
+      ),
+    ).rejects.toThrow(/Unsupported/);
+    await expect(
+      db.query('select public.update_attachment_details($1,$2,null,null,$3)', [
+        file,
+        'Other',
+        (await db.query<{ id: string }>('select id from public.transactions limit 1')).rows[0].id,
+      ]),
+    ).rejects.toThrow(/receipt_transaction_link/);
+  });
+  it('creates consecutive immutable versions and archives the previous version only on completion', async () => {
+    await asUser(A);
+    next = '77777777-7777-4777-8777-777777777777';
+    const nextPath = `${A}/${workspace}/${next}.txt`;
+    await db.query(
+      "insert into public.attachments(id,workspace_id,name,object_path,mime_type,size_bytes,previous_version_id,version_number) values($1,$2,'sample.txt',$3,'text/plain',5,$4,99)",
+      [next, workspace, nextPath, file],
+    );
+    expect(
+      (
+        await db.query<{ version_number: number }>(
+          'select version_number from public.attachments where id=$1',
+          [next],
+        )
+      ).rows[0].version_number,
+    ).toBe(2);
+    expect(
+      (
+        await db.query<{ status: string }>('select status from public.attachments where id=$1', [
+          file,
+        ])
+      ).rows[0].status,
+    ).toBe('ready');
+    await db.query(
+      'insert into storage.objects(bucket_id,name,metadata) values(\'personal-documents\',$1,\'{"size":5,"mimetype":"text/plain"}\')',
+      [nextPath],
+    );
+    await db.query('select public.complete_attachment($1)', [next]);
+    expect(
+      (
+        await db.query<{ status: string }>('select status from public.attachments where id=$1', [
+          file,
+        ])
+      ).rows[0].status,
+    ).toBe('archived');
+    await expect(
+      db.query('update public.attachments set previous_version_id=$1 where id=$2', [next, file]),
+    ).rejects.toThrow(/permission denied/);
+  });
+  it('allows cleanup only for cancelled drafts and revokes file access with membership', async () => {
+    await asUser(A);
+    const draft = '88888888-8888-4888-8888-888888888888';
+    const draftPath = `${A}/${workspace}/${draft}.txt`;
+    await db.query(
+      "insert into public.attachments(id,workspace_id,name,object_path,mime_type,size_bytes) values($1,$2,'draft.txt',$3,'text/plain',5)",
+      [draft, workspace, draftPath],
+    );
+    await db.query(
+      'insert into storage.objects(bucket_id,name,metadata) values(\'personal-documents\',$1,\'{"size":5,"mimetype":"text/plain"}\')',
+      [draftPath],
+    );
+    await db.query('select public.cancel_attachment_upload($1)', [draft]);
+    await expect(
+      db.query('select public.remove_cancelled_attachment($1)', [draft]),
+    ).rejects.toThrow(/clean up/);
+    await db.query('delete from storage.objects where name=$1', [draftPath]);
+    await db.query('select public.remove_cancelled_attachment($1)', [draft]);
+    expect(
+      (await db.query('select id from public.attachments where id=$1', [draft])).rows.length,
+    ).toBe(0);
+    await db.exec('reset role;set role anon');
+    await expect(count('attachments')).rejects.toThrow(/permission denied/);
+    await db.exec('reset role');
+    await db.query('delete from public.workspace_members where workspace_id=$1 and user_id=$2', [
+      workspace,
+      A,
+    ]);
+    await asUser(A);
+    expect(await count('attachments')).toBe(0);
+    expect(
+      Number((await db.query<{ n: string }>('select count(*) n from storage.objects')).rows[0].n),
+    ).toBe(0);
+    await db.exec('reset role');
+    await db.query(
+      "insert into public.workspace_members(workspace_id,user_id,role) values($1,$2,'owner')",
+      [workspace, A],
+    );
   });
 });
 

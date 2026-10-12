@@ -8,6 +8,7 @@ import {
   Account,
   Transaction,
   Activity,
+  Attachment,
   Budget,
   Bill,
   RecurringTransaction,
@@ -288,6 +289,7 @@ export function demoData() {
       automatic: false,
     },
   ];
+  const attachments: Attachment[] = [];
   return {
     projects,
     tasks,
@@ -300,5 +302,6 @@ export function demoData() {
     budgets,
     bills,
     recurring,
+    attachments,
   };
 }

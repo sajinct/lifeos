@@ -130,6 +130,27 @@ export interface Settings {
   id: string;
   dashboard_widgets: string[];
 }
+export type FileBucket = 'personal-documents' | 'financial-receipts';
+export interface Attachment extends OwnedRecord {
+  name: string;
+  object_path: string;
+  mime_type: string;
+  size_bytes: number;
+  bucket_id: FileBucket;
+  status: 'uploading' | 'ready' | 'archived' | 'cancelled';
+  category: string;
+  expires_on: string | null;
+  project_id: string | null;
+  transaction_id: string | null;
+  previous_version_id: string | null;
+  version_number: number;
+}
+export interface FileDetails {
+  category: string;
+  expires_on: string;
+  project_id: string;
+  transaction_id: string;
+}
 export interface TableRows {
   profiles: Profile;
   workspaces: Workspace;
@@ -147,6 +168,7 @@ export interface TableRows {
   activity_logs: Activity;
   notifications: Notification;
   app_settings: Settings;
+  attachments: Attachment;
 }
 type Table<R> = {
   Row: { [P in keyof R]: R[P] };
@@ -159,6 +181,23 @@ export type Database = {
     Tables: { [K in keyof TableRows]: Table<TableRows[K]> };
     Views: Record<string, never>;
     Functions: {
+      complete_attachment: { Args: { upload: string }; Returns: undefined };
+      set_attachment_status: {
+        Args: { upload: string; target: 'ready' | 'archived' };
+        Returns: undefined;
+      };
+      update_attachment_details: {
+        Args: {
+          upload: string;
+          file_category: string;
+          expiry: string | null;
+          project: string | null;
+          ledger_entry: string | null;
+        };
+        Returns: undefined;
+      };
+      cancel_attachment_upload: { Args: { upload: string }; Returns: undefined };
+      remove_cancelled_attachment: { Args: { upload: string }; Returns: undefined };
       settle_bill: { Args: { bill: string }; Returns: string };
       cancel_bill: { Args: { bill: string }; Returns: undefined };
       post_recurring_due: { Args: { plan: string }; Returns: number };

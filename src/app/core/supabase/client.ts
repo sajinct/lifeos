@@ -7,6 +7,7 @@ export class Backend {
   readonly configured = Boolean(backendConfig.url && backendConfig.key);
   readonly client = this.configured
     ? createClient<Database>(backendConfig.url, backendConfig.key, {
+        global: { fetch: (input, init) => fetch(input, { ...init, cache: 'no-store' }) },
         auth: {
           persistSession: true,
           autoRefreshToken: true,

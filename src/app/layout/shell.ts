@@ -29,6 +29,7 @@ export class Shell implements OnInit {
     { path: '/projects', name: 'Projects', icon: 'project' },
     { path: '/goals', name: 'Goals', icon: 'goal' },
     { path: '/notes', name: 'Notes & knowledge', icon: 'note' },
+    { path: '/documents', name: 'Documents & receipts', icon: 'file' },
   ];
   constructor() {
     effect(() => {

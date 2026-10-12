@@ -2694,6 +2694,63 @@ td:last-child {
   margin-left: -7px;
   margin-right: 2px;
 }
+.file-library-note {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--secondary);
+  margin-bottom: 22px;
+}
+.file-upload-form {
+  padding: 24px;
+  margin-bottom: 24px;
+}
+.file-upload-form h2 {
+  margin-bottom: 20px;
+  font-size: 17px;
+}
+.file-upload-form .form-row {
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-block: 20px;
+}
+.file-upload-form .form-row > label {
+  flex: 1 1 180px;
+}
+.file-picker {
+  padding: 20px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+}
+.file-form-actions {
+  margin-top: 22px;
+}
+.file-error {
+  margin-bottom: 18px;
+}
+.file-list-heading {
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.file-name {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.file-name strong {
+  overflow-wrap: anywhere;
+  max-width: 300px;
+}
+.file-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.file-list-note {
+  margin-top: 16px;
+}
 .finance-planning {
   margin-bottom: 24px;
 }

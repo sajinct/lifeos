@@ -150,6 +150,9 @@ export class Records {
   accountCurrency(id: string) {
     return this.store.accounts().find((a) => a.id === id)?.currency ?? '';
   }
+  addReceipt(transaction: { id: string }) {
+    void this.router.navigateByUrl('/documents', { state: { transaction: transaction.id } });
+  }
   shift(offset: number) {
     const m = this.month();
     this.month.set(new Date(m.getFullYear(), m.getMonth() + offset, 1));

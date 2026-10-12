@@ -70,6 +70,7 @@ describe('LifeOS domain behavior', () => {
     expect(store.budgets()).toEqual([]);
     expect(store.bills()).toEqual([]);
     expect(store.recurring()).toEqual([]);
+    expect(store.attachments()).toEqual([]);
   });
   it('starts new workspaces without demo records', async () => {
     await store.createWorkspace('Our family', 'family');

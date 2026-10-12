@@ -3,6 +3,7 @@ import { AuthService } from '../auth/auth';
 import { Backend } from '../supabase/client';
 import {
   Account,
+  Attachment,
   Budget,
   Bill,
   RecurringTransaction,
@@ -49,6 +50,8 @@ export class LifeStore {
   readonly budgets = signal<Budget[]>([]);
   readonly bills = signal<Bill[]>([]);
   readonly recurring = signal<RecurringTransaction[]>([]);
+  readonly attachments = signal<Attachment[]>([]);
+  readonly fileSession = signal(0);
   readonly activity = signal<Activity[]>([]);
   readonly notifications = signal<Notification[]>([]);
   readonly widgets = signal(ALL_WIDGETS);
@@ -156,6 +159,7 @@ export class LifeStore {
     this.budgets.set(d.budgets);
     this.bills.set(d.bills);
     this.recurring.set(d.recurring);
+    this.attachments.set(d.attachments);
     this.activity.set(d.activity);
   }
   private clearRecords() {
@@ -169,11 +173,13 @@ export class LifeStore {
     this.budgets.set([]);
     this.bills.set([]);
     this.recurring.set([]);
+    this.attachments.set([]);
     this.activity.set([]);
     this.members.set([]);
     this.notifications.set([]);
   }
   clear() {
+    this.fileSession.update((value) => value + 1);
     this.generation++;
     this.demoCache.clear();
     this.clearRecords();
@@ -197,6 +203,7 @@ export class LifeStore {
         budgets: this.budgets(),
         bills: this.bills(),
         recurring: this.recurring(),
+        attachments: this.attachments(),
         activity: this.activity(),
       });
     this.clearRecords();
@@ -216,6 +223,7 @@ export class LifeStore {
         this.budgets.set(d.budgets);
         this.bills.set(d.bills);
         this.recurring.set(d.recurring);
+        this.attachments.set(d.attachments);
         this.activity.set(d.activity);
       }
       this.members.set([{ workspace_id: w.id, user_id: 'demo-user', role: 'owner' }]);
@@ -224,7 +232,7 @@ export class LifeStore {
     }
     try {
       const c = this.backend.requireClient();
-      const [t, p, e, n, g, a, x, l, m, notifications, budgets, bills, recurring] =
+      const [t, p, e, n, g, a, x, l, m, notifications, budgets, bills, recurring, attachments] =
         await Promise.all([
           c
             .from('tasks')
@@ -295,8 +303,29 @@ export class LifeStore {
             .eq('workspace_id', w.id)
             .order('created_at', { ascending: false })
             .limit(500),
+          c
+            .from('attachments')
+            .select('*')
+            .eq('workspace_id', w.id)
+            .order('created_at', { ascending: false })
+            .limit(500),
         ]);
-      for (const result of [t, p, e, n, g, a, x, l, m, notifications, budgets, bills, recurring])
+      for (const result of [
+        t,
+        p,
+        e,
+        n,
+        g,
+        a,
+        x,
+        l,
+        m,
+        notifications,
+        budgets,
+        bills,
+        recurring,
+        attachments,
+      ])
         if (result.error) throw result.error;
       // Finance needs the complete visible ledger; page rather than silently truncating balances.
       const ledger = [...(x.data ?? [])];
@@ -323,6 +352,7 @@ export class LifeStore {
       this.budgets.set(budgets.data ?? []);
       this.bills.set(bills.data ?? []);
       this.recurring.set(recurring.data ?? []);
+      this.attachments.set(attachments.data ?? []);
       this.activity.set(l.data ?? []);
       this.members.set(m.data ?? []);
       this.notifications.set(notifications.data ?? []);
@@ -873,6 +903,7 @@ export class LifeStore {
       budgets: this.budgets(),
       bills: this.bills(),
       recurring: this.recurring(),
+      attachments: this.attachments(),
     };
     const text =
       format === 'json'

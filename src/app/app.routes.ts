@@ -22,6 +22,10 @@ export const routes: Routes = [
         }),
       ),
       {
+        path: 'documents',
+        loadComponent: () => import('./features/documents/documents').then((m) => m.DocumentsPage),
+      },
+      {
         path: 'settings',
         loadComponent: () => import('./features/settings/settings').then((m) => m.SettingsPage),
       },

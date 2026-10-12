@@ -1,0 +1,324 @@
+<section class="page-heading">
+  <div>
+    <span class="eyebrow">YOUR PRIVATE LIBRARY</span>
+    <h1>Documents & receipts</h1>
+    <p>Keep important files close, with a little more peace of mind.</p>
+  </div>
+  <button class="button primary" (click)="add()" [disabled]="!store.writable() || busy()">
+    <app-icon name="plus" />Upload {{ bucket() === 'financial-receipts' ? 'receipt' : 'document' }}
+  </button>
+</section>
+<div class="file-library-note">
+  <app-icon name="lock" /><span
+    >Only you can access these files. Archived files and older versions remain available to
+    you.</span
+  >
+</div>
+<div class="records-toolbar">
+  <div class="segmented">
+    <button
+      [class.selected]="bucket() === 'personal-documents'"
+      [attr.aria-pressed]="bucket() === 'personal-documents'"
+      (click)="selectBucket('personal-documents')"
+      [disabled]="busy()"
+    >
+      Documents</button
+    ><button
+      [class.selected]="bucket() === 'financial-receipts'"
+      [attr.aria-pressed]="bucket() === 'financial-receipts'"
+      (click)="selectBucket('financial-receipts')"
+      [disabled]="busy()"
+    >
+      Receipts
+    </button>
+  </div>
+  <div class="filter-search">
+    <app-icon name="search" /><input
+      aria-label="Find files"
+      placeholder="Search filenames or categories…"
+      [value]="search()"
+      (input)="search.set($any($event.target).value)"
+    />
+  </div>
+  <select
+    aria-label="File category filter"
+    [value]="category()"
+    (change)="category.set($any($event.target).value)"
+  >
+    <option value="all">All categories</option>
+    @for (c of categories(); track c) {
+      <option [value]="c">{{ c }}</option>
+    }
+  </select>
+  <select
+    aria-label="Expiry filter"
+    [value]="expiryFilter()"
+    (change)="expiryFilter.set($any($event.target).value)"
+  >
+    <option value="all">All expiry dates</option>
+    <option value="soon">Expires within 30 days</option>
+    <option value="expired">Expired</option>
+  </select>
+</div>
+@if (error()) {
+  <p class="form-error file-error" role="alert">{{ error() }}</p>
+}
+@if (showForm()) {
+  <form class="panel file-upload-form" [formGroup]="form" (ngSubmit)="save()">
+    <h2>
+      {{
+        editing()
+          ? 'Edit file details'
+          : retry()
+            ? 'Retry unfinished upload'
+            : previous()
+              ? 'Upload a new version'
+              : 'Upload privately'
+      }}
+    </h2>
+    @if (previous()) {
+      <p class="form-hint">
+        The previous version of {{ previous()!.name }} will be archived after the new upload
+        completes.
+      </p>
+    }
+    @if (!editing()) {
+      <label class="file-picker"
+        >{{ retry() ? 'Choose ' + retry()!.name + ' again' : 'Choose file'
+        }}<input
+          type="file"
+          [accept]="
+            bucket() === 'financial-receipts' ? '.pdf,.jpg,.jpeg,.png' : '.pdf,.jpg,.jpeg,.png,.txt'
+          "
+          (change)="choose($event)"
+          [disabled]="busy()"
+      /></label>
+      <p class="form-hint">
+        {{ bucket() === 'financial-receipts' ? 'PDF, JPG or PNG' : 'PDF, JPG, PNG or TXT' }} · Up to
+        10 MiB per file.
+        @if (file()) {
+          <strong> {{ file()!.name }} · {{ fileSize(file()!.size) }}</strong>
+        }
+      </p>
+    }
+    @if (!retry()) {
+      <div class="form-row">
+        <label
+          >Category<input formControlName="category" maxlength="100" list="document-categories"
+        /></label>
+        <label>Expiry date (optional)<input type="date" formControlName="expires_on" /></label>
+        <label
+          >Project (optional)<select formControlName="project_id">
+            <option value="">No project</option>
+            @for (p of store.projects(); track p.id) {
+              <option [value]="p.id">{{ p.title }}</option>
+            }
+          </select></label
+        >
+      </div>
+      @if (bucket() === 'financial-receipts') {
+        <label
+          >Finance entry (optional)<select formControlName="transaction_id">
+            <option value="">Unlinked receipt</option>
+            @for (t of ownedTransactions(); track t.id) {
+              <option [value]="t.id">{{ t.booked_on }} · {{ t.title }}</option>
+            }
+          </select></label
+        >
+      }
+    }
+    <div class="heading-actions file-form-actions">
+      <button class="button primary" type="submit" [disabled]="busy() || !store.writable()">
+        {{
+          busy()
+            ? 'Working…'
+            : editing()
+              ? 'Save details'
+              : retry()
+                ? 'Retry upload'
+                : 'Upload file'
+        }}</button
+      ><button class="button subtle" type="button" (click)="close()" [disabled]="busy()">
+        Close
+      </button>
+    </div>
+    @if (store.auth.demo()) {
+      <p class="form-hint">
+        Demo files stay in memory for this session. Signing out or reloading clears them.
+      </p>
+    }
+  </form>
+}
+<section class="panel">
+  <div class="panel-heading file-list-heading">
+    <div class="segmented">
+      <button
+        [class.selected]="view() === 'ready'"
+        [attr.aria-pressed]="view() === 'ready'"
+        (click)="view.set('ready')"
+      >
+        Files ({{ count('ready') }})</button
+      ><button
+        [class.selected]="view() === 'archived'"
+        [attr.aria-pressed]="view() === 'archived'"
+        (click)="view.set('archived')"
+      >
+        Archive ({{ count('archived') }})</button
+      ><button
+        [class.selected]="view() === 'unfinished'"
+        [attr.aria-pressed]="view() === 'unfinished'"
+        (click)="view.set('unfinished')"
+      >
+        Unfinished uploads ({{ count('unfinished') }})
+      </button>
+    </div>
+    <span class="muted">{{ files().length }} matching files</span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>File</th>
+          <th>Category & links</th>
+          <th>Expiry</th>
+          <th>Added</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (a of files(); track a.id) {
+          <tr>
+            <td>
+              <div class="file-name">
+                <span class="icon-tile purple"><app-icon name="file" /></span>
+                <div>
+                  <strong>{{ a.name }}</strong
+                  ><small
+                    >{{ fileSize(a.size_bytes) }} · Version {{ a.version_number }} ·
+                    {{ a.status }}</small
+                  >
+                </div>
+              </div>
+            </td>
+            <td>
+              {{ a.category }}
+              @if (a.project_id) {
+                <small
+                  ><a
+                    routerLink="/projects"
+                    [state]="{ search: store.projectTitle(a.project_id) }"
+                    >{{ store.projectTitle(a.project_id) }}</a
+                  ></small
+                >
+              }
+              @if (a.transaction_id) {
+                <small
+                  ><a
+                    routerLink="/finance"
+                    [state]="{ search: transactionTitle(a.transaction_id) }"
+                    >{{ transactionTitle(a.transaction_id) }}</a
+                  ></small
+                >
+              }
+            </td>
+            <td [class.orange-text]="a.expires_on && a.expires_on < today">
+              {{ a.expires_on ? (a.expires_on | date: 'd MMM yyyy') : '—' }}
+              @if (a.expires_on && a.expires_on < today) {
+                <small>Expired</small>
+              }
+            </td>
+            <td>{{ a.created_at | date: 'd MMM yyyy' }}</td>
+            <td>
+              <div class="file-actions">
+                @if (a.status === 'ready' || a.status === 'archived') {
+                  <button class="button subtle" (click)="download(a)" [disabled]="busy()">
+                    <app-icon name="download" />Download
+                  </button>
+                  <button
+                    class="text-button"
+                    (click)="edit(a)"
+                    [disabled]="!store.canEdit(a) || busy()"
+                  >
+                    Details
+                  </button>
+                  @if (!hasNewer(a)) {
+                    <button
+                      class="text-button"
+                      (click)="add(a)"
+                      [disabled]="!store.canEdit(a) || busy()"
+                    >
+                      New version
+                    </button>
+                  }
+                  <button
+                    class="text-button"
+                    (click)="archive(a)"
+                    [disabled]="!store.canEdit(a) || busy()"
+                  >
+                    {{ a.status === 'archived' ? 'Restore' : 'Archive' }}
+                  </button>
+                } @else {
+                  @if (a.status === 'uploading') {
+                    <button
+                      class="button subtle"
+                      (click)="finish(a)"
+                      [disabled]="!store.canEdit(a) || busy()"
+                    >
+                      Finish upload</button
+                    ><button
+                      class="text-button"
+                      (click)="retryFile(a)"
+                      [disabled]="!store.canEdit(a) || busy()"
+                    >
+                      Retry with file
+                    </button>
+                  }
+                  <button
+                    class="text-button"
+                    (click)="discard(a)"
+                    [disabled]="!store.canEdit(a) || busy()"
+                  >
+                    {{ a.status === 'cancelled' ? 'Retry cleanup' : 'Cancel unfinished' }}
+                  </button>
+                }
+              </div>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="5" class="empty-state">
+              {{
+                view() === 'unfinished'
+                  ? 'No unfinished uploads. Interrupted uploads can be retried here.'
+                  : view() === 'archived'
+                    ? 'Archived files and older versions will appear here.'
+                    : 'No matching files yet. Upload a document or receipt to start your library.'
+              }}
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</section>
+<p class="form-hint file-list-note">
+  The newest 500 file records are loaded in each workspace. Archives preserve file contents. Expiry
+  dates help you plan renewals.
+</p>
+<datalist id="document-categories">
+  @for (
+    category of [
+      'Personal',
+      'Identity',
+      'Medical',
+      'Education',
+      'Work',
+      'Property',
+      'Receipt',
+      'Other',
+    ];
+    track category
+  ) {
+    <option [value]="category"></option>
+  }
+</datalist>

@@ -20,6 +20,8 @@ Finance planning adds private budgets, bills and recurring_transactions. Budgets
 
 ## Shared UI
 
+The private file library reserves attachment metadata before uploading immutable bytes to Storage. Completion checks actual object size/type and promotes the reservation through an owner-authorized RPC. A new version links to its predecessor and archives it only after successful upload. Archives preserve bytes and can be restored; only unfinished/cancelled uploads can be cleaned up. Receipts may link to an immutable ledger entry owned by the uploader in the same workspace. Downloads use the authenticated Storage API, rechecking current membership rather than exposing a reusable signed/public URL. Responses bypass the browser HTTP cache. Downloaded bytes and temporary download URLs stay out of shared record signals, exports and PWA caches; file selections are transient form state. Demo blobs are memory-only and cleared with the session.
+
 Responsive navigation, icons, toast feedback, accessible quick-add dialog, command/search dialog, theme switch, offline status, validation states and reusable record views. Dashboard widgets can be hidden in Settings. Demo records are synthetic and live only in memory; real records are never written to browser application caches.
 
 ## Milestones
@@ -29,7 +31,8 @@ Responsive navigation, icons, toast feedback, accessible quick-add dialog, comma
 3. Working task/project/calendar/note/goal/expense slice; useful dashboard interactions.
 4. Production/PWA builds, meaningful unit tests and database isolation tests, CI deployment and operating documentation.
 5. Finance planning: private category budgets, bills and anchored recurring income/expenses, tested for isolation and retry-safe ledger posting; opt-in hourly automation through Supabase Cron.
-6. Subsequent work: loans and richer finance reporting, family, documents, assets, subscriptions and contacts; then career, health, travel and imports. Reminder delivery and optional MFA UI follow their own security and integration tests. AI and external integrations come last.
+6. Private files: document and receipt uploads, category/expiry filters, authenticated downloads, versions, archives, project/ledger links and interrupted-upload recovery. Database and live Storage API isolation tests cover the lifecycle.
+7. Subsequent work: loans and richer finance reporting, family, assets, subscriptions and contacts; then career, health, travel and imports. Document renewal automation, reminder delivery and optional MFA UI follow their own security and integration tests. AI and external integrations come last.
 
 ## Deployment and operations
 
