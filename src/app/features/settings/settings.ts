@@ -162,7 +162,7 @@ import { ReminderSettings } from './reminder-settings';
         </p>
         <div class="roadmap-list">
           <span>Next: Assets & maintenance</span><span>Then: Career, health & travel</span
-          ><span>Later: Career, health, travel & automation</span>
+          ><span>Later: Imports, AI & integrations</span>
         </div>
       </section>
     </div>
