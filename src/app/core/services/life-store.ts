@@ -22,6 +22,10 @@ import {
   Contact,
   ContactLink,
   HouseholdMember,
+  Asset,
+  AssetDocument,
+  MaintenancePlan,
+  MaintenanceLog,
   HouseholdEntry,
   Loan,
   LoanRepayment,
@@ -61,6 +65,10 @@ export class LifeStore {
   readonly recurring = signal<RecurringTransaction[]>([]);
   readonly householdMembers = signal<HouseholdMember[]>([]);
   readonly householdEntries = signal<HouseholdEntry[]>([]);
+  readonly assets = signal<Asset[]>([]);
+  readonly assetDocuments = signal<AssetDocument[]>([]);
+  readonly maintenancePlans = signal<MaintenancePlan[]>([]);
+  readonly maintenanceLogs = signal<MaintenanceLog[]>([]);
   readonly contacts = signal<Contact[]>([]);
   readonly contactLinks = signal<ContactLink[]>([]);
   readonly loans = signal<Loan[]>([]);
@@ -181,6 +189,10 @@ export class LifeStore {
     this.loans.set(d.loans);
     this.householdMembers.set(d.householdMembers);
     this.householdEntries.set(d.householdEntries);
+    this.assets.set(d.assets);
+    this.assetDocuments.set(d.assetDocuments);
+    this.maintenancePlans.set(d.maintenancePlans);
+    this.maintenanceLogs.set(d.maintenanceLogs);
     this.contacts.set(d.contacts);
     this.contactLinks.set(d.contactLinks);
     this.loanRepayments.set(d.loanRepayments);
@@ -203,6 +215,10 @@ export class LifeStore {
     this.loans.set([]);
     this.householdMembers.set([]);
     this.householdEntries.set([]);
+    this.assets.set([]);
+    this.assetDocuments.set([]);
+    this.maintenancePlans.set([]);
+    this.maintenanceLogs.set([]);
     this.contacts.set([]);
     this.contactLinks.set([]);
     this.loanRepayments.set([]);
@@ -241,6 +257,10 @@ export class LifeStore {
         loans: this.loans(),
         householdMembers: this.householdMembers(),
         householdEntries: this.householdEntries(),
+        assets: this.assets(),
+        assetDocuments: this.assetDocuments(),
+        maintenancePlans: this.maintenancePlans(),
+        maintenanceLogs: this.maintenanceLogs(),
         contacts: this.contacts(),
         contactLinks: this.contactLinks(),
         loanRepayments: this.loanRepayments(),
@@ -269,6 +289,10 @@ export class LifeStore {
         this.loans.set(d.loans);
         this.householdMembers.set(d.householdMembers);
         this.householdEntries.set(d.householdEntries);
+        this.assets.set(d.assets);
+        this.assetDocuments.set(d.assetDocuments);
+        this.maintenancePlans.set(d.maintenancePlans);
+        this.maintenanceLogs.set(d.maintenanceLogs);
         this.contacts.set(d.contacts);
         this.contactLinks.set(d.contactLinks);
         this.loanRepayments.set(d.loanRepayments);
@@ -504,7 +528,39 @@ export class LifeStore {
           else allEntries.push(...(page.data as HouseholdEntry[]));
           if (page.data.length < 500) break;
         }
+      const allAssets: Asset[] = [],
+        allAssetDocuments: AssetDocument[] = [],
+        allMaintenance: MaintenancePlan[] = [],
+        allServices: MaintenanceLog[] = [];
+      for (const table of [
+        'assets',
+        'asset_documents',
+        'maintenance_plans',
+        'maintenance_logs',
+      ] as const)
+        for (let offset = 0; ; offset += 500) {
+          const page = await c
+            .from(table)
+            .select('*')
+            .eq('workspace_id', w.id)
+            .order('created_at')
+            .order('id')
+            .range(offset, offset + 499);
+          if (page.error) throw page.error;
+          if (run !== this.generation) return;
+          if (table === 'assets') allAssets.push(...(page.data as Asset[]));
+          else if (table === 'asset_documents')
+            allAssetDocuments.push(...(page.data as AssetDocument[]));
+          else if (table === 'maintenance_plans')
+            allMaintenance.push(...(page.data as MaintenancePlan[]));
+          else allServices.push(...(page.data as MaintenanceLog[]));
+          if (page.data.length < 500) break;
+        }
       if (run !== this.generation) return;
+      this.assets.set(allAssets);
+      this.assetDocuments.set(allAssetDocuments);
+      this.maintenancePlans.set(allMaintenance);
+      this.maintenanceLogs.set(allServices);
       this.householdMembers.set(allMembers);
       this.householdEntries.set(allEntries);
       this.contacts.set(allContacts);
@@ -1081,6 +1137,10 @@ export class LifeStore {
       loans: this.loans(),
       householdMembers: this.householdMembers(),
       householdEntries: this.householdEntries(),
+      assets: this.assets(),
+      assetDocuments: this.assetDocuments(),
+      maintenancePlans: this.maintenancePlans(),
+      maintenanceLogs: this.maintenanceLogs(),
       contacts: this.contacts(),
       contactLinks: this.contactLinks(),
       loanRepayments: this.loanRepayments(),

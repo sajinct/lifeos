@@ -3246,6 +3246,55 @@ td:last-child {
   gap: 16px;
   margin: 20px 0;
 }
+.asset-document-picker {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  margin: 18px 0;
+}
+.asset-document-options {
+  max-height: 220px;
+  overflow-y: auto;
+}
+.asset-maintenance {
+  margin-top: 24px;
+}
+.asset-plan-list {
+  display: grid;
+  gap: 16px;
+  margin: 24px 0;
+}
+.asset-plan {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.asset-plan > div:first-child {
+  flex: 1;
+  min-width: 200px;
+  overflow-wrap: anywhere;
+}
+.asset-plan h3 {
+  margin: 0 0 8px;
+}
+.asset-plan p {
+  color: var(--secondary);
+}
+.asset-history article {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+.asset-history article > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: space-between;
+}
 .household-tabs {
   display: flex;
   flex-wrap: wrap;

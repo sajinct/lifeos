@@ -287,6 +287,8 @@ export interface Notification extends OwnedRecord {
     | 'family_birthday'
     | 'family_task'
     | 'family_date'
+    | 'warranty'
+    | 'maintenance'
     | null;
   source_id: string | null;
   occurrence_on: string | null;
@@ -302,6 +304,9 @@ export interface ReminderPreferences {
   loan_reminders: boolean;
   contact_reminders: boolean;
   family_reminders: boolean;
+  asset_reminders: boolean;
+  warranty_lead_days: number;
+  maintenance_lead_days: number;
   task_lead_days: number;
   bill_lead_days: number;
   document_lead_days: number;
@@ -320,6 +325,9 @@ export const DEFAULT_REMINDERS: ReminderPreferences = {
   loan_reminders: false,
   contact_reminders: false,
   family_reminders: false,
+  asset_reminders: false,
+  warranty_lead_days: 30,
+  maintenance_lead_days: 7,
   task_lead_days: 1,
   bill_lead_days: 3,
   document_lead_days: 30,
@@ -355,6 +363,72 @@ export interface FileDetails {
   project_id: string;
   transaction_id: string;
 }
+export interface Asset extends OwnedRecord {
+  name: string;
+  category: string;
+  manufacturer: string;
+  model: string;
+  serial_number: string;
+  location: string;
+  purchased_on: string | null;
+  purchase_price: number | null;
+  currency: string;
+  warranty_until: string | null;
+  notes: string;
+  status: 'active' | 'sold' | 'retired' | 'archived';
+  revision: number;
+}
+export interface AssetDocument extends OwnedRecord {
+  asset_id: string;
+  attachment_id: string;
+}
+export interface MaintenancePlan extends OwnedRecord {
+  asset_id: string;
+  title: string;
+  anchor_on: string;
+  next_on: string | null;
+  frequency: 'once' | 'monthly' | 'yearly';
+  occurrence_count: number;
+  status: 'active' | 'paused' | 'completed';
+  notes: string;
+  revision: number;
+}
+export interface MaintenanceLog extends OwnedRecord {
+  asset_id: string;
+  plan_id: string;
+  scheduled_on: string;
+  performed_on: string;
+  title: string;
+  cost: number | null;
+  currency: string;
+  notes: string;
+}
+export interface AssetInput {
+  name: string;
+  category: string;
+  manufacturer: string;
+  model: string;
+  serial_number: string;
+  location: string;
+  purchased_on: string;
+  purchase_price: string;
+  currency: string;
+  warranty_until: string;
+  notes: string;
+  document_ids: string[];
+}
+export interface MaintenanceInput {
+  asset_id: string;
+  title: string;
+  next_on: string;
+  frequency: MaintenancePlan['frequency'];
+  notes: string;
+}
+export interface ServiceInput {
+  performed_on: string;
+  cost: string;
+  notes: string;
+}
 export interface TableRows {
   profiles: Profile;
   workspaces: Workspace;
@@ -379,6 +453,10 @@ export interface TableRows {
   contact_links: ContactLink;
   household_members: HouseholdMember;
   household_entries: HouseholdEntry;
+  assets: Asset;
+  asset_documents: AssetDocument;
+  maintenance_plans: MaintenancePlan;
+  maintenance_logs: MaintenanceLog;
   loan_repayments: LoanRepayment;
 }
 type Table<R> = {
@@ -392,6 +470,59 @@ export type Database = {
     Tables: { [K in keyof TableRows]: Table<TableRows[K]> };
     Views: Record<string, never>;
     Functions: {
+      save_asset: {
+        Args: {
+          entry: string;
+          w: string;
+          expected_revision: number | null;
+          asset_name: string;
+          asset_category: string;
+          asset_manufacturer: string;
+          asset_model: string;
+          asset_serial: string;
+          asset_location: string;
+          purchased: string | null;
+          price: number | null;
+          price_currency: string;
+          warranty: string | null;
+          asset_notes: string;
+          documents: string[];
+        };
+        Returns: string;
+      };
+      set_asset_status: {
+        Args: { entry: string; expected_revision: number; target: string };
+        Returns: undefined;
+      };
+      save_maintenance_plan: {
+        Args: {
+          entry: string;
+          w: string;
+          expected_revision: number | null;
+          asset: string;
+          plan_title: string;
+          first_due: string;
+          repeat_frequency: string;
+          plan_notes: string;
+        };
+        Returns: string;
+      };
+      set_maintenance_status: {
+        Args: { entry: string; expected_revision: number; target: string };
+        Returns: undefined;
+      };
+      record_maintenance: {
+        Args: {
+          entry: string;
+          plan: string;
+          expected_revision: number;
+          expected_date: string;
+          performed: string;
+          service_cost: number | null;
+          service_notes: string;
+        };
+        Returns: string;
+      };
       save_household_member: {
         Args: {
           entry: string;
@@ -526,6 +657,9 @@ export type Database = {
           contact_days: number;
           family_enabled: boolean;
           family_days: number;
+          assets_enabled: boolean;
+          warranty_days: number;
+          maintenance_days: number;
         };
         Returns: undefined;
       };

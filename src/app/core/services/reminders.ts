@@ -41,6 +41,8 @@ export class Reminders {
         this.store.householdMembers(),
         this.store.householdEntries(),
         new Date(this.now()),
+        this.store.assets(),
+        this.store.maintenancePlans(),
       );
       const prefs = this.store.reminderPreferences();
       const workspace = this.store.workspace();
@@ -158,6 +160,8 @@ export class Reminders {
       [p.loan_lead_days, 90],
       [p.contact_lead_days, 90],
       [p.family_lead_days, 90],
+      [p.warranty_lead_days, 90],
+      [p.maintenance_lead_days, 90],
       [p.reminder_hour, 23],
     ])
       if (!Number.isInteger(value) || value < 0 || value > max)
@@ -184,6 +188,9 @@ export class Reminders {
         contact_days: p.contact_lead_days,
         family_enabled: p.family_reminders,
         family_days: p.family_lead_days,
+        assets_enabled: p.asset_reminders,
+        warranty_days: p.warranty_lead_days,
+        maintenance_days: p.maintenance_lead_days,
       });
       if (error) throw error;
     }
@@ -208,21 +215,25 @@ export class Reminders {
       const c = this.backend.requireClient();
       // Fetch the exact source even when it falls outside a screen's newest-500 window.
       const table =
-        n.source_kind === 'family_birthday'
-          ? 'household_members'
-          : n.source_kind === 'family_task' || n.source_kind === 'family_date'
-            ? 'household_entries'
-            : n.source_kind === 'task'
-              ? 'tasks'
-              : n.source_kind === 'bill'
-                ? 'bills'
-                : n.source_kind === 'document'
-                  ? 'attachments'
-                  : n.source_kind === 'loan'
-                    ? 'loans'
-                    : n.source_kind === 'contact'
-                      ? 'contacts'
-                      : 'subscriptions';
+        n.source_kind === 'warranty'
+          ? 'assets'
+          : n.source_kind === 'maintenance'
+            ? 'maintenance_plans'
+            : n.source_kind === 'family_birthday'
+              ? 'household_members'
+              : n.source_kind === 'family_task' || n.source_kind === 'family_date'
+                ? 'household_entries'
+                : n.source_kind === 'task'
+                  ? 'tasks'
+                  : n.source_kind === 'bill'
+                    ? 'bills'
+                    : n.source_kind === 'document'
+                      ? 'attachments'
+                      : n.source_kind === 'loan'
+                        ? 'loans'
+                        : n.source_kind === 'contact'
+                          ? 'contacts'
+                          : 'subscriptions';
       const { data, error } = await c
         .from(table)
         .select('*')
@@ -239,7 +250,33 @@ export class Reminders {
         return false;
       if (!data)
         throw new Error('This record is no longer available. You can dismiss its reminder.');
-      if ('birthday' in data)
+      if ('asset_id' in data && 'anchor_on' in data) {
+        const parent = await c
+          .from('assets')
+          .select('*')
+          .eq('id', data.asset_id)
+          .eq('workspace_id', workspace)
+          .eq('owner_id', user)
+          .maybeSingle();
+        if (parent.error) throw parent.error;
+        if (
+          workspace !== this.store.workspace()?.id ||
+          user !== this.store.auth.user()?.id ||
+          session !== this.store.fileSession()
+        )
+          return false;
+        if (!parent.data) throw new Error('Asset is no longer available.');
+        this.store.assets.update((rows) => [
+          ...rows.filter((r) => r.id !== parent.data!.id),
+          parent.data!,
+        ]);
+        this.store.maintenancePlans.update((rows) => [
+          ...rows.filter((r) => r.id !== data.id),
+          data,
+        ]);
+      } else if ('serial_number' in data)
+        this.store.assets.update((rows) => [...rows.filter((r) => r.id !== data.id), data]);
+      else if ('birthday' in data)
         this.store.householdMembers.update((rows) => [
           ...rows.filter((r) => r.id !== data.id),
           data,
@@ -338,18 +375,20 @@ export class Reminders {
     }
   }
   path(n: Notification) {
-    return n.source_kind?.startsWith('family_')
-      ? '/family'
-      : n.source_kind === 'task'
-        ? '/tasks'
-        : n.source_kind === 'bill'
-          ? '/finance'
-          : n.source_kind === 'document'
-            ? '/documents'
-            : n.source_kind === 'loan'
-              ? '/loans'
-              : n.source_kind === 'contact'
-                ? '/contacts'
-                : '/subscriptions';
+    return n.source_kind === 'warranty' || n.source_kind === 'maintenance'
+      ? '/assets'
+      : n.source_kind?.startsWith('family_')
+        ? '/family'
+        : n.source_kind === 'task'
+          ? '/tasks'
+          : n.source_kind === 'bill'
+            ? '/finance'
+            : n.source_kind === 'document'
+              ? '/documents'
+              : n.source_kind === 'loan'
+                ? '/loans'
+                : n.source_kind === 'contact'
+                  ? '/contacts'
+                  : '/subscriptions';
   }
 }

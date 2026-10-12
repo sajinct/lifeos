@@ -96,6 +96,27 @@ import { UiService } from '../../core/services/ui';
             step="1"
         /></label>
       </div>
+      <label class="reminder-toggle"
+        ><input type="checkbox" formControlName="asset_reminders" />Asset warranties and
+        maintenance</label
+      >
+      <div class="form-grid">
+        <label
+          >Warranty reminder lead time (days)<input
+            type="number"
+            formControlName="warranty_lead_days"
+            min="0"
+            max="90"
+            step="1" /></label
+        ><label
+          >Maintenance reminder lead time (days)<input
+            type="number"
+            formControlName="maintenance_lead_days"
+            min="0"
+            max="90"
+            step="1"
+        /></label>
+      </div>
       <div class="form-grid">
         <label
           >Daily delivery hour<select formControlName="reminder_hour">
@@ -123,7 +144,9 @@ import { UiService } from '../../core/services/ui';
         bills, archived documents, cancelled subscriptions, and fully repaid loans stop their
         reminders. Archived contacts and completed follow-ups also clear their alerts. Family
         reminders go to the record creator only. Completed or archived household records stop
-        alerts; birthdays and yearly dates roll forward after the day.
+        alerts; birthdays and yearly dates roll forward after the day. Sold, retired and archived
+        assets stop warranty and maintenance alerts. Completed services advance or finish their
+        schedules.
       </p>
       <p class="form-hint">
         Document reminders apply to ready documents with an expiry date. Open a document reminder to
@@ -167,6 +190,9 @@ export class ReminderSettings {
     loan_reminders: false,
     contact_reminders: false,
     family_reminders: false,
+    asset_reminders: false,
+    warranty_lead_days: [30, [Validators.required, Validators.min(0), Validators.max(90)]],
+    maintenance_lead_days: [7, [Validators.required, Validators.min(0), Validators.max(90)]],
     task_lead_days: [1, [Validators.required, Validators.min(0), Validators.max(30)]],
     bill_lead_days: [3, [Validators.required, Validators.min(0), Validators.max(30)]],
     document_lead_days: [30, [Validators.required, Validators.min(0), Validators.max(90)]],

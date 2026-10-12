@@ -9,6 +9,8 @@ import {
   Contact,
   HouseholdMember,
   HouseholdEntry,
+  Asset,
+  MaintenancePlan,
 } from '../../core/models/domain';
 import { householdAnniversary } from './household';
 export interface ReminderSource {
@@ -31,9 +33,41 @@ export function reminderSources(
   householdMembers: HouseholdMember[] = [],
   householdEntries: HouseholdEntry[] = [],
   now: Date = new Date(),
+  assets: Asset[] = [],
+  maintenance: MaintenancePlan[] = [],
 ): ReminderSource[] {
   const today = reminderClock(now, p.reminder_timezone).day;
   return [
+    ...assets
+      .filter((a) => p.asset_reminders && a.status === 'active' && a.warranty_until)
+      .map((a) => ({
+        ...a,
+        kind: 'warranty' as const,
+        title: a.name,
+        date: a.warranty_until!,
+        days: p.warranty_lead_days,
+      })),
+    ...maintenance
+      .filter(
+        (m) =>
+          p.asset_reminders &&
+          m.status === 'active' &&
+          m.next_on &&
+          assets.some(
+            (a) =>
+              a.id === m.asset_id &&
+              a.owner_id === m.owner_id &&
+              a.workspace_id === m.workspace_id &&
+              a.status === 'active',
+          ),
+      )
+      .map((m) => ({
+        ...m,
+        kind: 'maintenance' as const,
+        title: m.title + ' · ' + assets.find((a) => a.id === m.asset_id)!.name,
+        date: m.next_on!,
+        days: p.maintenance_lead_days,
+      })),
     ...householdMembers
       .filter((m) => p.family_reminders && m.status === 'active' && m.birthday)
       .map((m) => ({
@@ -113,27 +147,31 @@ export function reminderPhase(source: ReminderSource, day: string): Notification
 }
 export function reminderTitle(s: ReminderSource, phase: Notification['phase']) {
   const label =
-    s.kind === 'family_birthday'
-      ? 'Birthday'
-      : s.kind === 'family_task'
-        ? 'Household task'
-        : s.kind === 'family_date'
-          ? 'Important date'
-          : s.kind === 'task'
-            ? 'Task'
-            : s.kind === 'bill'
-              ? 'Bill'
-              : s.kind === 'document'
-                ? 'Document'
-                : s.kind === 'trial'
-                  ? 'Trial'
-                  : s.kind === 'loan'
-                    ? 'Loan repayment'
-                    : s.kind === 'contact'
-                      ? 'Contact follow-up'
-                      : 'Subscription';
+    s.kind === 'warranty'
+      ? 'Asset warranty'
+      : s.kind === 'maintenance'
+        ? 'Maintenance'
+        : s.kind === 'family_birthday'
+          ? 'Birthday'
+          : s.kind === 'family_task'
+            ? 'Household task'
+            : s.kind === 'family_date'
+              ? 'Important date'
+              : s.kind === 'task'
+                ? 'Task'
+                : s.kind === 'bill'
+                  ? 'Bill'
+                  : s.kind === 'document'
+                    ? 'Document'
+                    : s.kind === 'trial'
+                      ? 'Trial'
+                      : s.kind === 'loan'
+                        ? 'Loan repayment'
+                        : s.kind === 'contact'
+                          ? 'Contact follow-up'
+                          : 'Subscription';
   const overdue =
-    s.kind === 'document'
+    s.kind === 'document' || s.kind === 'warranty'
       ? 'expired'
       : s.kind === 'trial'
         ? 'ended'
@@ -141,7 +179,7 @@ export function reminderTitle(s: ReminderSource, phase: Notification['phase']) {
           ? 'renewal overdue'
           : 'overdue';
   const verb =
-    s.kind === 'document'
+    s.kind === 'document' || s.kind === 'warranty'
       ? 'expires'
       : s.kind === 'trial'
         ? 'ends'

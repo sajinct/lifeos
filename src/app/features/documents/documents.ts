@@ -21,7 +21,9 @@ export class DocumentsPage {
   readonly ui = inject(UiService);
   readonly router = inject(Router);
   private readonly params = toSignal(inject(ActivatedRoute).queryParamMap);
-  readonly reminderId = computed(() => this.params()?.get('reminder'));
+  readonly reminderId = computed(
+    () => this.params()?.get('reminder') ?? this.params()?.get('linked'),
+  );
   readonly bucket = signal<FileBucket>(
     history.state?.transaction || history.state?.bucket === 'financial-receipts'
       ? 'financial-receipts'
@@ -81,14 +83,15 @@ export class DocumentsPage {
   constructor() {
     effect(() => {
       if (this.reminderId()) {
-        this.bucket.set('personal-documents');
+        const linked = this.store.attachments().find((a) => a.id === this.reminderId());
+        this.bucket.set(linked?.bucket_id ?? 'personal-documents');
         this.view.set('ready');
       }
     });
   }
   clearReminder() {
     void this.router.navigate([], {
-      queryParams: { reminder: null },
+      queryParams: { reminder: null, linked: null },
       queryParamsHandling: 'merge',
     });
   }

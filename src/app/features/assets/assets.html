@@ -1,0 +1,446 @@
+<section class="page-heading">
+  <div>
+    <span class="eyebrow">CARE FOR WHAT MAKES EVERYDAY LIFE WORK</span>
+    <h1>Assets & maintenance</h1>
+    <p>Your possessions, warranties, and the next service — in one place.</p>
+  </div>
+  <div class="heading-actions">
+    <button
+      class="button subtle"
+      (click)="export()"
+      [disabled]="!rows().length || store.loading() || !!store.error()"
+    >
+      <app-icon name="download" />Export assets CSV</button
+    ><button
+      class="button primary"
+      (click)="addAsset()"
+      [disabled]="busy() || store.loading() || !store.writable()"
+    >
+      <app-icon name="plus" />Add asset
+    </button>
+  </div>
+</section>
+<div class="file-library-note">
+  <app-icon name="lock" /><span
+    >Asset details, linked documents and service history stay private to you.</span
+  ><a routerLink="/settings">Set warranty & service reminders</a>
+</div>
+<div class="contact-stats">
+  <section class="panel">
+    <span>Active assets</span><strong>{{ counts().active }}</strong>
+  </section>
+  <section class="panel">
+    <span>Warranties ending within 30 days</span><strong>{{ counts().warranty }}</strong>
+  </section>
+  <section class="panel">
+    <span>Services due / overdue</span><strong>{{ counts().due }}</strong>
+  </section>
+</div>
+@if (selectedId()) {
+  <div class="file-library-note">
+    <span>Showing the selected asset and its maintenance history.</span
+    ><button class="button subtle" (click)="clearSelection()">Show all assets</button>
+  </div>
+}
+@if (error()) {
+  <p class="error-banner" role="alert">{{ error() }}</p>
+}
+@if (store.error()) {
+  <p class="error-banner" role="alert">{{ store.error() }}</p>
+}
+@if (assetFormOpen()) {
+  <section class="panel subscription-form">
+    <h2>{{ editing() ? 'Edit asset' : 'Add asset' }}</h2>
+    <form [formGroup]="assetForm" (ngSubmit)="saveAsset()">
+      <div class="form-grid">
+        <label
+          >Asset name<input
+            formControlName="name"
+            maxlength="200"
+            required
+            placeholder="Washing machine, laptop, car…" /></label
+        ><label
+          >Category<input
+            formControlName="category"
+            maxlength="100"
+            required
+            placeholder="Appliance, Electronics, Vehicle…"
+        /></label>
+        <label>Manufacturer<input formControlName="manufacturer" maxlength="100" /></label
+        ><label>Model<input formControlName="model" maxlength="100" /></label
+        ><label
+          >Serial / registration number<input
+            formControlName="serial_number"
+            maxlength="100" /></label
+        ><label>Location<input formControlName="location" maxlength="200" /></label>
+        <label
+          >Purchase date (optional)<input
+            formControlName="purchased_on"
+            type="date"
+            min="1900-01-01"
+            [max]="library.today()" /></label
+        ><label
+          >Purchase price (optional)<input
+            formControlName="purchase_price"
+            inputmode="decimal"
+            placeholder="0.00" /></label
+        ><label>Currency<input formControlName="currency" maxlength="3" required /></label
+        ><label
+          >Warranty ends on<input
+            formControlName="warranty_until"
+            type="date"
+            min="1900-01-01"
+            max="2100-12-31"
+        /></label>
+      </div>
+      <label
+        >Asset notes<textarea formControlName="notes" maxlength="4000" rows="3"></textarea>
+      </label>
+      <fieldset class="asset-document-picker">
+        <legend>Link receipts, warranty documents or manuals</legend>
+        <p class="form-hint">
+          Choose your completed documents in this workspace. Links preserve the selected file
+          version and its access rules. Upload files from Documents & receipts.
+        </p>
+        <div class="asset-document-options">
+          @for (f of library.documents(); track f.id) {
+            <label class="reminder-toggle"
+              ><input
+                type="checkbox"
+                [checked]="assetForm.controls.document_ids.value.includes(f.id)"
+                (change)="selectDocument(f.id, $any($event.target).checked)"
+              />{{ f.name }} · {{ f.bucket_id === 'financial-receipts' ? 'Receipt' : 'Document'
+              }}{{ f.status === 'archived' ? ' · Archived version' : '' }}</label
+            >
+          } @empty {
+            <p class="form-hint">No completed documents yet.</p>
+          }
+        </div>
+      </fieldset>
+      <p class="form-hint">
+        Purchase prices and service costs are records for your reference. Saving them does not
+        create Finance transactions.
+      </p>
+      <div class="heading-actions">
+        <button class="button primary" type="submit" [disabled]="busy() || store.loading()">
+          {{ busy() ? 'Saving…' : 'Save asset' }}</button
+        ><button class="button subtle" type="button" (click)="closeForms()" [disabled]="busy()">
+          Cancel
+        </button>
+      </div>
+    </form>
+  </section>
+}
+<div class="records-toolbar contact-toolbar">
+  <div class="filter-search">
+    <app-icon name="search" /><input
+      aria-label="Find assets"
+      placeholder="Search names, models, serial numbers or notes…"
+      [value]="search()"
+      (input)="search.set($any($event.target).value)"
+    />
+  </div>
+  <select
+    aria-label="Asset status filter"
+    [value]="statusFilter()"
+    (change)="statusFilter.set($any($event.target).value)"
+  >
+    <option value="active">Active</option>
+    <option value="inactive">Sold / retired / archived</option>
+    <option value="all">All statuses</option></select
+  ><select
+    aria-label="Asset category filter"
+    [value]="category()"
+    (change)="category.set($any($event.target).value)"
+  >
+    <option value="all">All categories</option>
+    @for (c of categories(); track c) {
+      <option [value]="c">{{ c }}</option>
+    }
+  </select>
+</div>
+@if (store.loading()) {
+  <p class="empty-state" role="status">Loading assets…</p>
+} @else if (!store.error()) {
+  <div class="contact-cards">
+    @for (a of rows(); track a.id) {
+      <article class="panel contact-card">
+        <div class="contact-card-heading">
+          <span class="icon-tile purple"><app-icon name="project" /></span>
+          <div>
+            <h2>{{ a.name }}</h2>
+            <p>{{ a.category }} · {{ a.status }}</p>
+          </div>
+          <span class="priority">Private</span>
+        </div>
+        <div class="contact-details">
+          @if (a.manufacturer || a.model) {
+            <p>
+              <span>Make / model</span><strong>{{ a.manufacturer }} {{ a.model }}</strong>
+            </p>
+          }
+          @if (a.serial_number) {
+            <p>
+              <span>Serial / registration</span><strong>{{ a.serial_number }}</strong>
+            </p>
+          }
+          @if (a.location) {
+            <p>
+              <span>Location</span><strong>{{ a.location }}</strong>
+            </p>
+          }
+          @if (a.purchased_on) {
+            <p>
+              <span>Purchased</span
+              ><strong>{{ a.purchased_on + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }}</strong>
+            </p>
+          }
+          @if (a.purchase_price !== null) {
+            <p>
+              <span>Purchase price</span
+              ><strong>{{ a.purchase_price | currency: a.currency : 'symbol' : '1.2-2' }}</strong>
+            </p>
+          }
+        </div>
+        @if (a.notes) {
+          <p class="contact-notes">{{ a.notes }}</p>
+        }
+        @if (a.warranty_until) {
+          <div class="contact-follow-up">
+            <span class="eyebrow">WARRANTY ENDS</span
+            ><strong>{{ a.warranty_until + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }}</strong
+            ><small>{{
+              a.warranty_until < library.today()
+                ? 'Expired'
+                : a.warranty_until === library.today()
+                  ? 'Ends today'
+                  : 'Check coverage terms in your warranty document'
+            }}</small>
+          </div>
+        }
+        <div class="contact-linked-records">
+          @for (l of links(a); track l.id) {
+            <button
+              class="button subtle"
+              (click)="openDocument(l.attachment_id)"
+              [disabled]="busy()"
+            >
+              {{ documentName(l.attachment_id) }} ↗
+            </button>
+          }
+        </div>
+        <div class="heading-actions">
+          <button class="button primary" (click)="manage(a)" [disabled]="busy()">
+            Maintenance & history
+          </button>
+          @if (store.canEdit(a)) {
+            @if (a.status === 'active') {
+              <button class="button subtle" (click)="addAsset(a)" [disabled]="busy()">Edit</button
+              ><button class="button subtle" (click)="changeStatus(a, 'sold')" [disabled]="busy()">
+                Mark sold</button
+              ><button
+                class="button subtle"
+                (click)="changeStatus(a, 'retired')"
+                [disabled]="busy()"
+              >
+                Retire</button
+              ><button
+                class="button subtle"
+                (click)="changeStatus(a, 'archived')"
+                [disabled]="busy()"
+              >
+                Archive
+              </button>
+            } @else {
+              <button class="button subtle" (click)="changeStatus(a, 'active')" [disabled]="busy()">
+                Restore to active
+              </button>
+            }
+          }
+        </div>
+      </article>
+    } @empty {
+      <section class="panel empty-state">
+        <h2>No matching assets</h2>
+        <p>Add an asset or adjust your filters.</p>
+      </section>
+    }
+  </div>
+  @if (selected(); as a) {
+    <section class="panel subscription-form asset-maintenance">
+      <div class="page-heading">
+        <div>
+          <h2>Maintenance · {{ a.name }}</h2>
+          <p>Plan the next service and keep a permanent record of work done.</p>
+        </div>
+        <div class="heading-actions">
+          <button
+            class="button subtle"
+            (click)="export(true)"
+            [disabled]="!plans().length && !logs().length"
+          >
+            Export maintenance CSV</button
+          ><button
+            class="button primary"
+            (click)="addPlan()"
+            [disabled]="busy() || !store.canEdit(a) || a.status !== 'active'"
+          >
+            Add maintenance plan
+          </button>
+        </div>
+      </div>
+      @if (a.status !== 'active') {
+        <p class="form-hint">
+          This asset is {{ a.status }}. History is preserved and reminders have stopped. Restore to
+          active to manage schedules.
+        </p>
+      }
+      @if (planFormOpen()) {
+        <form [formGroup]="planForm" (ngSubmit)="savePlan()">
+          <h3>{{ editingPlan() ? 'Edit maintenance plan' : 'New maintenance plan' }}</h3>
+          <div class="form-grid">
+            <label>Service title<input formControlName="title" maxlength="200" required /></label
+            ><label
+              >Next service date<input
+                formControlName="next_on"
+                type="date"
+                min="1900-01-01"
+                max="2100-12-31"
+                required /></label
+            ><label
+              >Repeat<select formControlName="frequency">
+                <option value="once">One-time</option>
+                <option value="monthly">Every month</option>
+                <option value="yearly">Every year</option>
+              </select></label
+            >
+          </div>
+          <label
+            >Plan notes<textarea formControlName="notes" rows="2" maxlength="2000"></textarea>
+          </label>
+          <p class="form-hint">
+            Repeating dates keep their original calendar anchor. Editing the next date or frequency
+            starts a new anchor; existing history stays intact.
+          </p>
+          <div class="heading-actions">
+            <button type="submit" class="button primary" [disabled]="busy()">
+              Save maintenance plan</button
+            ><button type="button" class="button subtle" (click)="closeForms()" [disabled]="busy()">
+              Cancel
+            </button>
+          </div>
+        </form>
+      }
+      @if (servicing(); as p) {
+        <form [formGroup]="serviceForm" (ngSubmit)="recordService()">
+          <h3>Record service · {{ p.title }}</h3>
+          <p class="form-hint">
+            Scheduled for {{ p.next_on + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }}. This completion
+            advances the schedule once and preserves a service record.
+          </p>
+          <div class="form-grid">
+            <label
+              >Service performed on<input
+                formControlName="performed_on"
+                type="date"
+                min="1900-01-01"
+                [max]="library.today()"
+                required /></label
+            ><label
+              >Service cost (optional, {{ a.currency }})<input
+                formControlName="cost"
+                inputmode="decimal"
+                placeholder="Unknown / not recorded"
+            /></label>
+          </div>
+          <label
+            >Service notes<textarea formControlName="notes" rows="2" maxlength="2000"></textarea>
+          </label>
+          <p class="form-hint">
+            Service history is permanent. Check the date and cost before saving. This does not add a
+            Finance expense.
+          </p>
+          <div class="heading-actions">
+            <button type="submit" class="button primary" [disabled]="busy()">
+              Record completed service</button
+            ><button type="button" class="button subtle" (click)="closeForms()" [disabled]="busy()">
+              Cancel
+            </button>
+          </div>
+        </form>
+      }
+      <div class="asset-plan-list">
+        @for (p of plans(); track p.id) {
+          <article class="asset-plan">
+            <div>
+              <h3>{{ p.title }}</h3>
+              <p>
+                {{
+                  p.frequency === 'once'
+                    ? 'One-time'
+                    : p.frequency === 'monthly'
+                      ? 'Monthly'
+                      : 'Yearly'
+                }}
+                · {{ p.status }}
+              </p>
+              @if (p.next_on) {
+                <strong>Next: {{ p.next_on + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }}</strong>
+              }
+              @if (p.notes) {
+                <p class="contact-notes">{{ p.notes }}</p>
+              }
+              @if (reminderId() === p.id) {
+                <small class="form-hint">This is the reminded maintenance plan.</small>
+              }
+            </div>
+            @if (a.status === 'active' && store.canEdit(a) && p.status !== 'completed') {
+              <div class="heading-actions">
+                @if (p.status === 'active') {
+                  <button class="button primary" (click)="service(p)" [disabled]="busy()">
+                    Record service
+                  </button>
+                }
+                <button class="button subtle" (click)="addPlan(p)" [disabled]="busy()">
+                  Edit plan</button
+                ><button class="button subtle" (click)="pause(p)" [disabled]="busy()">
+                  {{ p.status === 'paused' ? 'Resume' : 'Pause' }}
+                </button>
+              </div>
+            }
+          </article>
+        } @empty {
+          <p class="empty-state">No maintenance schedules yet.</p>
+        }
+      </div>
+      <h3>Service history</h3>
+      <div class="asset-history">
+        @for (l of logs(); track l.id) {
+          <article>
+            <div>
+              <strong>{{ l.title }}</strong
+              ><span>{{ l.performed_on + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }}</span>
+            </div>
+            <p class="form-hint">
+              Scheduled {{ l.scheduled_on + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }} ·
+              {{
+                l.cost === null
+                  ? 'Cost not recorded'
+                  : (l.cost | currency: l.currency : 'symbol' : '1.2-2')
+              }}
+            </p>
+            @if (l.notes) {
+              <p class="contact-notes">{{ l.notes }}</p>
+            }
+          </article>
+        } @empty {
+          <p class="empty-state">Completed services will appear here.</p>
+        }
+      </div>
+    </section>
+  }
+}
+<p class="form-hint">
+  Sold, retired and archived assets keep their documents and history. CSV follows the current
+  filters; Workspace JSON in Settings includes your asset register, links, schedules and history.
+</p>
