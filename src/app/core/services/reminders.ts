@@ -37,6 +37,7 @@ export class Reminders {
         this.store.attachments(),
         this.store.subscriptions(),
         this.store.loans(),
+        this.store.contacts(),
       );
       const prefs = this.store.reminderPreferences();
       const workspace = this.store.workspace();
@@ -152,6 +153,7 @@ export class Reminders {
       [p.document_lead_days, 90],
       [p.subscription_lead_days, 90],
       [p.loan_lead_days, 90],
+      [p.contact_lead_days, 90],
       [p.reminder_hour, 23],
     ])
       if (!Number.isInteger(value) || value < 0 || value > max)
@@ -174,6 +176,8 @@ export class Reminders {
         subscription_days: p.subscription_lead_days,
         loans_enabled: p.loan_reminders,
         loan_days: p.loan_lead_days,
+        contacts_enabled: p.contact_reminders,
+        contact_days: p.contact_lead_days,
       });
       if (error) throw error;
     }
@@ -206,7 +210,9 @@ export class Reminders {
               ? 'attachments'
               : n.source_kind === 'loan'
                 ? 'loans'
-                : 'subscriptions';
+                : n.source_kind === 'contact'
+                  ? 'contacts'
+                  : 'subscriptions';
       const { data, error } = await c
         .from(table)
         .select('*')
@@ -229,6 +235,8 @@ export class Reminders {
         this.store.bills.update((rows) => [...rows.filter((r) => r.id !== data.id), data]);
       else if ('object_path' in data)
         this.store.attachments.update((rows) => [...rows.filter((r) => r.id !== data.id), data]);
+      else if ('next_follow_up' in data)
+        this.store.contacts.update((rows) => [...rows.filter((r) => r.id !== data.id), data]);
       else if ('principal_paid' in data)
         this.store.loans.update((rows) => [...rows.filter((r) => r.id !== data.id), data]);
       else if ('anchor_on' in data)
@@ -318,6 +326,8 @@ export class Reminders {
           ? '/documents'
           : n.source_kind === 'loan'
             ? '/loans'
-            : '/subscriptions';
+            : n.source_kind === 'contact'
+              ? '/contacts'
+              : '/subscriptions';
   }
 }

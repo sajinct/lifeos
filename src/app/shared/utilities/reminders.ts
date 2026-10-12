@@ -6,12 +6,13 @@ import {
   Notification,
   Subscription,
   Loan,
+  Contact,
 } from '../../core/models/domain';
 export interface ReminderSource {
   id: string;
   workspace_id: string;
   owner_id: string;
-  kind: 'task' | 'bill' | 'document' | 'subscription' | 'trial' | 'loan';
+  kind: 'task' | 'bill' | 'document' | 'subscription' | 'trial' | 'loan' | 'contact';
   title: string;
   date: string;
   days: number;
@@ -23,8 +24,18 @@ export function reminderSources(
   files: Attachment[],
   subscriptions: Subscription[] = [],
   loans: Loan[] = [],
+  contacts: Contact[] = [],
 ): ReminderSource[] {
   return [
+    ...contacts
+      .filter((c) => p.contact_reminders && c.status === 'active' && c.next_follow_up)
+      .map((c) => ({
+        ...c,
+        title: c.name,
+        kind: 'contact' as const,
+        date: c.next_follow_up!,
+        days: p.contact_lead_days,
+      })),
     ...loans
       .filter((l) => p.loan_reminders && l.status === 'active' && l.next_due_on)
       .map((l) => ({ ...l, kind: 'loan' as const, date: l.next_due_on!, days: p.loan_lead_days })),
@@ -88,7 +99,9 @@ export function reminderTitle(s: ReminderSource, phase: Notification['phase']) {
             ? 'Trial'
             : s.kind === 'loan'
               ? 'Loan repayment'
-              : 'Subscription';
+              : s.kind === 'contact'
+                ? 'Contact follow-up'
+                : 'Subscription';
   const overdue =
     s.kind === 'document'
       ? 'expired'

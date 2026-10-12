@@ -65,7 +65,12 @@ export class Records {
           : this.matches(t.title) && (this.filter() === 'all' || t.status === this.filter()),
       ),
   );
-  readonly projects = computed(() => this.store.projects().filter((p) => this.matches(p.title)));
+  readonly linkedId = computed(() => this.params()?.get('linked'));
+  readonly projects = computed(() =>
+    this.store
+      .projects()
+      .filter((p) => (this.linkedId() ? p.id === this.linkedId() : this.matches(p.title))),
+  );
   readonly notes = computed(() =>
     this.store.notes().filter((n) => this.matches(n.title + ' ' + n.body)),
   );
@@ -110,7 +115,7 @@ export class Records {
   readonly statuses: Task['status'][] = ['todo', 'in_progress', 'done'];
   clearReminder() {
     void this.router.navigate([], {
-      queryParams: { reminder: null },
+      queryParams: { reminder: null, linked: null },
       queryParamsHandling: 'merge',
     });
   }

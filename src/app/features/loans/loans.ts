@@ -26,7 +26,9 @@ export class LoansPage {
   readonly ui = inject(UiService);
   readonly router = inject(Router);
   private readonly params = toSignal(inject(ActivatedRoute).queryParamMap);
-  readonly reminderId = computed(() => this.params()?.get('reminder'));
+  readonly reminderId = computed(
+    () => this.params()?.get('reminder') ?? this.params()?.get('linked'),
+  );
   readonly search = signal(String(history.state?.search ?? ''));
   readonly filter = signal('all');
   readonly selectedId = signal<string | null>(null);
@@ -197,7 +199,7 @@ export class LoansPage {
   }
   clearReminder() {
     void this.router.navigate([], {
-      queryParams: { reminder: null },
+      queryParams: { reminder: null, linked: null },
       queryParamsHandling: 'merge',
     });
   }

@@ -198,6 +198,43 @@ export interface RepaymentInput {
   account_id: string;
   notes: string;
 }
+export interface Contact extends OwnedRecord {
+  name: string;
+  kind: 'person' | 'organization';
+  organization: string;
+  category: string;
+  email: string;
+  phone: string;
+  website: string;
+  address: string;
+  notes: string;
+  next_follow_up: string | null;
+  follow_up_note: string;
+  last_contacted_on: string | null;
+  status: 'active' | 'archived';
+  revision: number;
+}
+export interface ContactLink extends OwnedRecord {
+  contact_id: string;
+  project_id: string | null;
+  loan_id: string | null;
+}
+export interface ContactInput {
+  name: string;
+  kind: Contact['kind'];
+  organization: string;
+  category: string;
+  email: string;
+  phone: string;
+  website: string;
+  address: string;
+  notes: string;
+  next_follow_up: string;
+  follow_up_note: string;
+  last_contacted_on: string;
+  project_ids: string[];
+  loan_ids: string[];
+}
 export interface Activity extends OwnedRecord {
   title: string;
 }
@@ -205,7 +242,7 @@ export interface Notification extends OwnedRecord {
   title: string;
   reminder_id: string | null;
   read_at: string | null;
-  source_kind: 'task' | 'bill' | 'document' | 'subscription' | 'trial' | 'loan' | null;
+  source_kind: 'task' | 'bill' | 'document' | 'subscription' | 'trial' | 'loan' | 'contact' | null;
   source_id: string | null;
   occurrence_on: string | null;
   phase: 'upcoming' | 'overdue' | null;
@@ -218,11 +255,13 @@ export interface ReminderPreferences {
   document_reminders: boolean;
   subscription_reminders: boolean;
   loan_reminders: boolean;
+  contact_reminders: boolean;
   task_lead_days: number;
   bill_lead_days: number;
   document_lead_days: number;
   subscription_lead_days: number;
   loan_lead_days: number;
+  contact_lead_days: number;
   reminder_hour: number;
   reminder_timezone: string;
 }
@@ -232,11 +271,13 @@ export const DEFAULT_REMINDERS: ReminderPreferences = {
   document_reminders: false,
   subscription_reminders: false,
   loan_reminders: false,
+  contact_reminders: false,
   task_lead_days: 1,
   bill_lead_days: 3,
   document_lead_days: 30,
   subscription_lead_days: 7,
   loan_lead_days: 3,
+  contact_lead_days: 1,
   reminder_hour: 9,
   reminder_timezone: 'UTC',
 };
@@ -285,6 +326,8 @@ export interface TableRows {
   attachments: Attachment;
   subscriptions: Subscription;
   loans: Loan;
+  contacts: Contact;
+  contact_links: ContactLink;
   loan_repayments: LoanRepayment;
 }
 type Table<R> = {
@@ -298,6 +341,36 @@ export type Database = {
     Tables: { [K in keyof TableRows]: Table<TableRows[K]> };
     Views: Record<string, never>;
     Functions: {
+      save_contact: {
+        Args: {
+          entry: string;
+          w: string;
+          expected_revision: number | null;
+          contact_name: string;
+          contact_kind: string;
+          contact_organization: string;
+          contact_category: string;
+          contact_email: string;
+          contact_phone: string;
+          contact_website: string;
+          contact_address: string;
+          contact_notes: string;
+          follow_up: string | null;
+          follow_up_description: string;
+          last_contact: string | null;
+          projects: string[];
+          loans: string[];
+        };
+        Returns: string;
+      };
+      set_contact_status: {
+        Args: { entry: string; expected_revision: number; target: string };
+        Returns: undefined;
+      };
+      complete_contact_follow_up: {
+        Args: { entry: string; expected_revision: number };
+        Returns: undefined;
+      };
       create_loan: {
         Args: {
           entry: string;
@@ -366,6 +439,8 @@ export type Database = {
           subscription_days: number;
           loans_enabled: boolean;
           loan_days: number;
+          contacts_enabled: boolean;
+          contact_days: number;
         };
         Returns: undefined;
       };

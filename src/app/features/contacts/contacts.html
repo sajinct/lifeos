@@ -1,0 +1,298 @@
+<section class="page-heading">
+  <div>
+    <span class="eyebrow">KEEP YOUR PEOPLE AND PLANS CONNECTED</span>
+    <h1>Contacts</h1>
+    <p>A private place for people, organizations, and the next conversation.</p>
+  </div>
+  <div class="heading-actions">
+    <button
+      class="button subtle"
+      (click)="export()"
+      [disabled]="!rows().length || store.loading() || !!store.error()"
+    >
+      <app-icon name="download" />Export contacts CSV</button
+    ><button
+      class="button primary"
+      (click)="add()"
+      [disabled]="busy() || !store.writable() || store.loading()"
+    >
+      <app-icon name="plus" />Add contact
+    </button>
+  </div>
+</section>
+<div class="file-library-note">
+  <app-icon name="lock" /><span>Contact details, notes and links stay private to you.</span
+  ><a routerLink="/settings">Set follow-up reminders</a>
+</div>
+<div class="contact-stats">
+  <section class="panel">
+    <span>People</span><strong>{{ counts().people }}</strong>
+  </section>
+  <section class="panel">
+    <span>Organizations</span><strong>{{ counts().organizations }}</strong>
+  </section>
+  <section class="panel">
+    <span>Follow-ups due</span><strong>{{ counts().due }}</strong>
+  </section>
+</div>
+@if (reminderId()) {
+  <div class="file-library-note">
+    <span>Showing the reminded contact.</span
+    ><button class="button subtle" (click)="clearReminder()">Show all contacts</button>
+  </div>
+}
+@if (error()) {
+  <p class="error-banner" role="alert">{{ error() }}</p>
+}
+@if (store.error()) {
+  <p class="error-banner" role="alert">{{ store.error() }}</p>
+}
+@if (showForm()) {
+  <section class="panel subscription-form">
+    <h2>{{ editing() ? 'Edit contact' : 'Add contact' }}</h2>
+    <form [formGroup]="form" (ngSubmit)="save()">
+      <div class="form-grid">
+        <label
+          >Name<input
+            formControlName="name"
+            maxlength="200"
+            placeholder="Person or organization name" /></label
+        ><label
+          >Contact type<select formControlName="kind">
+            <option value="person">Person</option>
+            <option value="organization">Organization</option>
+          </select></label
+        >
+        <label
+          >Organization / affiliation<input formControlName="organization" maxlength="200" /></label
+        ><label
+          >Category<input
+            formControlName="category"
+            maxlength="100"
+            placeholder="Personal, Family, Professional…"
+        /></label>
+        <label>Email (optional)<input formControlName="email" type="email" maxlength="254" /></label
+        ><label>Phone (optional)<input formControlName="phone" type="tel" maxlength="50" /></label
+        ><label
+          >Website (optional)<input
+            formControlName="website"
+            type="url"
+            maxlength="500"
+            placeholder="https://example.com" /></label
+        ><label>Last contacted on<input formControlName="last_contacted_on" type="date" /></label>
+        <label>Next follow-up date<input formControlName="next_follow_up" type="date" /></label
+        ><label
+          >Follow-up note<input
+            formControlName="follow_up_note"
+            maxlength="500"
+            placeholder="What to discuss next"
+        /></label>
+      </div>
+      <label
+        >Address (optional)<textarea
+          formControlName="address"
+          rows="2"
+          maxlength="500"
+        ></textarea></label
+      ><label
+        >Notes (optional)<textarea formControlName="notes" rows="3" maxlength="4000"></textarea>
+      </label>
+      <div class="contact-link-grid">
+        <fieldset>
+          <legend>Linked projects</legend>
+          <div class="contact-link-options">
+            @for (p of library.projects(); track p.id) {
+              <label class="reminder-toggle"
+                ><input
+                  type="checkbox"
+                  [checked]="form.controls.project_ids.value.includes(p.id)"
+                  (change)="selectLink('project_ids', p.id, $any($event.target).checked)"
+                />{{ p.title }}</label
+              >
+            } @empty {
+              <p class="form-hint">Create a project in this workspace to link it.</p>
+            }
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Linked loans</legend>
+          <div class="contact-link-options">
+            @for (l of loans(); track l.id) {
+              <label class="reminder-toggle"
+                ><input
+                  type="checkbox"
+                  [checked]="form.controls.loan_ids.value.includes(l.id)"
+                  (change)="selectLink('loan_ids', l.id, $any($event.target).checked)"
+                />{{ l.title }} · {{ l.direction }}</label
+              >
+            } @empty {
+              <p class="form-hint">Add a loan in this workspace to link it.</p>
+            }
+          </div>
+        </fieldset>
+      </div>
+      <p class="form-hint">
+        Choose up to 50 of your own projects and 50 loans. Enable Contact follow-ups in Settings →
+        Reminders for alerts. “Mark contacted” records today and clears the current follow-up; edit
+        the contact to schedule the next one.
+      </p>
+      <div class="heading-actions">
+        <button type="submit" class="button primary" [disabled]="busy() || !store.writable()">
+          {{ busy() ? 'Saving…' : 'Save contact' }}</button
+        ><button
+          type="button"
+          class="button subtle"
+          (click)="showForm.set(false)"
+          [disabled]="busy()"
+        >
+          Close
+        </button>
+      </div>
+    </form>
+  </section>
+}
+<div class="records-toolbar contact-toolbar">
+  <div class="filter-search">
+    <app-icon name="search" /><input
+      aria-label="Find contacts"
+      placeholder="Search names, details or notes…"
+      [value]="search()"
+      (input)="search.set($any($event.target).value)"
+    />
+  </div>
+  <select
+    aria-label="Contact status filter"
+    [value]="status()"
+    (change)="status.set($any($event.target).value)"
+  >
+    <option value="active">Active</option>
+    <option value="archived">Archived</option>
+    <option value="all">All statuses</option></select
+  ><select
+    aria-label="Contact type filter"
+    [value]="kind()"
+    (change)="kind.set($any($event.target).value)"
+  >
+    <option value="all">All types</option>
+    <option value="person">People</option>
+    <option value="organization">Organizations</option></select
+  ><select
+    aria-label="Follow-up filter"
+    [value]="follow()"
+    (change)="follow.set($any($event.target).value)"
+  >
+    <option value="all">All follow-ups</option>
+    <option value="scheduled">Scheduled</option>
+    <option value="due">Due / overdue</option>
+  </select>
+</div>
+@if (store.loading()) {
+  <p role="status">Loading contacts…</p>
+} @else if (!store.error()) {
+  <div class="contact-cards">
+    @for (c of rows(); track c.id) {
+      <article class="panel contact-card" [class.muted]="c.status === 'archived'">
+        <div class="contact-card-heading">
+          <span class="icon-tile purple"><app-icon name="contacts" /></span>
+          <div>
+            <h2>{{ c.name }}</h2>
+            <p>{{ c.organization || (c.kind === 'person' ? 'Person' : 'Organization') }}</p>
+          </div>
+          <span class="priority low">{{ c.category }}</span>
+        </div>
+        <div class="contact-details">
+          @if (c.email) {
+            <p>
+              <span>Email</span><a [href]="'mailto:' + c.email">{{ c.email }}</a>
+            </p>
+          }
+          @if (c.phone) {
+            <p>
+              <span>Phone</span><strong>{{ c.phone }}</strong>
+            </p>
+          }
+          @if (c.website) {
+            <p>
+              <span>Website</span
+              ><a [href]="c.website" target="_blank" rel="noopener noreferrer">Open website ↗</a>
+            </p>
+          }
+          @if (c.address) {
+            <p>
+              <span>Address</span><strong class="contact-text">{{ c.address }}</strong>
+            </p>
+          }
+        </div>
+        @if (c.notes) {
+          <p class="contact-text contact-notes">{{ c.notes }}</p>
+        }
+        <div class="contact-follow-up">
+          <span class="eyebrow">{{ c.status === 'archived' ? 'ARCHIVED' : 'NEXT FOLLOW-UP' }}</span>
+          @if (c.next_follow_up) {
+            <strong
+              >{{ c.next_follow_up | date: 'd MMM yyyy' }} ·
+              {{
+                c.next_follow_up < library.today()
+                  ? 'Overdue'
+                  : c.next_follow_up === library.today()
+                    ? 'Due today'
+                    : 'Upcoming'
+              }}</strong
+            >
+            @if (c.follow_up_note) {
+              <p>{{ c.follow_up_note }}</p>
+            }
+          } @else {
+            <p>No follow-up scheduled.</p>
+          }
+          @if (c.last_contacted_on) {
+            <small>Last contacted {{ c.last_contacted_on | date: 'd MMM yyyy' }}</small>
+          }
+        </div>
+        @if (links(c).length) {
+          <div class="contact-linked-records">
+            @for (l of links(c); track l.id) {
+              <button class="button subtle" (click)="openLink(l)" [disabled]="busy()">
+                <app-icon [name]="l.project_id ? 'project' : 'wallet'" />{{
+                  l.project_id ? projectName(l.project_id) : loanName(l.loan_id!)
+                }}
+              </button>
+            }
+          </div>
+        }
+        <div class="heading-actions">
+          @if (c.status === 'active') {
+            <button
+              class="button subtle"
+              (click)="edit(c)"
+              [disabled]="busy() || !store.writable()"
+            >
+              Edit</button
+            ><button
+              class="button subtle"
+              (click)="contacted(c)"
+              [disabled]="busy() || !store.writable()"
+            >
+              Mark contacted
+            </button>
+          }
+          <button
+            class="button subtle"
+            (click)="statusChange(c)"
+            [disabled]="busy() || !store.writable()"
+          >
+            {{ c.status === 'active' ? 'Archive' : 'Restore' }}
+          </button>
+        </div>
+      </article>
+    } @empty {
+      <section class="panel empty-state">
+        No matching contacts. Add a person or organization to get started.
+      </section>
+    }
+  </div>
+}
+<p class="form-hint">
+  Archives preserve contact details and links. CSV exports follow the current search and filters;
+  Workspace JSON in Settings also includes your contacts.
+</p>

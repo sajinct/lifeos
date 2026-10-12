@@ -70,6 +70,19 @@ import { UiService } from '../../core/services/ui';
         /></label>
       </div>
       <div class="form-grid">
+        <label class="reminder-toggle"
+          ><input type="checkbox" formControlName="contact_reminders" />Contact follow-ups</label
+        >
+        <label
+          >Contact reminder lead time (days)<input
+            type="number"
+            formControlName="contact_lead_days"
+            min="0"
+            max="90"
+            step="1"
+        /></label>
+      </div>
+      <div class="form-grid">
         <label
           >Daily delivery hour<select formControlName="reminder_hour">
             @for (hour of hours; track hour) {
@@ -94,7 +107,7 @@ import { UiService } from '../../core/services/ui';
         In-app delivery is checked every five minutes after your chosen local hour. You receive one
         upcoming reminder and one overdue reminder per due date. Completed tasks, paid or cancelled
         bills, archived documents, cancelled subscriptions, and fully repaid loans stop their
-        reminders.
+        reminders. Archived contacts and completed follow-ups also clear their alerts.
       </p>
       <p class="form-hint">
         Document reminders apply to ready documents with an expiry date. Open a document reminder to
@@ -136,11 +149,13 @@ export class ReminderSettings {
     document_reminders: false,
     subscription_reminders: false,
     loan_reminders: false,
+    contact_reminders: false,
     task_lead_days: [1, [Validators.required, Validators.min(0), Validators.max(30)]],
     bill_lead_days: [3, [Validators.required, Validators.min(0), Validators.max(30)]],
     document_lead_days: [30, [Validators.required, Validators.min(0), Validators.max(90)]],
     subscription_lead_days: [7, [Validators.required, Validators.min(0), Validators.max(90)]],
     loan_lead_days: [3, [Validators.required, Validators.min(0), Validators.max(90)]],
+    contact_lead_days: [1, [Validators.required, Validators.min(0), Validators.max(90)]],
     reminder_hour: [9, [Validators.required, Validators.min(0), Validators.max(23)]],
     reminder_timezone: ['UTC', [Validators.required, Validators.maxLength(100)]],
   });

@@ -22,6 +22,12 @@
     }
   </div>
 </section>
+@if (linkedId() && page === 'projects') {
+  <div class="file-library-note">
+    <span>Showing the linked project.</span
+    ><button class="button subtle" (click)="clearReminder()">Show all projects</button>
+  </div>
+}
 @if (reminderId() && page === 'tasks') {
   <div class="file-library-note">
     <span>Showing the reminded task.</span
