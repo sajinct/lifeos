@@ -5,6 +5,9 @@
     <p>{{ descriptions[page] }}</p>
   </div>
   <div class="heading-actions">
+    @if (page === 'tasks' || page === 'notes') {
+      <a class="button subtle" routerLink="/imports/tasks-notes">Import Tasks & Notes JSON</a>
+    }
     @if (page === 'tasks' || page === 'inbox') {
       <button class="button subtle" (click)="openList()" [disabled]="!store.writable() || busy()">
         Add task list

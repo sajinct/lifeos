@@ -1,0 +1,211 @@
+<section class="page-heading">
+  <div>
+    <span class="eyebrow">TASKS & NOTES · YOUR PRIVATE WORKSPACE</span>
+    <h1>Import Tasks & Notes</h1>
+    <p>Bring task details and note content into this workspace after review.</p>
+  </div>
+  <div class="heading-actions">
+    <button class="button subtle" (click)="template()">Download JSON template</button
+    ><a class="button subtle" routerLink="/tasks">View Tasks</a
+    ><a class="button subtle" routerLink="/notes">View Notes</a>
+  </div>
+</section>
+<section class="panel import-setup" [formGroup]="form">
+  <h2>1. Load your JSON export</h2>
+  <p class="muted">
+    Up to 500 tasks and notes combined, 50 referenced projects and 5 MiB. Files are decoded in your
+    browser. Only selected records and their project mappings are saved.
+  </p>
+  <label
+    >JSON file<input
+      type="file"
+      accept=".json,application/json"
+      (change)="file($event)"
+      [disabled]="busy() || !!pending()" /></label
+  ><label class="import-text"
+    >Or paste JSON<textarea
+      rows="5"
+      spellcheck="false"
+      formControlName="text"
+      [attr.disabled]="busy() || pending() ? '' : null"
+      placeholder="LifeOS workspace export or Tasks and Notes template"
+    ></textarea>
+  </label>
+  <p class="form-hint">
+    Imports create private records for your signed-in user. Tasks are standalone and unassigned.
+    Lists, recurrence, assignments, checklists, time logs, attachments, tags, sharing and reminders
+    are not restored. Existing records are not overwritten. Remove the template’s example records
+    before importing.
+  </p>
+  <button
+    class="button primary"
+    (click)="preview()"
+    [disabled]="busy() || !!pending() || !store.writable()"
+  >
+    {{ busy() && !pending() ? 'Reading…' : 'Preview JSON' }}
+  </button>
+</section>
+@if (error()) {
+  <p class="form-error" role="alert">{{ error() }}</p>
+}
+@if (result(); as r) {
+  <section class="panel import-success" role="status">
+    <h2>Import complete</h2>
+    <p>
+      {{ r.tasks_imported }} {{ r.tasks_imported === 1 ? 'task' : 'tasks' }} added ·
+      {{ r.notes_imported }} {{ r.notes_imported === 1 ? 'note' : 'notes' }} added ·
+      {{ r.skipped }} matching records skipped during saving.
+    </p>
+    <a class="button primary" routerLink="/tasks">View Tasks</a>
+    <a class="button subtle" routerLink="/notes">View Notes</a>
+  </section>
+}
+@if (source(); as source) {
+  <section class="panel import-preview">
+    <h2>2. Map project links</h2>
+    <p class="form-hint">
+      Choose an accessible project or explicitly leave each source unlinked. Source projects are
+      labels; new projects and project sharing are not created. Saved source mappings stay fixed on
+      reupload.
+      @if (source.omitted.length) {
+        Other sections left out: {{ source.omitted.join(', ') }}.
+      }
+    </p>
+    @if (source.projects.length) {
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Source project</th>
+              <th>Destination</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (p of source.projects; track p.source_id) {
+              <tr>
+                <td>
+                  <strong>{{ p.title }}</strong
+                  ><small>{{ p.source_id }}</small>
+                </td>
+                <td>
+                  <select
+                    [attr.aria-label]="'Destination for ' + p.title"
+                    [disabled]="busy() || !!pending() || bound(p.source_id)"
+                    (change)="map(p.source_id, $event)"
+                  >
+                    <option value="choose" [selected]="mapping()[p.source_id] === 'choose'">
+                      Choose destination
+                    </option>
+                    <option value="none" [selected]="mapping()[p.source_id] === 'none'">
+                      Leave imported records unlinked
+                    </option>
+                    @for (t of importer.projects(); track t.id) {
+                      <option [value]="t.id" [selected]="mapping()[p.source_id] === t.id">
+                        {{ t.title }}
+                      </option>
+                    }
+                  </select>
+                  @if (bound(p.source_id)) {
+                    <small>Saved project mapping</small>
+                  }
+                  @if (mappingError(p.source_id)) {
+                    <small class="form-error">{{ mappingError(p.source_id) }}</small>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <p class="muted">No project links to map.</p>
+    }
+  </section>
+  <section class="panel import-preview">
+    <div class="panel-heading">
+      <div>
+        <h2>3. Review selected records</h2>
+        <p class="muted">
+          {{ counts()['ready'] }} ready · {{ counts()['duplicate'] }} duplicates ·
+          {{ counts()['invalid'] }} invalid · {{ counts()['unmapped'] }} unmapped
+        </p>
+      </div>
+      <span class="import-count">{{ selected().size }} selected</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Include</th>
+            <th>Record</th>
+            <th>Details</th>
+            <th>Review</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (r of rows(); track r.index) {
+            <tr>
+              <td>
+                <input
+                  type="checkbox"
+                  [attr.aria-label]="'Include record ' + (r.index + 1)"
+                  [checked]="selected().has(r.index)"
+                  [disabled]="busy() || !!pending() || r.state !== 'ready'"
+                  (change)="toggle(r.index)"
+                />
+              </td>
+              <td>
+                <strong>{{ r.title || 'Invalid title' }}</strong
+                ><small>{{ r.kind }} · {{ r.row?.source_id }}</small>
+                @for (warning of r.warnings; track warning) {
+                  <small>{{ warning }}</small>
+                }
+              </td>
+              <td>
+                @if (r.kind === 'task' && r.row) {
+                  <small>{{ r.row.status }} · {{ r.row.priority }} priority</small
+                  ><small>Due: {{ r.row.due_date || 'No date' }}</small>
+                }
+                @if (r.kind === 'note' && r.row) {
+                  <small
+                    >{{ (r.row.body || '').slice(0, 180)
+                    }}{{ (r.row.body || '').length > 180 ? '…' : '' }}</small
+                  >
+                }
+              </td>
+              <td>
+                <span [class.form-error]="r.state === 'invalid'">{{ r.state }}</span>
+                @if (r.message) {
+                  <small>{{ r.message }}</small>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <div class="import-confirm">
+      <p class="form-hint">
+        The selected records save together. Server checks enforce project access, private ownership
+        and duplicate detection. Retry the same batch after a connection failure. Reuploads preserve
+        existing edits and deletions.
+      </p>
+      <button
+        class="button primary"
+        (click)="save()"
+        [disabled]="busy() || (!pending() && (!store.writable() || !selected().size))"
+      >
+        {{
+          busy()
+            ? 'Saving…'
+            : pending()
+              ? 'Retry this record batch'
+              : 'Import ' + selected().size + ' selected records'
+        }}
+      </button>
+    </div>
+    @if (pending() && !busy()) {
+      <button class="text-button" (click)="clear()">Discard preview and start again</button>
+    }
+  </section>
+}
