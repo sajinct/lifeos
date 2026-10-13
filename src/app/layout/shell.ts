@@ -50,6 +50,7 @@ export class Shell implements OnInit {
   ];
   readonly life = [
     { path: '/finance', name: 'Finance', icon: 'wallet' },
+    { path: '/wealth', name: 'Wealth & investments', icon: 'wallet' },
     { path: '/cards', name: 'Credit cards', icon: 'wallet' },
     { path: '/family', name: 'Family & household', icon: 'family' },
     { path: '/travel', name: 'Travel & events', icon: 'calendar' },

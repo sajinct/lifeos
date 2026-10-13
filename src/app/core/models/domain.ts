@@ -184,6 +184,80 @@ export interface MilestoneInput {
   due_on: string;
   notes: string;
 }
+export interface InvestmentHolding extends OwnedRecord {
+  title: string;
+  kind: 'stock' | 'fund' | 'bond' | 'deposit' | 'crypto' | 'other';
+  currency: string;
+  opened_on: string;
+  opening_cost: number;
+  opening_value: number;
+  current_cost: number;
+  current_value: number;
+  last_entry_on: string;
+  next_sequence: number;
+  notes: string;
+  archived: boolean;
+  revision: number;
+}
+export interface InvestmentEntry extends OwnedRecord {
+  holding_id: string;
+  sequence: number;
+  kind: 'contribution' | 'withdrawal' | 'valuation';
+  amount: number;
+  basis_removed: number;
+  occurred_on: string;
+  account_id: string | null;
+  transaction_id: string | null;
+  reversal_id: string | null;
+  voided: boolean;
+  before_cost: number;
+  before_value: number;
+  notes: string;
+}
+export type WealthSourceKind = 'account' | 'asset' | 'loan' | 'holding';
+export interface WealthExclusion extends OwnedRecord {
+  source_kind: WealthSourceKind;
+  source_id: string;
+  excluded: boolean;
+  revision: number;
+}
+export interface WealthAssetValue extends OwnedRecord {
+  asset_id: string;
+  currency: string;
+  amount: number;
+  valued_on: string;
+  notes: string;
+  revision: number;
+}
+export interface WealthTotals {
+  currency: string;
+  account_assets: number;
+  account_debt: number;
+  investments: number;
+  physical_assets: number;
+  lent_principal: number;
+  borrowed_principal: number;
+  assets_total: number;
+  liabilities_total: number;
+  net: number;
+}
+export interface WealthSnapshot extends OwnedRecord {
+  label: string;
+  captured_on: string;
+  totals: WealthTotals[];
+}
+export type HoldingInput = Pick<
+  InvestmentHolding,
+  'title' | 'kind' | 'currency' | 'opened_on' | 'notes'
+> & { opening_cost: string; opening_value: string };
+export interface InvestmentInput {
+  kind: InvestmentEntry['kind'];
+  amount: string;
+  basis_removed: string;
+  occurred_on: string;
+  account_id: string;
+  notes: string;
+}
 export interface CreditCard extends OwnedRecord {
   account_id: string;
   title: string;
@@ -793,6 +867,11 @@ export type CareerInput = Pick<
   document_ids: string[];
 };
 export interface TableRows {
+  investment_holdings: InvestmentHolding;
+  investment_entries: InvestmentEntry;
+  wealth_exclusions: WealthExclusion;
+  wealth_asset_values: WealthAssetValue;
+  wealth_snapshots: WealthSnapshot;
   credit_cards: CreditCard;
   card_statements: CardStatement;
   card_payments: CardPayment;
@@ -857,6 +936,65 @@ export type Database = {
     Tables: { [K in keyof TableRows]: Table<TableRows[K]> };
     Views: Record<string, never>;
     Functions: {
+      save_investment_holding: {
+        Args: {
+          entry: string;
+          w: string;
+          expected_revision: number | null;
+          details: { [key: string]: string | number };
+        };
+        Returns: string;
+      };
+      append_investment_entry: {
+        Args: {
+          entry: string;
+          w: string;
+          parent: string;
+          expected_revision: number;
+          entry_kind: string;
+          entry_amount: number;
+          removed_basis: number;
+          entry_date: string;
+          bank_account: string | null;
+          entry_notes: string;
+        };
+        Returns: string;
+      };
+      undo_investment_entry: {
+        Args: { entry: string; expected_revision: number };
+        Returns: undefined;
+      };
+      archive_investment_holding: {
+        Args: { entry: string; expected_revision: number; archived_value: boolean };
+        Returns: undefined;
+      };
+      set_wealth_exclusion: {
+        Args: {
+          entry: string;
+          w: string;
+          expected_revision: number | null;
+          source_kind: WealthSourceKind;
+          source_id: string;
+          excluded_value: boolean;
+        };
+        Returns: string;
+      };
+      save_wealth_asset_value: {
+        Args: {
+          entry: string;
+          w: string;
+          expected_revision: number | null;
+          asset: string;
+          value_amount: number;
+          value_date: string;
+          value_notes: string;
+        };
+        Returns: string;
+      };
+      capture_wealth_snapshot: {
+        Args: { entry: string; w: string; snapshot_label: string };
+        Returns: string;
+      };
       save_credit_card: {
         Args: {
           entry: string;

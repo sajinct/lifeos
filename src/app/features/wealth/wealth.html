@@ -1,0 +1,555 @@
+<header class="page-heading">
+  <div>
+    <span class="eyebrow">FINANCE · CURRENT WORKSPACE</span>
+    <h1>Wealth & investments</h1>
+    <p>Your assets, debt and investment progress. Private to you.</p>
+  </div>
+  <div class="actions">
+    <a class="button subtle" routerLink="/finance">Open Finance</a
+    ><button class="button subtle" (click)="export()" [disabled]="store.loading()">
+      Export CSV</button
+    ><button
+      class="button primary"
+      (click)="newHolding()"
+      [disabled]="busy() || store.loading() || !store.writable()"
+    >
+      Add holding
+    </button>
+  </div>
+</header>
+@if (error() || totalResult().error) {
+  <p class="error-message" role="alert">{{ error() || totalResult().error }}</p>
+}
+<nav class="actions wealth-tabs" aria-label="Wealth views">
+  @for (t of ['overview', 'holdings', 'sources', 'snapshots']; track t) {
+    <button [class]="'button ' + (tab() === t ? 'primary' : 'subtle')" (click)="tab.set(t)">
+      {{
+        t === 'overview'
+          ? 'Net worth'
+          : t === 'holdings'
+            ? 'Investments'
+            : t === 'sources'
+              ? 'Included sources'
+              : 'Snapshot history'
+      }}
+    </button>
+  }
+</nav>
+@if (tab() === 'overview') {
+  <div class="card-grid">
+    @for (t of totalResult().totals; track t.currency) {
+      <article class="panel" style="padding: 24px">
+        <span class="eyebrow">{{ t.currency }} · NET WORTH</span>
+        <h2 class="wealth-number">{{ money(t.net, t.currency) }}</h2>
+        <p>
+          Assets {{ money(t.assets_total, t.currency) }} · Liabilities
+          {{ money(t.liabilities_total, t.currency) }}
+        </p>
+        <dl class="wealth-breakdown">
+          <div>
+            <dt>Positive account balances</dt>
+            <dd>{{ money(t.account_assets, t.currency) }}</dd>
+          </div>
+          <div>
+            <dt>Investment value</dt>
+            <dd>{{ money(t.investments, t.currency) }}</dd>
+          </div>
+          <div>
+            <dt>Physical assets</dt>
+            <dd>{{ money(t.physical_assets, t.currency) }}</dd>
+          </div>
+          <div>
+            <dt>Loan principal lent</dt>
+            <dd>{{ money(t.lent_principal, t.currency) }}</dd>
+          </div>
+          <div>
+            <dt>Negative accounts, including cards</dt>
+            <dd>−{{ money(t.account_debt, t.currency) }}</dd>
+          </div>
+          <div>
+            <dt>Loan principal borrowed</dt>
+            <dd>−{{ money(t.borrowed_principal, t.currency) }}</dd>
+          </div>
+        </dl>
+      </article>
+    } @empty {
+      <section class="panel empty-state">
+        {{ store.loading() ? 'Loading wealth…' : 'No included wealth records yet.' }}
+      </section>
+    }
+  </div>
+  <section class="panel wealth-panel">
+    <h2>One clear picture, by currency</h2>
+    <p>
+      Net worth uses recorded account balances through today, current manual investment values,
+      active assets, and remaining loan principal. Card debt is already inside negative account
+      balances. Future loan interest and card statement totals are not added again.
+    </p>
+    <p class="muted">
+      No exchange rates or live market prices are used. Physical assets use their purchase cost
+      until you enter a manual value. Check Included sources to review valuation dates and exclude
+      records already represented elsewhere.
+    </p>
+    <div class="actions">
+      <button class="button subtle" (click)="tab.set('sources')">Review included sources</button
+      ><button
+        class="button primary"
+        (click)="newSnapshot()"
+        [disabled]="busy() || store.loading() || !store.writable()"
+      >
+        Capture snapshot
+      </button>
+    </div>
+  </section>
+}
+@if (snapshotEditor()) {
+  <section class="panel wealth-panel">
+    <form [formGroup]="snapshotForm" (ngSubmit)="snapshot()" class="capture-form">
+      <h2>Capture net worth today</h2>
+      <label>Snapshot label<input formControlName="label" maxlength="200" required /></label>
+      <p class="muted">
+        This saves the current totals by currency as an immutable review. Later transactions,
+        valuations or inclusion changes leave this snapshot unchanged.
+      </p>
+      <div class="actions">
+        <button class="button primary" [disabled]="busy() || store.loading()">Save snapshot</button
+        ><button type="button" class="button subtle" (click)="snapshotEditor.set(false)">
+          Cancel
+        </button>
+      </div>
+    </form>
+  </section>
+}
+@if (tab() === 'holdings') {
+  @if (holdingEditor()) {
+    <section class="panel wealth-panel">
+      <form [formGroup]="holdingForm" (ngSubmit)="saveHolding()" class="capture-form">
+        <h2>{{ previousHolding() ? 'Edit holding' : 'New investment holding' }}</h2>
+        <label
+          >Holding name<input
+            formControlName="title"
+            maxlength="200"
+            required
+            placeholder="Long-term index fund" /></label
+        ><label
+          >Investment type<select formControlName="kind">
+            @for (k of ['stock', 'fund', 'bond', 'deposit', 'crypto', 'other']; track k) {
+              <option [value]="k">{{ k }}</option>
+            }
+          </select></label
+        >
+        @if (!previousHolding()) {
+          <label>Holding currency<input formControlName="currency" maxlength="3" required /></label
+          ><label>Opening date<input formControlName="opened_on" type="date" required /></label
+          ><label
+            >Opening purchase cost<input
+              formControlName="opening_cost"
+              inputmode="decimal"
+              required /></label
+          ><label
+            >Opening market value<input
+              formControlName="opening_value"
+              inputmode="decimal"
+              required
+          /></label>
+          <p class="muted">
+            Opening balances describe holdings you already own; they do not alter cash accounts. For
+            a new purchase, start at zero and record a contribution with its paying bank account.
+            Review overlapping accounts in Included sources.
+          </p>
+        }
+        <label>Holding notes<textarea formControlName="notes" maxlength="2000"></textarea></label>
+        <div class="actions">
+          <button class="button primary" [disabled]="busy()">Save holding</button
+          ><button type="button" class="button subtle" (click)="holdingEditor.set(false)">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </section>
+  }
+  <div class="toolbar">
+    <label
+      >Find investments<input
+        [value]="search()"
+        (input)="search.set($any($event.target).value)"
+        placeholder="Holding name or type" /></label
+    ><label class="check"
+      ><input
+        type="checkbox"
+        [checked]="archived()"
+        (change)="archived.set($any($event.target).checked)"
+      />Show archived holdings</label
+    >
+  </div>
+  <div class="card-grid">
+    @for (h of holdings(); track h.id) {
+      <button class="panel wealth-panel holding-tile" (click)="pick(h)">
+        <span class="eyebrow">{{ h.kind }} · {{ h.currency }}</span>
+        <h2>{{ h.title }}</h2>
+        <strong class="wealth-number">{{ money(h.current_value, h.currency) }}</strong>
+        <p class="muted">
+          Cost basis {{ money(h.current_cost, h.currency) }} · as of
+          {{ h.last_entry_on + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }}
+        </p>
+      </button>
+    } @empty {
+      <div class="panel empty-state">
+        {{
+          store.loading()
+            ? 'Loading investments…'
+            : 'Add a holding to track your investment progress.'
+        }}
+      </div>
+    }
+  </div>
+  @if (selected(); as h) {
+    <section class="panel wealth-panel">
+      <header class="section-heading">
+        <div>
+          <span class="eyebrow">PRIVATE · {{ h.currency }} · {{ h.kind }}</span>
+          <h2>{{ h.title }}</h2>
+          <p class="muted">
+            Opening date {{ h.opened_on + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }} · Value updated
+            {{ h.last_entry_on + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }}
+          </p>
+        </div>
+        <div class="actions">
+          <button class="button subtle" (click)="exportEntries()">Export entry history</button>
+          @if (store.writable()) {
+            <button class="button subtle" (click)="newHolding(h)" [disabled]="busy() || h.archived">
+              Edit holding</button
+            ><button class="button subtle" (click)="archive(h)" [disabled]="busy()">
+              {{ h.archived ? 'Restore holding' : 'Archive holding' }}
+            </button>
+          }
+        </div>
+      </header>
+      <div class="card-grid">
+        <article>
+          <span class="eyebrow">CURRENT VALUE</span>
+          <h2 class="wealth-number">{{ money(h.current_value, h.currency) }}</h2>
+        </article>
+        <article>
+          <span class="eyebrow">REMAINING COST BASIS</span>
+          <h2 class="wealth-number">{{ money(h.current_cost, h.currency) }}</h2>
+        </article>
+        @if (performance(); as p) {
+          <article>
+            <span class="eyebrow">REALIZED GAIN / LOSS</span>
+            <h2 class="wealth-number">{{ money(p.realized, h.currency) }}</h2>
+          </article>
+          <article>
+            <span class="eyebrow">UNREALIZED GAIN / LOSS</span>
+            <h2 class="wealth-number">{{ money(p.unrealized, h.currency) }}</h2>
+          </article>
+          <article>
+            <span class="eyebrow">CONTRIBUTIONS</span>
+            <h2>{{ money(p.contributions, h.currency) }}</h2>
+          </article>
+          <article>
+            <span class="eyebrow">WITHDRAWAL PROCEEDS</span>
+            <h2>{{ money(p.withdrawals, h.currency) }}</h2>
+          </article>
+        }
+      </div>
+      @if (h.notes) {
+        <p>{{ h.notes }}</p>
+      }
+      @if (!h.archived && store.writable()) {
+        <div class="actions">
+          <button class="button primary" (click)="newEntry('contribution')" [disabled]="busy()">
+            Record contribution</button
+          ><button class="button subtle" (click)="newEntry('withdrawal')" [disabled]="busy()">
+            Record withdrawal</button
+          ><button class="button subtle" (click)="newEntry('valuation')" [disabled]="busy()">
+            Update valuation
+          </button>
+        </div>
+      }
+      @if (entryEditor()) {
+        <form [formGroup]="entryForm" (ngSubmit)="append()" class="capture-form">
+          <h3>
+            {{
+              entryValues().kind === 'valuation'
+                ? 'Manual valuation'
+                : entryValues().kind === 'withdrawal'
+                  ? 'Completed withdrawal / disposal'
+                  : 'Completed contribution'
+            }}
+          </h3>
+          <label
+            >{{
+              entryValues().kind === 'valuation'
+                ? 'New total market value'
+                : entryValues().kind === 'withdrawal'
+                  ? 'Withdrawal proceeds'
+                  : 'Contribution amount'
+            }}<input formControlName="amount" inputmode="decimal" required
+          /></label>
+          @if (entryValues().kind === 'withdrawal') {
+            <label
+              >Purchase cost removed<input
+                formControlName="basis_removed"
+                inputmode="decimal"
+                required
+              /><small
+                >Enter the cost basis of the part disposed of. Proceeds minus this amount are the
+                recorded realized gain/loss.</small
+              ></label
+            >
+          }
+          <label
+            >Entry date<input
+              formControlName="occurred_on"
+              type="date"
+              [min]="h.last_entry_on"
+              [max]="library.today()"
+              required
+          /></label>
+          @if (entryValues().kind !== 'valuation') {
+            <label
+              >{{ entryValues().kind === 'contribution' ? 'Paying account' : 'Receiving account'
+              }}<select formControlName="account_id">
+                <option value="">Outside LifeOS — no tracked bank entry</option>
+                @for (a of banks(); track a.id) {
+                  <option [value]="a.id">{{ a.name }}</option>
+                }
+              </select></label
+            >
+            <p class="muted">
+              A tracked account records the completed cash movement as a transfer, without a new
+              expense or income. Choose Outside LifeOS only for money from an account you are not
+              tracking here. This does not execute a trade or transfer money.
+            </p>
+          }
+          <label>Entry notes<textarea formControlName="notes" maxlength="2000"></textarea></label>
+          <p class="muted">
+            Entries follow chronological order, including same-day entries. A valuation sets the
+            total market value after earlier recorded movements. Record a valuation before a
+            withdrawal if proceeds exceed the value currently shown. A zero-proceeds disposal can
+            remove the remaining purchase cost after a loss.
+          </p>
+          <div class="actions">
+            <button class="button primary" [disabled]="busy()">Save investment entry</button
+            ><button type="button" class="button subtle" (click)="entryEditor.set(false)">
+              Cancel
+            </button>
+          </div>
+        </form>
+      }
+      <h3>Investment history</h3>
+      <p class="muted">
+        Opening purchase cost {{ money(h.opening_cost, h.currency) }} · opening value
+        {{ money(h.opening_value, h.currency) }}. Undo the newest active entry to correct it; funded
+        movements keep a reversal in Finance. Clear both value and purchase cost before archiving.
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Entry</th>
+              <th>Amount</th>
+              <th>Cost removed</th>
+              <th>Cash account</th>
+              <th>Notes</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (e of entries(); track e.id) {
+              <tr>
+                <td>{{ e.occurred_on + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }}</td>
+                <td>{{ e.kind }}{{ e.voided ? ' · undone' : '' }}</td>
+                <td>{{ money(e.amount, h.currency) }}</td>
+                <td>{{ money(e.basis_removed, h.currency) }}</td>
+                <td>
+                  @if (e.account_id) {
+                    @for (a of store.accounts(); track a.id) {
+                      @if (a.id === e.account_id) {
+                        {{ a.name }}
+                      }
+                    }
+                  } @else {
+                    {{ e.kind === 'valuation' ? 'No cash movement' : 'Outside LifeOS' }}
+                  }
+                </td>
+                <td>{{ e.notes }}</td>
+                <td>
+                  @if (e.id === latestEntry()?.id && !h.archived && store.writable()) {
+                    <button class="button subtle" (click)="undo(e)" [disabled]="busy()">
+                      Undo entry
+                    </button>
+                  }
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="7">No entries after the opening balances.</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  }
+}
+@if (tab() === 'sources') {
+  <section class="panel wealth-panel">
+    <h2>What goes into net worth</h2>
+    <p>
+      Include each value once. If an account already includes securities tracked as holdings,
+      exclude the duplicated source. Keep separate brokerage cash included when it does not contain
+      the holding value.
+    </p>
+    <p class="muted">
+      Excluded sources still appear here and stay in Finance. Account debt includes card balances
+      once; loan values use remaining principal only. Manual values may be older than today.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Include</th>
+            <th>Source</th>
+            <th>Type</th>
+            <th>Value</th>
+            <th>As of</th>
+            <th>Basis</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (s of sources(); track s.kind + ':' + s.id) {
+            <tr>
+              <td>
+                <input
+                  type="checkbox"
+                  [attr.aria-label]="'Include ' + s.title + ' (' + s.kind + ')'"
+                  [checked]="s.included"
+                  (change)="toggle(s, $event)"
+                  [disabled]="busy() || store.loading() || !store.writable()"
+                />
+              </td>
+              <td>{{ s.title }}</td>
+              <td>{{ s.kind }}</td>
+              <td>{{ money(s.value, s.currency) }}</td>
+              <td>{{ (s.date ? s.date + 'T00:00:00Z' : null) | date: 'd MMM y' : 'UTC' }}</td>
+              <td>
+                {{
+                  s.kind === 'account'
+                    ? 'Recorded balance'
+                    : s.kind === 'loan'
+                      ? 'Remaining principal'
+                      : s.kind === 'holding'
+                        ? 'Manual investment value'
+                        : 'Manual value / purchase-cost estimate'
+                }}
+              </td>
+              <td>
+                @if (s.kind === 'asset' && store.writable()) {
+                  @for (a of activeAssets(); track a.id) {
+                    @if (a.id === s.id) {
+                      <button class="button subtle" (click)="newAssetValue(a)" [disabled]="busy()">
+                        Value asset
+                      </button>
+                    }
+                  }
+                }
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="7">No owned wealth sources in this workspace.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+  @if (assetEditor(); as editing) {
+    @if (selectedAsset(); as a) {
+      <section class="panel wealth-panel">
+        <form [formGroup]="assetForm" (ngSubmit)="saveAsset()" class="capture-form">
+          <h2>Value {{ a.name }} · {{ a.currency }}</h2>
+          <label
+            >Asset market value<input
+              formControlName="amount"
+              inputmode="decimal"
+              required /></label
+          ><label>Asset valuation date<input formControlName="date" type="date" required /></label
+          ><label
+            >Valuation notes<textarea formControlName="notes" maxlength="2000"></textarea>
+          </label>
+          <div class="actions">
+            <button class="button primary" [disabled]="busy()">Save asset value</button
+            ><button type="button" class="button subtle" (click)="assetEditor.set(false)">
+              Cancel
+            </button>
+          </div>
+        </form>
+      </section>
+    }
+  }
+}
+@if (tab() === 'snapshots') {
+  <section class="panel wealth-panel">
+    <header class="section-heading">
+      <div>
+        <h2>Net-worth history</h2>
+        <p class="muted">
+          Frozen reviews by currency. Values reflect the sources and inclusion choices at capture
+          time.
+        </p>
+      </div>
+      <button
+        class="button primary"
+        (click)="newSnapshot()"
+        [disabled]="busy() || store.loading() || !store.writable()"
+      >
+        Capture snapshot
+      </button>
+    </header>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Captured</th>
+            <th>Review</th>
+            <th>Currency</th>
+            <th>Assets</th>
+            <th>Liabilities</th>
+            <th>Net worth</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (s of snapshots(); track s.id) {
+            @for (t of s.totals; track t.currency) {
+              <tr>
+                <td>{{ s.created_at | date: 'd MMM y, h:mm a' }}</td>
+                <td>{{ s.label }}</td>
+                <td>{{ t.currency }}</td>
+                <td>{{ money(t.assets_total, t.currency) }}</td>
+                <td>{{ money(t.liabilities_total, t.currency) }}</td>
+                <td>
+                  <strong>{{ money(t.net, t.currency) }}</strong>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td>{{ s.created_at | date: 'd MMM y, h:mm a' }}</td>
+                <td>{{ s.label }}</td>
+                <td colspan="4">No included sources at capture time.</td>
+              </tr>
+            }
+          } @empty {
+            <tr>
+              <td colspan="6">Capture your first snapshot to start a history.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+}

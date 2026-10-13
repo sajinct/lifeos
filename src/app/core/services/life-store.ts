@@ -3,6 +3,11 @@ import { AuthService } from '../auth/auth';
 import { Backend } from '../supabase/client';
 import {
   Account,
+  InvestmentHolding,
+  InvestmentEntry,
+  WealthExclusion,
+  WealthAssetValue,
+  WealthSnapshot,
   CreditCard,
   CardStatement,
   CardPayment,
@@ -93,6 +98,11 @@ export class LifeStore {
   readonly creditCards = signal<CreditCard[]>([]);
   readonly cardStatements = signal<CardStatement[]>([]);
   readonly cardPayments = signal<CardPayment[]>([]);
+  readonly investmentHoldings = signal<InvestmentHolding[]>([]);
+  readonly investmentEntries = signal<InvestmentEntry[]>([]);
+  readonly wealthExclusions = signal<WealthExclusion[]>([]);
+  readonly wealthAssetValues = signal<WealthAssetValue[]>([]);
+  readonly wealthSnapshots = signal<WealthSnapshot[]>([]);
   readonly accounts = signal<Account[]>([]);
   readonly transactions = signal<Transaction[]>([]);
   readonly budgets = signal<Budget[]>([]);
@@ -233,6 +243,11 @@ export class LifeStore {
     this.creditCards.set(d.creditCards);
     this.cardStatements.set(d.cardStatements);
     this.cardPayments.set(d.cardPayments);
+    this.investmentHoldings.set(d.investmentHoldings);
+    this.investmentEntries.set(d.investmentEntries);
+    this.wealthExclusions.set(d.wealthExclusions);
+    this.wealthAssetValues.set(d.wealthAssetValues);
+    this.wealthSnapshots.set(d.wealthSnapshots);
     this.accounts.set(d.accounts);
     this.transactions.set(d.transactions);
     this.budgets.set(d.budgets);
@@ -286,6 +301,11 @@ export class LifeStore {
     this.creditCards.set([]);
     this.cardStatements.set([]);
     this.cardPayments.set([]);
+    this.investmentHoldings.set([]);
+    this.investmentEntries.set([]);
+    this.wealthExclusions.set([]);
+    this.wealthAssetValues.set([]);
+    this.wealthSnapshots.set([]);
     this.accounts.set([]);
     this.transactions.set([]);
     this.budgets.set([]);
@@ -353,6 +373,11 @@ export class LifeStore {
         creditCards: this.creditCards(),
         cardStatements: this.cardStatements(),
         cardPayments: this.cardPayments(),
+        investmentHoldings: this.investmentHoldings(),
+        investmentEntries: this.investmentEntries(),
+        wealthExclusions: this.wealthExclusions(),
+        wealthAssetValues: this.wealthAssetValues(),
+        wealthSnapshots: this.wealthSnapshots(),
         accounts: this.accounts(),
         transactions: this.transactions(),
         budgets: this.budgets(),
@@ -409,6 +434,11 @@ export class LifeStore {
         this.creditCards.set(d.creditCards);
         this.cardStatements.set(d.cardStatements);
         this.cardPayments.set(d.cardPayments);
+        this.investmentHoldings.set(d.investmentHoldings);
+        this.investmentEntries.set(d.investmentEntries);
+        this.wealthExclusions.set(d.wealthExclusions);
+        this.wealthAssetValues.set(d.wealthAssetValues);
+        this.wealthSnapshots.set(d.wealthSnapshots);
         this.accounts.set(d.accounts);
         this.transactions.set(d.transactions);
         this.budgets.set(d.budgets);
@@ -835,6 +865,45 @@ export class LifeStore {
       this.habitPeriods.set(periodRows);
       this.habitCheckins.set(checkinRows);
       this.goalMilestones.set(milestoneRows);
+      const investmentHoldings: InvestmentHolding[] = [],
+        investmentEntries: InvestmentEntry[] = [],
+        wealthExclusions: WealthExclusion[] = [],
+        wealthAssetValues: WealthAssetValue[] = [],
+        wealthSnapshots: WealthSnapshot[] = [];
+      for (const table of [
+        'investment_holdings',
+        'investment_entries',
+        'wealth_exclusions',
+        'wealth_asset_values',
+        'wealth_snapshots',
+      ] as const)
+        for (let offset = 0; ; offset += 500) {
+          const page = await c
+            .from(table)
+            .select('*')
+            .eq('workspace_id', w.id)
+            .order('created_at')
+            .order('id')
+            .range(offset, offset + 499);
+          if (page.error) throw page.error;
+          if (run !== this.generation) return;
+          if (table === 'investment_holdings')
+            investmentHoldings.push(...(page.data as InvestmentHolding[]));
+          else if (table === 'investment_entries')
+            investmentEntries.push(...(page.data as InvestmentEntry[]));
+          else if (table === 'wealth_exclusions')
+            wealthExclusions.push(...(page.data as WealthExclusion[]));
+          else if (table === 'wealth_asset_values')
+            wealthAssetValues.push(...(page.data as WealthAssetValue[]));
+          else wealthSnapshots.push(...(page.data as WealthSnapshot[]));
+          if (page.data.length < 500) break;
+        }
+      if (run !== this.generation) return;
+      this.investmentHoldings.set(investmentHoldings);
+      this.investmentEntries.set(investmentEntries);
+      this.wealthExclusions.set(wealthExclusions);
+      this.wealthAssetValues.set(wealthAssetValues);
+      this.wealthSnapshots.set(wealthSnapshots);
       const creditCards: CreditCard[] = [],
         cardStatements: CardStatement[] = [],
         cardPayments: CardPayment[] = [];
@@ -1702,6 +1771,11 @@ export class LifeStore {
       creditCards: this.creditCards(),
       cardStatements: this.cardStatements(),
       cardPayments: this.cardPayments(),
+      investmentHoldings: this.investmentHoldings(),
+      investmentEntries: this.investmentEntries(),
+      wealthExclusions: this.wealthExclusions(),
+      wealthAssetValues: this.wealthAssetValues(),
+      wealthSnapshots: this.wealthSnapshots(),
       accounts: this.accounts(),
       transactions: this.transactions(),
       budgets: this.budgets(),

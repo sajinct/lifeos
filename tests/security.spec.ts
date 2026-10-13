@@ -1,3 +1,4 @@
+import { wealthSecurityTests } from './wealth-security';
 import { cardSecurityTests } from './card-security';
 import { travelSecurityTests } from './travel-security';
 import { healthTrackingSecurityTests } from './health-tracking-security';
@@ -125,7 +126,7 @@ describe('Actual PostgreSQL RLS and permission boundaries', () => {
         "select tablename,rowsecurity from pg_tables where schemaname='public'",
       )
     ).rows;
-    expect(rows.length).toBe(56);
+    expect(rows.length).toBe(61);
     expect(rows.every((r) => r.rowsecurity)).toBe(true);
   });
   it('denies anonymous reads and workspace creation', async () => {
@@ -1119,3 +1120,5 @@ healthTrackingSecurityTests(() => db, asUser, A, B, C);
 travelSecurityTests(() => db, asUser, A, B, C);
 
 cardSecurityTests(() => db, asUser, A, B, C);
+
+wealthSecurityTests(() => db, asUser, A, B, C);

@@ -21,6 +21,7 @@ Open http://127.0.0.1:4200 and choose **Explore a demo workspace**. Sample recor
 - Private document/receipt uploads, category and expiry filters, authenticated downloads, immutable versions, reversible archives and links to projects/finance entries.
 - Opt-in task, bill and document-expiry reminders with personal lead times/time zones, five-minute in-app delivery, snooze/dismiss and direct source links.
 - Private subscriptions and free trials, monthly/yearly cost estimates by currency, renewal alerts, optional recurring expense links and cancellation that stops future recording.
+- Private manual investments, chronological contributions/withdrawals/valuations, cost-basis and gain/loss history, linked cash movements as transfers, owner-only net worth by currency, asset estimates, inclusion controls and immutable snapshots.
 - Private credit cards with billing-day suggestions, bank-confirmed statement snapshots, carried-balance replacement, partial payments as paired transfers, reversible payment corrections, bill opt-in reminders and CSV/JSON history.
 - Private loans borrowed/lent, fixed simple-interest schedules, partial/early repayments, owner-only reminders and atomic principal/interest entries in Finance.
 - Private contacts for people/organizations, details and notes, owner-only project/loan links, opt-in follow-up reminders, reversible archives, search and filtered CSV export.
@@ -34,7 +35,7 @@ Open http://127.0.0.1:4200 and choose **Explore a demo workspace**. Sample recor
 - Private health appointments with provider/location/date/time/notes, owned document-version links, completion/cancellation, archive/restore, personal day reminders and filtered CSV exports.
 - Private fitness logs, measurement history grouped by name/unit, medication schedules with weekday/time/zone reminders and pause/archive controls, and medical expense links that preserve the Finance ledger.
 - Private trips and personal events with itineraries, booking references/amounts, per-currency budgets, linked Finance expenses, checklists, guest RSVP/party sizes, archive/restore and CSV exports.
-- Private-by-default records, 56 RLS-protected application tables, private Storage policies, typed client access and server-only reminder dispatch.
+- Private-by-default records, 61 RLS-protected application tables, private Storage policies, typed client access and server-only reminder dispatch.
 - Date-filtered Finance reports with separate currency totals, monthly cash flow, category trends, budget comparisons, recorded subscription expenses and loan interest, plus filtered CSV and workspace JSON exports.
 - Currency-aware summaries, linked project records and idempotent transfer requests.
 - Installable PWA manifest/service worker that caches static assets only; offline indication.
