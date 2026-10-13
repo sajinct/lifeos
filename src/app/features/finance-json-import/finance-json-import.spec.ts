@@ -49,6 +49,17 @@ describe('JSON import review and retry lifecycle', () => {
     expect(save.mock.calls[1][0]).toBe(original);
     expect(page.result()?.imported).toBe(1);
   });
+  it('shows the actual destination when source options are created and after reupload', async () => {
+    const { fixture, page } = await setup();
+    expect(fixture.nativeElement.querySelector('select').value).toBe('new');
+    await page.save();
+    fixture.detectChanges();
+    await page.preview();
+    fixture.detectChanges();
+    expect(page.bound(page.source()!.accounts[0])).toBe(true);
+    expect(fixture.nativeElement.querySelector('select').value).toBe(page.mapping()['source']);
+    expect(fixture.nativeElement.querySelector('select').disabled).toBe(true);
+  });
   it('clears private previews and pending batches on session reset', async () => {
     const { fixture, page, store } = await setup();
     vi.spyOn(page.importer, 'save').mockRejectedValue(new Error('Failed'));

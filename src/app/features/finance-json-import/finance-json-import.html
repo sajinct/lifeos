@@ -96,16 +96,21 @@
               <td>
                 <select
                   [attr.aria-label]="'Destination for ' + a.name"
-                  [value]="mapping()[a.source_id]"
                   [disabled]="busy() || !!pending() || !!a.error || bound(a)"
                   (change)="map(a, $event)"
                 >
-                  <option value="skip">Skip this account</option>
+                  <option value="skip" [selected]="mapping()[a.source_id] === 'skip'">
+                    Skip this account
+                  </option>
                   @if (!a.card_source) {
-                    <option value="new">Create new account from export</option>
+                    <option value="new" [selected]="mapping()[a.source_id] === 'new'">
+                      Create new account from export
+                    </option>
                   }
                   @for (t of options(a); track t.id) {
-                    <option [value]="t.id">{{ t.name }} · {{ t.currency }}</option>
+                    <option [value]="t.id" [selected]="mapping()[a.source_id] === t.id">
+                      {{ t.name }} · {{ t.currency }}
+                    </option>
                   }
                 </select>
                 @if (bound(a)) {
