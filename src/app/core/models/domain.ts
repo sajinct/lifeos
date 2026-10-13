@@ -412,6 +412,7 @@ export interface Notification extends OwnedRecord {
     | 'family_task'
     | 'family_date'
     | 'warranty'
+    | 'health_appointment'
     | 'career_follow_up'
     | 'career_interview'
     | 'certification'
@@ -431,6 +432,8 @@ export interface ReminderPreferences {
   loan_reminders: boolean;
   contact_reminders: boolean;
   family_reminders: boolean;
+  health_reminders: boolean;
+  health_lead_days: number;
   career_reminders: boolean;
   career_lead_days: number;
   certification_lead_days: number;
@@ -455,6 +458,8 @@ export const DEFAULT_REMINDERS: ReminderPreferences = {
   loan_reminders: false,
   contact_reminders: false,
   family_reminders: false,
+  health_reminders: false,
+  health_lead_days: 1,
   career_reminders: false,
   career_lead_days: 1,
   certification_lead_days: 30,
@@ -562,6 +567,26 @@ export interface ServiceInput {
   cost: string;
   notes: string;
 }
+export interface HealthAppointment extends OwnedRecord {
+  title: string;
+  provider: string;
+  location: string;
+  appointment_on: string;
+  appointment_time: string;
+  notes: string;
+  status: 'scheduled' | 'completed' | 'cancelled';
+  archived: boolean;
+  revision: number;
+}
+export interface HealthDocument extends OwnedRecord {
+  appointment_id: string;
+  attachment_id: string;
+}
+export type HealthInput = Pick<
+  HealthAppointment,
+  'title' | 'provider' | 'location' | 'appointment_on' | 'appointment_time' | 'notes' | 'status'
+> & { document_ids: string[] };
+export type HealthAction = 'complete' | 'cancel' | 'reopen' | 'archive' | 'restore';
 export interface CareerRecord extends OwnedRecord {
   kind: 'employment' | 'application' | 'certification';
   title: string;
@@ -614,6 +639,8 @@ export interface TableRows {
   habit_periods: HabitPeriod;
   habit_checkins: HabitCheckin;
   goal_milestones: GoalMilestone;
+  health_appointments: HealthAppointment;
+  health_documents: HealthDocument;
   career_records: CareerRecord;
   career_documents: CareerDocument;
   profiles: Profile;
@@ -829,6 +856,20 @@ export type Database = {
         Args: { entry: string; expected_revision: number; completed: boolean };
         Returns: undefined;
       };
+      save_health_appointment: {
+        Args: {
+          entry: string;
+          w: string;
+          expected_revision: number | null;
+          details: { [key: string]: string };
+          documents: string[];
+        };
+        Returns: string;
+      };
+      act_on_health_appointment: {
+        Args: { entry: string; expected_revision: number; action: string };
+        Returns: undefined;
+      };
       save_career_record: {
         Args: {
           entry: string;
@@ -1033,6 +1074,8 @@ export type Database = {
           assets_enabled: boolean;
           warranty_days: number;
           maintenance_days: number;
+          health_enabled: boolean;
+          health_days: number;
           career_enabled: boolean;
           career_days: number;
           certification_days: number;

@@ -30,13 +30,14 @@ Open http://127.0.0.1:4200 and choose **Explore a demo workspace**. Sample recor
 - Task lists with rename/archive, parent-scoped subtask checklists with edit/undo/removal, anchored recurring tasks with pause/resume, full task pagination and CSV/JSON exports.
 - Shared-task assignments to existing workspace members, personal timers/manual time, private task/project summaries, reversible discarded sessions and filtered time CSV.
 - Projects with deadlines, parent-visible milestones, private per-currency budgets compared with linked expenses, visible task progress, personal recorded time and filtered CSV reports.
-- Private-by-default records, 44 RLS-protected application tables, private Storage policies, typed client access and server-only reminder dispatch.
+- Private health appointments with provider/location/date/time/notes, owned document-version links, completion/cancellation, archive/restore, personal day reminders and filtered CSV exports.
+- Private-by-default records, 46 RLS-protected application tables, private Storage policies, typed client access and server-only reminder dispatch.
 - Date-filtered Finance reports with separate currency totals, monthly cash flow, category trends, budget comparisons, recorded subscription expenses and loan interest, plus filtered CSV and workspace JSON exports.
 - Currency-aware summaries, linked project records and idempotent transfer requests.
 - Installable PWA manifest/service worker that caches static assets only; offline indication.
 - GitHub Actions checks and Pages deployment supporting repository paths and custom domains.
 
-The foundation is complete, with working modules across Phases 2–4. The full fifteen-module ERP still has pending features: health, travel, deeper functionality in existing modules, email automation, imports and AI. The app does not expose empty routes for those modules.
+The foundation is complete, with working modules across Phases 2–4. The full fifteen-module ERP still has pending features: travel, deeper health and existing-module functionality, email automation, imports and AI. The app does not expose empty routes for those modules.
 
 ## Connect and deploy
 

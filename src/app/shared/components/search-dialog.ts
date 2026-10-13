@@ -89,6 +89,16 @@ export class SearchDialog implements AfterViewInit {
           path: '/goals',
         })),
       ...this.store
+        .healthAppointments()
+        .filter((r) => r.owner_id === this.store.profile()?.id)
+        .map((r) => ({
+          id: r.id,
+          title: r.title,
+          type: 'Health appointment',
+          icon: 'goal',
+          path: '/health',
+        })),
+      ...this.store
         .careerRecords()
         .filter((r) => r.status !== 'archived')
         .map((r) => ({
@@ -191,6 +201,7 @@ export class SearchDialog implements AfterViewInit {
         ? result.path + '?linked=' + encodeURIComponent(result.id)
         : result.path === '/family' ||
             result.path === '/assets' ||
+            result.path === '/health' ||
             result.path === '/career' ||
             result.path === '/goals' ||
             result.path === '/tasks'

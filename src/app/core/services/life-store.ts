@@ -26,6 +26,8 @@ import {
   HabitPeriod,
   HabitCheckin,
   GoalMilestone,
+  HealthAppointment,
+  HealthDocument,
   CareerRecord,
   CareerDocument,
   Asset,
@@ -89,6 +91,8 @@ export class LifeStore {
   readonly habitPeriods = signal<HabitPeriod[]>([]);
   readonly habitCheckins = signal<HabitCheckin[]>([]);
   readonly goalMilestones = signal<GoalMilestone[]>([]);
+  readonly healthAppointments = signal<HealthAppointment[]>([]);
+  readonly healthDocuments = signal<HealthDocument[]>([]);
   readonly careerRecords = signal<CareerRecord[]>([]);
   readonly careerDocuments = signal<CareerDocument[]>([]);
   readonly assets = signal<Asset[]>([]);
@@ -228,6 +232,8 @@ export class LifeStore {
     this.taskSeries.set(d.taskSeries);
     this.taskChecklist.set(d.taskChecklist);
     this.goalMilestones.set(d.goalMilestones);
+    this.healthAppointments.set(d.healthAppointments);
+    this.healthDocuments.set(d.healthDocuments);
     this.careerRecords.set(d.careerRecords);
     this.careerDocuments.set(d.careerDocuments);
     this.assets.set(d.assets);
@@ -267,6 +273,8 @@ export class LifeStore {
     this.taskSeries.set([]);
     this.taskChecklist.set([]);
     this.goalMilestones.set([]);
+    this.healthAppointments.set([]);
+    this.healthDocuments.set([]);
     this.careerRecords.set([]);
     this.careerDocuments.set([]);
     this.assets.set([]);
@@ -321,6 +329,8 @@ export class LifeStore {
         taskSeries: this.taskSeries(),
         taskChecklist: this.taskChecklist(),
         goalMilestones: this.goalMilestones(),
+        healthAppointments: this.healthAppointments(),
+        healthDocuments: this.healthDocuments(),
         careerRecords: this.careerRecords(),
         careerDocuments: this.careerDocuments(),
         assets: this.assets(),
@@ -372,6 +382,8 @@ export class LifeStore {
         this.taskSeries.set(d.taskSeries);
         this.taskChecklist.set(d.taskChecklist);
         this.goalMilestones.set(d.goalMilestones);
+        this.healthAppointments.set(d.healthAppointments);
+        this.healthDocuments.set(d.healthDocuments);
         this.careerRecords.set(d.careerRecords);
         this.careerDocuments.set(d.careerDocuments);
         this.assets.set(d.assets);
@@ -763,6 +775,27 @@ export class LifeStore {
       this.habitPeriods.set(periodRows);
       this.habitCheckins.set(checkinRows);
       this.goalMilestones.set(milestoneRows);
+      const healthAppointments: HealthAppointment[] = [],
+        healthDocuments: HealthDocument[] = [];
+      for (const table of ['health_appointments', 'health_documents'] as const)
+        for (let offset = 0; ; offset += 500) {
+          const page = await c
+            .from(table)
+            .select('*')
+            .eq('workspace_id', w.id)
+            .order('created_at')
+            .order('id')
+            .range(offset, offset + 499);
+          if (page.error) throw page.error;
+          if (run !== this.generation) return;
+          if (table === 'health_appointments')
+            healthAppointments.push(...(page.data as HealthAppointment[]));
+          else healthDocuments.push(...(page.data as HealthDocument[]));
+          if (page.data.length < 500) break;
+        }
+      if (run !== this.generation) return;
+      this.healthAppointments.set(healthAppointments);
+      this.healthDocuments.set(healthDocuments);
       const careerRecords: CareerRecord[] = [],
         careerDocuments: CareerDocument[] = [];
       for (const table of ['career_records', 'career_documents'] as const)
@@ -1535,6 +1568,8 @@ export class LifeStore {
       taskSeries: this.taskSeries(),
       taskChecklist: this.taskChecklist(),
       goalMilestones: this.goalMilestones(),
+      healthAppointments: this.healthAppointments(),
+      healthDocuments: this.healthDocuments(),
       careerRecords: this.careerRecords(),
       careerDocuments: this.careerDocuments(),
       assets: this.assets(),

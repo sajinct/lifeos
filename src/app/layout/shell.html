@@ -160,21 +160,24 @@
                       {{
                         n.source_kind === 'warranty' || n.source_kind === 'maintenance'
                           ? 'Open asset'
-                          : n.source_kind.startsWith('career_') || n.source_kind === 'certification'
-                            ? 'Open career record'
-                            : n.source_kind.startsWith('family_')
-                              ? 'Open family record'
-                              : n.source_kind === 'document'
-                                ? 'Open document'
-                                : n.source_kind === 'bill'
-                                  ? 'Open finance'
-                                  : n.source_kind === 'task'
-                                    ? 'Open tasks'
-                                    : n.source_kind === 'loan'
-                                      ? 'Open loan'
-                                      : n.source_kind === 'contact'
-                                        ? 'Open contact'
-                                        : 'Open subscription'
+                          : n.source_kind === 'health_appointment'
+                            ? 'Open health appointment'
+                            : n.source_kind.startsWith('career_') ||
+                                n.source_kind === 'certification'
+                              ? 'Open career record'
+                              : n.source_kind.startsWith('family_')
+                                ? 'Open family record'
+                                : n.source_kind === 'document'
+                                  ? 'Open document'
+                                  : n.source_kind === 'bill'
+                                    ? 'Open finance'
+                                    : n.source_kind === 'task'
+                                      ? 'Open tasks'
+                                      : n.source_kind === 'loan'
+                                        ? 'Open loan'
+                                        : n.source_kind === 'contact'
+                                          ? 'Open contact'
+                                          : 'Open subscription'
                       }}
                     </button>
                   }

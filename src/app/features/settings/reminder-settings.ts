@@ -142,6 +142,21 @@ import { UiService } from '../../core/services/ui';
         Closed or archived applications stop alerts. Mark a follow-up or interview done to clear its
         date. Archived certifications stop expiry alerts.
       </p>
+      <label class="reminder-toggle"
+        ><input type="checkbox" formControlName="health_reminders" />Health appointments</label
+      >
+      <label
+        >Health appointment reminder lead time (days)<input
+          type="number"
+          formControlName="health_lead_days"
+          min="0"
+          max="90"
+          step="1"
+      /></label>
+      <p class="form-hint">
+        Private day reminders for scheduled appointments. Completion, cancellation or archival stops
+        alerts. Delivery follows the hour and time zone below, rather than the appointment time.
+      </p>
       <div class="form-grid">
         <label
           >Daily delivery hour<select formControlName="reminder_hour">
@@ -215,6 +230,8 @@ export class ReminderSettings {
     loan_reminders: false,
     contact_reminders: false,
     family_reminders: false,
+    health_reminders: false,
+    health_lead_days: [1, [Validators.required, Validators.min(0), Validators.max(90)]],
     career_reminders: false,
     career_lead_days: [1, [Validators.required, Validators.min(0), Validators.max(90)]],
     certification_lead_days: [30, [Validators.required, Validators.min(0), Validators.max(90)]],

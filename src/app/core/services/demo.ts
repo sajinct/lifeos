@@ -366,6 +366,8 @@ export function demoData() {
     taskSeries: [] as import('../models/domain').TaskSeries[],
     taskChecklist: [] as import('../models/domain').TaskChecklist[],
     goalMilestones: [] as import('../models/domain').GoalMilestone[],
+    healthAppointments: [] as import('../models/domain').HealthAppointment[],
+    healthDocuments: [] as import('../models/domain').HealthDocument[],
     careerRecords: [] as import('../models/domain').CareerRecord[],
     careerDocuments: [] as import('../models/domain').CareerDocument[],
     assets: [] as import('../models/domain').Asset[],

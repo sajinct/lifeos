@@ -9,6 +9,7 @@ import {
   Contact,
   HouseholdMember,
   HouseholdEntry,
+  HealthAppointment,
   CareerRecord,
   Asset,
   MaintenancePlan,
@@ -37,9 +38,18 @@ export function reminderSources(
   assets: Asset[] = [],
   maintenance: MaintenancePlan[] = [],
   career: CareerRecord[] = [],
+  health: HealthAppointment[] = [],
 ): ReminderSource[] {
   const today = reminderClock(now, p.reminder_timezone).day;
   return [
+    ...health
+      .filter((r) => p.health_reminders && r.status === 'scheduled' && !r.archived)
+      .map((r) => ({
+        ...r,
+        kind: 'health_appointment' as const,
+        date: r.appointment_on,
+        days: p.health_lead_days,
+      })),
     ...career.flatMap((r) => {
       if (!p.career_reminders) return [];
       const dates: [ReminderSource['kind'], string | null, number][] =
@@ -170,35 +180,37 @@ export function reminderPhase(source: ReminderSource, day: string): Notification
 }
 export function reminderTitle(s: ReminderSource, phase: Notification['phase']) {
   const label =
-    s.kind === 'career_follow_up'
-      ? 'Application follow-up'
-      : s.kind === 'career_interview'
-        ? 'Interview'
-        : s.kind === 'certification'
-          ? 'Certification'
-          : s.kind === 'warranty'
-            ? 'Asset warranty'
-            : s.kind === 'maintenance'
-              ? 'Maintenance'
-              : s.kind === 'family_birthday'
-                ? 'Birthday'
-                : s.kind === 'family_task'
-                  ? 'Household task'
-                  : s.kind === 'family_date'
-                    ? 'Important date'
-                    : s.kind === 'task'
-                      ? 'Task'
-                      : s.kind === 'bill'
-                        ? 'Bill'
-                        : s.kind === 'document'
-                          ? 'Document'
-                          : s.kind === 'trial'
-                            ? 'Trial'
-                            : s.kind === 'loan'
-                              ? 'Loan repayment'
-                              : s.kind === 'contact'
-                                ? 'Contact follow-up'
-                                : 'Subscription';
+    s.kind === 'health_appointment'
+      ? 'Health appointment'
+      : s.kind === 'career_follow_up'
+        ? 'Application follow-up'
+        : s.kind === 'career_interview'
+          ? 'Interview'
+          : s.kind === 'certification'
+            ? 'Certification'
+            : s.kind === 'warranty'
+              ? 'Asset warranty'
+              : s.kind === 'maintenance'
+                ? 'Maintenance'
+                : s.kind === 'family_birthday'
+                  ? 'Birthday'
+                  : s.kind === 'family_task'
+                    ? 'Household task'
+                    : s.kind === 'family_date'
+                      ? 'Important date'
+                      : s.kind === 'task'
+                        ? 'Task'
+                        : s.kind === 'bill'
+                          ? 'Bill'
+                          : s.kind === 'document'
+                            ? 'Document'
+                            : s.kind === 'trial'
+                              ? 'Trial'
+                              : s.kind === 'loan'
+                                ? 'Loan repayment'
+                                : s.kind === 'contact'
+                                  ? 'Contact follow-up'
+                                  : 'Subscription';
   const overdue =
     s.kind === 'document' || s.kind === 'warranty' || s.kind === 'certification'
       ? 'expired'
