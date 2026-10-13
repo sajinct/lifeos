@@ -1,20 +1,33 @@
 <section class="page-heading">
   <div>
-    <span class="eyebrow">TASKS & NOTES · YOUR PRIVATE WORKSPACE</span>
-    <h1>Import Tasks & Notes</h1>
-    <p>Bring task details and note content into this workspace after review.</p>
+    <span class="eyebrow"
+      >{{ calendar ? 'CALENDAR' : 'TASKS & NOTES' }} · YOUR PRIVATE WORKSPACE</span
+    >
+    <h1>{{ calendar ? 'Import Calendar' : 'Import Tasks & Notes' }}</h1>
+    <p>
+      {{
+        calendar
+          ? 'Bring event times and locations into this workspace after review.'
+          : 'Bring task details and note content into this workspace after review.'
+      }}
+    </p>
   </div>
   <div class="heading-actions">
-    <button class="button subtle" (click)="template()">Download JSON template</button
-    ><a class="button subtle" routerLink="/tasks">View Tasks</a
-    ><a class="button subtle" routerLink="/notes">View Notes</a>
+    <button class="button subtle" (click)="template()">Download JSON template</button>
+    @if (calendar) {
+      <a class="button subtle" routerLink="/calendar">View Calendar</a>
+    } @else {
+      <a class="button subtle" routerLink="/tasks">View Tasks</a
+      ><a class="button subtle" routerLink="/notes">View Notes</a>
+    }
   </div>
 </section>
 <section class="panel import-setup" [formGroup]="form">
   <h2>1. Load your JSON export</h2>
   <p class="muted">
-    Up to 500 tasks and notes combined, 50 referenced projects and 5 MiB. Files are decoded in your
-    browser. Only selected records and their project mappings are saved.
+    Up to {{ calendar ? '500 events' : '500 tasks and notes combined' }}, 50 referenced projects and
+    5 MiB. Files are decoded in your browser. Only selected records and their project mappings are
+    saved.
   </p>
   <label
     >JSON file<input
@@ -28,14 +41,24 @@
       spellcheck="false"
       formControlName="text"
       [attr.disabled]="busy() || pending() ? '' : null"
-      placeholder="LifeOS workspace export or Tasks and Notes template"
+      [placeholder]="
+        calendar
+          ? 'LifeOS workspace export or Calendar template'
+          : 'LifeOS workspace export or Tasks and Notes template'
+      "
     ></textarea>
   </label>
   <p class="form-hint">
-    Imports create private records for your signed-in user. Tasks are standalone and unassigned.
-    Lists, recurrence, assignments, checklists, time logs, attachments, tags, sharing and reminders
-    are not restored. Existing records are not overwritten. Remove the template’s example records
-    before importing.
+    Imports create private records for your signed-in user.
+    @if (calendar) {
+      Event times require explicit timezone offsets or Z and are stored as UTC instants. The
+      Calendar displays them in your device timezone. Recurrence, guests, task/expense links,
+      attachments, tags, sharing and reminders are not restored.
+    } @else {
+      Tasks are standalone and unassigned. Lists, recurrence, assignments, checklists, time logs,
+      attachments, tags, sharing and reminders are not restored.
+    }
+    Existing records are not overwritten. Remove the template’s example records before importing.
   </p>
   <button
     class="button primary"
@@ -52,12 +75,20 @@
   <section class="panel import-success" role="status">
     <h2>Import complete</h2>
     <p>
-      {{ r.tasks_imported }} {{ r.tasks_imported === 1 ? 'task' : 'tasks' }} added ·
-      {{ r.notes_imported }} {{ r.notes_imported === 1 ? 'note' : 'notes' }} added ·
+      @if (calendar) {
+        {{ r.events_imported || 0 }} {{ r.events_imported === 1 ? 'event' : 'events' }} added ·
+      } @else {
+        {{ r.tasks_imported }} {{ r.tasks_imported === 1 ? 'task' : 'tasks' }} added ·
+        {{ r.notes_imported }} {{ r.notes_imported === 1 ? 'note' : 'notes' }} added ·
+      }
       {{ r.skipped }} matching records skipped during saving.
     </p>
-    <a class="button primary" routerLink="/tasks">View Tasks</a>
-    <a class="button subtle" routerLink="/notes">View Notes</a>
+    @if (calendar) {
+      <a class="button primary" routerLink="/calendar">View Calendar</a>
+    } @else {
+      <a class="button primary" routerLink="/tasks">View Tasks</a
+      ><a class="button subtle" routerLink="/notes">View Notes</a>
+    }
   </section>
 }
 @if (source(); as source) {
@@ -162,6 +193,11 @@
                 }
               </td>
               <td>
+                @if (r.kind === 'event' && r.row) {
+                  <small>Start (UTC): {{ r.row.starts_at }}</small
+                  ><small>End (UTC): {{ r.row.ends_at }}</small
+                  ><small>{{ r.row.location || 'No location' }} · {{ r.row.color }}</small>
+                }
                 @if (r.kind === 'task' && r.row) {
                   <small>{{ r.row.status }} · {{ r.row.priority }} priority</small
                   ><small>Due: {{ r.row.due_date || 'No date' }}</small>

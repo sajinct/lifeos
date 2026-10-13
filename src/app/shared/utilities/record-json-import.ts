@@ -1,8 +1,8 @@
-import { Note, Project, Task } from '../../core/models/domain';
+import { CalendarEvent, Note, Project, Task } from '../../core/models/domain';
 import { validLoanDate } from './loans';
 export const recordJsonMaxBytes = 5 * 1024 * 1024;
 export interface RecordImportRow {
-  kind: 'task' | 'note';
+  kind: 'task' | 'note' | 'event';
   source_id: string;
   project_source: string | null;
   title: string;
@@ -10,11 +10,15 @@ export interface RecordImportRow {
   priority: Task['priority'] | null;
   due_date: string | null;
   body: string | null;
+  starts_at?: string;
+  ends_at?: string;
+  location?: string;
+  color?: string;
 }
 export interface RecordImportCandidate {
   index: number;
   row: RecordImportRow | null;
-  kind: 'task' | 'note';
+  kind: RecordImportRow['kind'];
   title: string;
   error: string;
   warnings: string[];
@@ -36,16 +40,18 @@ export interface RecordImportResult {
   tasks_imported: number;
   notes_imported: number;
   skipped: number;
+  events_imported?: number;
 }
 export interface RecordImportLink {
   id: string;
   workspace_id: string;
   owner_id: string;
-  record_kind: 'project' | 'task' | 'note';
+  record_kind: 'project' | RecordImportRow['kind'];
   source_id: string;
   project_id: string | null;
   task_id: string | null;
   note_id: string | null;
+  event_id?: string | null;
   details: Record<string, unknown>;
   created_at: string;
 }
@@ -55,6 +61,22 @@ export interface RecordReview extends RecordImportCandidate {
 }
 const object = (v: unknown): v is Record<string, unknown> =>
   !!v && typeof v === 'object' && !Array.isArray(v);
+export function eventImportTime(value: unknown): string {
+  if (
+    typeof value !== 'string' ||
+    !/^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d{1,3})?(?:Z|[+-](?:0\d|1[0-3]):[0-5]\d|[+-]14:00)$/.test(
+      value,
+    ) ||
+    !validLoanDate(value.slice(0, 10))
+  )
+    throw new Error('Use a real ISO timestamp with seconds and an explicit Z or timezone offset.');
+  const time = new Date(value);
+  if (!Number.isFinite(time.getTime())) throw new Error('Invalid event time.');
+  const canonical = time.toISOString();
+  if (canonical < '1900-01-01T00:00:00.000Z' || canonical > '2100-12-31T23:59:59.999Z')
+    throw new Error('Event times must be from 1900–2100.');
+  return canonical;
+}
 export function recordSourceId(v: unknown): string {
   if (typeof v !== 'string' || !v.trim() || v.trim().length > 200 || v.includes('\0'))
     throw new Error('Use a unique source ID of 1–200 characters.');
@@ -92,9 +114,24 @@ export function validateRecordRow(row: RecordImportRow) {
       row.due_date !== null
     )
       throw new Error('Note content must be text of at most 100,000 characters.');
-  } else throw new Error('Choose task or note.');
+  } else if (row.kind === 'event') {
+    const start = eventImportTime(row.starts_at),
+      end = eventImportTime(row.ends_at);
+    if (end <= start) throw new Error('Event end must be later than its start.');
+    if (
+      typeof row.location !== 'string' ||
+      row.location.length > 2000 ||
+      row.location.includes('\0')
+    )
+      throw new Error('Location must be text of at most 2,000 characters.');
+    if (
+      !['purple', 'green', 'orange', 'blue'].includes(row.color ?? '') ||
+      [row.status, row.priority, row.due_date, row.body].some((v) => v !== null)
+    )
+      throw new Error('Check event color and fields.');
+  } else throw new Error('Choose task, note or event.');
 }
-export function parseRecordJson(text: string): RecordImportSource {
+export function parseRecordJson(text: string, calendar = false): RecordImportSource {
   if (new TextEncoder().encode(text).length > recordJsonMaxBytes)
     throw new Error('Choose a UTF-8 JSON file no larger than 5 MiB.');
   let root: unknown;
@@ -103,25 +140,41 @@ export function parseRecordJson(text: string): RecordImportSource {
   } catch {
     throw new Error('The file is not valid JSON.');
   }
-  if (!object(root) || (!Array.isArray(root['tasks']) && !Array.isArray(root['notes'])))
-    throw new Error('Use a LifeOS export with tasks or notes arrays.');
-  for (const key of ['tasks', 'notes', 'projects'])
+  if (
+    !object(root) ||
+    (calendar
+      ? !Array.isArray(root['events'])
+      : !Array.isArray(root['tasks']) && !Array.isArray(root['notes']))
+  )
+    throw new Error(
+      calendar
+        ? 'Use a LifeOS export with an events array.'
+        : 'Use a LifeOS export with tasks or notes arrays.',
+    );
+  for (const key of calendar ? ['events', 'projects'] : ['tasks', 'notes', 'projects'])
     if (root[key] !== undefined && !Array.isArray(root[key]))
       throw new Error(`${key} must be an array.`);
   const tasks = (root['tasks'] ?? []) as unknown[],
     notes = (root['notes'] ?? []) as unknown[];
-  if (tasks.length + notes.length < 1 || tasks.length + notes.length > 500)
-    throw new Error('Import 1–500 tasks and notes combined.');
+  const events = (root['events'] ?? []) as unknown[];
+  const count = calendar ? events.length : tasks.length + notes.length;
+  if (count < 1 || count > 500)
+    throw new Error(
+      calendar ? 'Import 1–500 calendar events.' : 'Import 1–500 tasks and notes combined.',
+    );
   const sourceProjects = (root['projects'] ?? []) as unknown[];
   const projects = new Map<string, RecordSourceProject>(),
     ids = new Set<string>();
   const rows: RecordImportCandidate[] = [];
-  for (const [kind, records] of [
-    ['task', tasks],
-    ['note', notes],
-  ] as const)
+  const groups: [RecordImportRow['kind'], unknown[]][] = calendar
+    ? [['event', events]]
+    : [
+        ['task', tasks],
+        ['note', notes],
+      ];
+  for (const [kind, records] of groups)
     for (const v of records) {
-      if (!object(v)) throw new Error('Each task and note must be an object.');
+      if (!object(v)) throw new Error('Each record must be an object.');
       const id = recordSourceId(v['id']),
         key = kind + ':' + id;
       if (ids.has(key)) throw new Error(`Duplicate ${kind} source ID; correct the file.`);
@@ -164,6 +217,20 @@ export function parseRecordJson(text: string): RecordImportSource {
               : null,
           body: kind === 'note' ? (v['body'] as string) : null,
         };
+        if (kind === 'event') {
+          row.starts_at = eventImportTime(v['starts_at']);
+          row.ends_at = eventImportTime(v['ends_at']);
+          row.location = v['location'] === undefined ? '' : (v['location'] as string);
+          row.color = v['color'] === undefined ? 'purple' : (v['color'] as string);
+          if (
+            ['recurrence', 'rrule', 'series_id', 'attendees', 'task_ids', 'expense_ids'].some(
+              (k) => v[k] != null && v[k] !== '',
+            )
+          )
+            candidate.warnings.push(
+              'Imported as a single event; recurrence, guests and task/expense links are not restored.',
+            );
+        }
         validateRecordRow(row);
         candidate.row = row;
         if (v['visibility'] === 'workspace')
@@ -184,7 +251,11 @@ export function parseRecordJson(text: string): RecordImportSource {
   const omitted = Object.entries(root)
     .filter(
       ([key, value]) =>
-        !['tasks', 'notes', 'projects', 'workspace'].includes(key) &&
+        !(
+          calendar
+            ? ['events', 'projects', 'workspace']
+            : ['tasks', 'notes', 'projects', 'workspace']
+        ).includes(key) &&
         ((Array.isArray(value) && value.length > 0) || (!Array.isArray(value) && value != null)),
     )
     .map(([key]) => key);
@@ -194,6 +265,16 @@ export function recordDetails(
   row: RecordImportRow,
   project: string | null,
 ): Record<string, unknown> {
+  if (row.kind === 'event')
+    return {
+      project_source: row.project_source,
+      project_id: project,
+      title: row.title,
+      starts_at: eventImportTime(row.starts_at),
+      ends_at: eventImportTime(row.ends_at),
+      location: row.location,
+      color: row.color,
+    };
   return {
     project_source: row.project_source,
     project_id: project,
@@ -225,6 +306,17 @@ export function matchesNote(n: Note, row: RecordImportRow, project: string | nul
     n.project_id === project
   );
 }
+export function matchesEvent(e: CalendarEvent, row: RecordImportRow, project: string | null) {
+  return (
+    e.visibility === 'private' &&
+    e.title.trim() === row.title &&
+    new Date(e.starts_at).toISOString() === row.starts_at &&
+    new Date(e.ends_at).toISOString() === row.ends_at &&
+    e.location === row.location &&
+    e.color === row.color &&
+    e.project_id === project
+  );
+}
 export function reviewRecordJson(
   source: RecordImportSource,
   mapping: Record<string, string>,
@@ -234,6 +326,7 @@ export function reviewRecordJson(
   links: RecordImportLink[],
   workspace: string,
   user: string,
+  events: CalendarEvent[] = [],
 ): RecordReview[] {
   const seen = new Set<string>();
   return source.rows.map((candidate): RecordReview => {
@@ -283,36 +376,37 @@ export function reviewRecordJson(
       ),
       ownedNotes = notes.filter(
         (n) => n.workspace_id === workspace && n.owner_id === user && n.visibility === 'private',
+      ),
+      ownedEvents = events.filter(
+        (e) => e.workspace_id === workspace && e.owner_id === user && e.visibility === 'private',
       );
     const original =
       r.kind === 'task'
         ? ownedTasks.find((t) => t.id === r.source_id)
-        : ownedNotes.find((n) => n.id === r.source_id);
+        : r.kind === 'note'
+          ? ownedNotes.find((n) => n.id === r.source_id)
+          : ownedEvents.find((e) => e.id === r.source_id);
     if (
       original &&
       !(r.kind === 'task'
         ? matchesTask(original as Task, r, project)
-        : matchesNote(original as Note, r, project))
+        : r.kind === 'note'
+          ? matchesNote(original as Note, r, project)
+          : matchesEvent(original as CalendarEvent, r, project))
     )
       return {
         ...candidate,
         state: 'invalid',
         message: 'Existing source ID identifies different content or task structure.',
       };
-    const key = JSON.stringify([
-      r.kind,
-      project,
-      r.title,
-      r.status,
-      r.priority,
-      r.due_date,
-      r.body,
-    ]);
+    const key = JSON.stringify([r.kind, details]);
     const duplicate =
       seen.has(key) ||
       (r.kind === 'task'
         ? ownedTasks.some((t) => matchesTask(t, r, project))
-        : ownedNotes.some((n) => matchesNote(n, r, project)));
+        : r.kind === 'note'
+          ? ownedNotes.some((n) => matchesNote(n, r, project))
+          : ownedEvents.some((e) => matchesEvent(e, r, project)));
     seen.add(key);
     return {
       ...candidate,

@@ -535,8 +535,9 @@ export class LifeStore {
           .from('calendar_events')
           .select('*')
           .eq('workspace_id', w.id)
-          .order('starts_at', { ascending: false })
-          .limit(500),
+          .order('created_at')
+          .order('id')
+          .range(0, 499),
         c
           .from('notes')
           .select('*')
@@ -747,6 +748,20 @@ export class LifeStore {
           else milestoneRows.push(...(page.data as GoalMilestone[]));
           if (page.data.length < 500) break;
         }
+      const eventRows = [...(e.data ?? [])];
+      for (let offset = 500; e.data?.length === 500; offset += 500) {
+        const page = await c
+          .from('calendar_events')
+          .select('*')
+          .eq('workspace_id', w.id)
+          .order('created_at')
+          .order('id')
+          .range(offset, offset + 499);
+        if (page.error) throw page.error;
+        if (run !== this.generation) return;
+        eventRows.push(...(page.data ?? []));
+        if (!page.data || page.data.length < 500) break;
+      }
       const noteRows = [...(n.data ?? [])];
       for (let offset = 500; n.data?.length === 500; offset += 500) {
         const page = await c
@@ -1080,7 +1095,11 @@ export class LifeStore {
       this.loanRepayments.set(allPayments);
       this.tasks.set(taskRows);
       this.projects.set(projectRows);
-      this.events.set(e.data ?? []);
+      this.events.set(
+        eventRows.sort(
+          (a, b) => Date.parse(a.starts_at) - Date.parse(b.starts_at) || a.id.localeCompare(b.id),
+        ),
+      );
       this.notes.set(
         noteRows.sort(
           (a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at) || b.id.localeCompare(a.id),

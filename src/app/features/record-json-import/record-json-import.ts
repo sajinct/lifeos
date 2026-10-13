@@ -1,5 +1,5 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RecordJsonImporter, RecordImportRequest } from '../../core/services/record-json-import';
@@ -17,6 +17,7 @@ import {
   styleUrl: '../finance-import/finance-import.css',
 })
 export class RecordJsonImportPage {
+  readonly calendar = !!inject(ActivatedRoute).snapshot.data['calendarImport'];
   readonly importer = inject(RecordJsonImporter);
   readonly store = this.importer.store;
   readonly form = inject(FormBuilder).nonNullable.group({ text: [''] });
@@ -120,7 +121,7 @@ export class RecordJsonImportPage {
     const version = this.version;
     this.busy.set(true);
     try {
-      const p = await this.importer.preview(this.form.controls.text.value);
+      const p = await this.importer.preview(this.form.controls.text.value, this.calendar);
       if (version !== this.version || !this.importer.current(p.context)) return;
       this.source.set(p.source);
       this.links.set(p.links);
@@ -160,34 +161,51 @@ export class RecordJsonImportPage {
   }
   template() {
     const text = JSON.stringify(
-      {
-        tasks: [
-          {
-            id: 'example-task',
-            title: 'Example task',
-            status: 'todo',
-            priority: 'medium',
-            due_date: null,
-            project_id: null,
+      this.calendar
+        ? {
+            events: [
+              {
+                id: 'example-event',
+                title: 'Example event',
+                starts_at: '2027-01-01T09:00:00+05:30',
+                ends_at: '2027-01-01T10:00:00+05:30',
+                location: 'Replace this location',
+                color: 'purple',
+                project_id: null,
+              },
+            ],
+            projects: [],
+          }
+        : {
+            tasks: [
+              {
+                id: 'example-task',
+                title: 'Example task',
+                status: 'todo',
+                priority: 'medium',
+                due_date: null,
+                project_id: null,
+              },
+            ],
+            notes: [
+              {
+                id: 'example-note',
+                title: 'Example note',
+                body: 'Replace this content with your own note.',
+                project_id: null,
+              },
+            ],
+            projects: [],
           },
-        ],
-        notes: [
-          {
-            id: 'example-note',
-            title: 'Example note',
-            body: 'Replace this content with your own note.',
-            project_id: null,
-          },
-        ],
-        projects: [],
-      },
       null,
       2,
     );
     const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'lifeos-tasks-notes-template.json';
+    a.download = this.calendar
+      ? 'lifeos-calendar-template.json'
+      : 'lifeos-tasks-notes-template.json';
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }

@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { LifeStore } from './life-store';
 import { Backend } from '../supabase/client';
-import { Note, Task } from '../models/domain';
+import { CalendarEvent, Note, Task } from '../models/domain';
 import {
   RecordImportLink,
   RecordImportPayload,
@@ -9,6 +9,7 @@ import {
   RecordImportSource,
   matchesNote,
   matchesTask,
+  matchesEvent,
   parseRecordJson,
   recordDetails,
   reviewRecordJson,
@@ -66,9 +67,9 @@ export class RecordJsonImporter {
           (p.owner_id === this.store.profile()?.id || p.visibility === 'workspace'),
       );
   }
-  async preview(text: string) {
+  async preview(text: string, calendar = false) {
     const c = this.context(),
-      source = parseRecordJson(text);
+      source = parseRecordJson(text, calendar);
     let links: RecordImportLink[] = [];
     if (this.store.auth.demo()) {
       this.reset(c);
@@ -89,7 +90,7 @@ export class RecordJsonImporter {
         links.push(...(data ?? []));
         if (!data || data.length < 500) break;
       }
-    const mapping: Record<string, string> = {};
+    const mapping: Record<string, string> = Object.create(null);
     for (const p of source.projects) {
       const bound = links.find((l) => l.record_kind === 'project' && l.source_id === p.source_id),
         visible = this.projects(),
@@ -112,6 +113,7 @@ export class RecordJsonImporter {
       links,
       c.workspace,
       c.user,
+      this.store.events(),
     );
   }
   prepare(
@@ -177,8 +179,14 @@ export class RecordJsonImporter {
       ),
       tasks = [...this.store.tasks()],
       notes = [...this.store.notes()],
+      events = [...this.store.events()],
       targets = new Map<string, string | null>();
-    const result = { tasks_imported: 0, notes_imported: 0, skipped: 0 },
+    const result: RecordImportResult = {
+        tasks_imported: 0,
+        notes_imported: 0,
+        skipped: 0,
+        ...(rows.some((r) => r.kind === 'event') ? { events_imported: 0 } : {}),
+      },
       now = new Date().toISOString();
     const base = () => ({
       id: crypto.randomUUID(),
@@ -252,7 +260,7 @@ export class RecordJsonImporter {
           destination = task.id;
           result.tasks_imported++;
         }
-      } else {
+      } else if (r.kind === 'note') {
         const owned = notes.filter(
             (n) =>
               n.workspace_id === request.workspace &&
@@ -272,6 +280,34 @@ export class RecordJsonImporter {
           destination = note.id;
           result.notes_imported++;
         }
+      } else {
+        const owned = events.filter(
+            (e) =>
+              e.workspace_id === request.workspace &&
+              e.owner_id === request.user &&
+              e.visibility === 'private',
+          ),
+          original = owned.find((e) => e.id === r.source_id);
+        if (original && !matchesEvent(original, r, project))
+          throw new Error('Existing event source ID identifies different content.');
+        const match = owned.find((e) => matchesEvent(e, r, project));
+        if (match) {
+          destination = match.id;
+          result.skipped++;
+        } else {
+          const event: CalendarEvent = {
+            ...base(),
+            title: r.title,
+            starts_at: r.starts_at!,
+            ends_at: r.ends_at!,
+            location: r.location!,
+            color: r.color!,
+            project_id: project,
+          };
+          events.push(event);
+          destination = event.id;
+          result.events_imported!++;
+        }
       }
       links.push({
         ...base(),
@@ -280,11 +316,17 @@ export class RecordJsonImporter {
         project_id: null,
         task_id: r.kind === 'task' ? destination : null,
         note_id: r.kind === 'note' ? destination : null,
+        event_id: r.kind === 'event' ? destination : null,
         details,
       });
     }
     this.store.tasks.set(tasks);
     this.store.notes.set(notes);
+    this.store.events.set(
+      events.sort(
+        (a, b) => Date.parse(a.starts_at) - Date.parse(b.starts_at) || a.id.localeCompare(b.id),
+      ),
+    );
     this.demoLinks = [
       ...this.demoLinks.filter(
         (l) => l.workspace_id !== request.workspace || l.owner_id !== request.user,

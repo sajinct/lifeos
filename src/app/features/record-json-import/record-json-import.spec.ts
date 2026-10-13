@@ -1,19 +1,38 @@
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { ActivatedRoute, provideRouter } from '@angular/router';
 import { AuthService } from '../../core/auth/auth';
 import { LifeStore } from '../../core/services/life-store';
 import { RecordJsonImportPage } from './record-json-import';
 describe('Tasks and Notes import review lifecycle', () => {
-  async function setup() {
+  async function setup(calendar = false) {
     TestBed.configureTestingModule({ providers: [provideRouter([])] });
     TestBed.inject(AuthService).demo.set(true);
     const store = TestBed.inject(LifeStore);
     await store.initialize();
+    if (calendar) TestBed.inject(ActivatedRoute).snapshot.data['calendarImport'] = true;
     const fixture = TestBed.createComponent(RecordJsonImportPage);
     fixture.detectChanges();
     const page = fixture.componentInstance;
     page.form.controls.text.setValue(
       JSON.stringify({
+        events: [
+          {
+            id: 'event-one',
+            title: 'Calendar review meeting',
+            starts_at: '2027-01-01T09:00:00+05:30',
+            ends_at: '2027-01-01T10:00:00+05:30',
+            location: 'Studio',
+            color: 'green',
+            project_id: 'source-project',
+          },
+          {
+            id: 'event-two',
+            title: 'Calendar left out',
+            starts_at: '2027-01-02T09:00:00Z',
+            ends_at: '2027-01-02T10:00:00Z',
+            project_id: null,
+          },
+        ],
         projects: [{ id: 'source-project', title: 'Source project' }],
         tasks: [
           {
@@ -36,6 +55,24 @@ describe('Tasks and Notes import review lifecycle', () => {
     fixture.detectChanges();
     return { fixture, page, store };
   }
+  it('uses Calendar-only review, UTC details and row selection while retaining saved mappings on reupload', async () => {
+    const { fixture, page, store } = await setup(true);
+    expect(fixture.nativeElement.querySelector('h1').textContent).toBe('Import Calendar');
+    expect(page.rows().map((r) => r.kind)).toEqual(['event', 'event']);
+    expect(fixture.nativeElement.textContent).toContain('Start (UTC): 2027-01-01T03:30:00.000Z');
+    expect(fixture.nativeElement.textContent).toContain('Other sections left out: tasks, notes.');
+    page.toggle(1);
+    await page.save();
+    fixture.detectChanges();
+    expect(page.result()?.events_imported).toBe(1);
+    expect(fixture.nativeElement.textContent).toContain('1 event added');
+    expect(store.events().some((e) => e.title === 'Calendar left out')).toBe(false);
+    await page.preview();
+    fixture.detectChanges();
+    expect(page.rows().map((r) => r.state)).toEqual(['duplicate', 'ready']);
+    expect(fixture.nativeElement.querySelector('select').value).toBe(store.projects()[0].id);
+    expect(fixture.nativeElement.querySelector('select').disabled).toBe(true);
+  });
   it('renders the chosen project and preserves selected-row filtering', async () => {
     const { fixture, page, store } = await setup();
     expect(fixture.nativeElement.querySelector('select').value).toBe(store.projects()[0].id);

@@ -873,11 +873,12 @@ export interface TableRows {
     id: string;
     workspace_id: string;
     owner_id: string;
-    record_kind: 'project' | 'task' | 'note';
+    record_kind: 'project' | 'task' | 'note' | 'event';
     source_id: string;
     project_id: string | null;
     task_id: string | null;
     note_id: string | null;
+    event_id: string | null;
     details: Record<string, unknown>;
     created_at: string;
   };
@@ -967,10 +968,15 @@ export type Database = {
           w: string;
           payload: {
             projects: { source_id: string; target_id: string | null }[];
-            rows: { [key: string]: string | null }[];
+            rows: { [key: string]: string | null | undefined }[];
           };
         };
-        Returns: { tasks_imported: number; notes_imported: number; skipped: number };
+        Returns: {
+          tasks_imported: number;
+          notes_imported: number;
+          skipped: number;
+          events_imported?: number;
+        };
       };
       import_finance_json: {
         Args: {

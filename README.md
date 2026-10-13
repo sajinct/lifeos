@@ -38,6 +38,7 @@ Open http://127.0.0.1:4200 and choose **Explore a demo workspace**. Sample recor
 - Finance CSV imports with browser-side previews, account/currency validation, duplicate and bank-reference checks, row selection and atomic retry-safe batches.
 - Additive Finance JSON imports with explicit new/existing account mapping, supported-row previews, immutable source bindings and atomic retry-safe batches.
 - Tasks and Notes JSON imports with private standalone task records, literal note content, explicit accessible-project mappings, source-ID conflicts and safe atomic retries.
+- Calendar JSON imports with explicit timezone validation, UTC previews, private events, accessible-project mapping, duplicate/conflict checks and safe atomic retries.
 - Private-by-default records, 66 RLS-protected application tables, private Storage policies, typed client access and server-only reminder dispatch.
 - Date-filtered Finance reports with separate currency totals, monthly cash flow, category trends, budget comparisons, recorded subscription expenses and loan interest, plus filtered CSV and workspace JSON exports.
 - Currency-aware summaries, linked project records and idempotent transfer requests.

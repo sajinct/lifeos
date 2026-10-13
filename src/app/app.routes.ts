@@ -12,6 +12,14 @@ export const routes: Routes = [
     loadComponent: () => import('./layout/shell').then((m) => m.Shell),
     children: [
       {
+        path: 'calendar/import-json',
+        data: { calendarImport: true },
+        loadComponent: () =>
+          import('./features/record-json-import/record-json-import').then(
+            (m) => m.RecordJsonImportPage,
+          ),
+      },
+      {
         path: 'imports/tasks-notes',
         loadComponent: () =>
           import('./features/record-json-import/record-json-import').then(
