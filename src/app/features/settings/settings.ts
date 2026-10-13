@@ -161,7 +161,7 @@ import { ReminderSettings } from './reminder-settings';
           time.
         </p>
         <div class="roadmap-list">
-          <span>Next: Health & travel</span><span>Then: Existing module enhancements</span
+          <span>Next: Travel & events</span><span>Then: Existing module enhancements</span
           ><span>Later: Imports, AI & integrations</span>
         </div>
       </section>

@@ -9,6 +9,7 @@ import {
   Contact,
   HouseholdMember,
   HouseholdEntry,
+  MedicationPlan,
   HealthAppointment,
   CareerRecord,
   Asset,
@@ -39,9 +40,27 @@ export function reminderSources(
   maintenance: MaintenancePlan[] = [],
   career: CareerRecord[] = [],
   health: HealthAppointment[] = [],
+  medications: MedicationPlan[] = [],
 ): ReminderSource[] {
   const today = reminderClock(now, p.reminder_timezone).day;
   return [
+    ...medications.flatMap((r) => {
+      if (!p.medication_reminders || !r.active || r.archived) return [];
+      const clock = reminderClock(now, r.timezone),
+        time = new Intl.DateTimeFormat('en-GB', {
+          timeZone: r.timezone,
+          hour: '2-digit',
+          minute: '2-digit',
+          hourCycle: 'h23',
+        }).format(now),
+        weekday = new Date(clock.day + 'T00:00:00Z').getUTCDay();
+      return clock.day >= r.starts_on &&
+        (!r.ends_on || clock.day <= r.ends_on) &&
+        r.weekdays.includes(weekday) &&
+        time >= r.reminder_time
+        ? [{ ...r, kind: 'health_medication' as const, date: clock.day, days: 0 }]
+        : [];
+    }),
     ...health
       .filter((r) => p.health_reminders && r.status === 'scheduled' && !r.archived)
       .map((r) => ({
@@ -180,37 +199,39 @@ export function reminderPhase(source: ReminderSource, day: string): Notification
 }
 export function reminderTitle(s: ReminderSource, phase: Notification['phase']) {
   const label =
-    s.kind === 'health_appointment'
-      ? 'Health appointment'
-      : s.kind === 'career_follow_up'
-        ? 'Application follow-up'
-        : s.kind === 'career_interview'
-          ? 'Interview'
-          : s.kind === 'certification'
-            ? 'Certification'
-            : s.kind === 'warranty'
-              ? 'Asset warranty'
-              : s.kind === 'maintenance'
-                ? 'Maintenance'
-                : s.kind === 'family_birthday'
-                  ? 'Birthday'
-                  : s.kind === 'family_task'
-                    ? 'Household task'
-                    : s.kind === 'family_date'
-                      ? 'Important date'
-                      : s.kind === 'task'
-                        ? 'Task'
-                        : s.kind === 'bill'
-                          ? 'Bill'
-                          : s.kind === 'document'
-                            ? 'Document'
-                            : s.kind === 'trial'
-                              ? 'Trial'
-                              : s.kind === 'loan'
-                                ? 'Loan repayment'
-                                : s.kind === 'contact'
-                                  ? 'Contact follow-up'
-                                  : 'Subscription';
+    s.kind === 'health_medication'
+      ? 'Medication reminder'
+      : s.kind === 'health_appointment'
+        ? 'Health appointment'
+        : s.kind === 'career_follow_up'
+          ? 'Application follow-up'
+          : s.kind === 'career_interview'
+            ? 'Interview'
+            : s.kind === 'certification'
+              ? 'Certification'
+              : s.kind === 'warranty'
+                ? 'Asset warranty'
+                : s.kind === 'maintenance'
+                  ? 'Maintenance'
+                  : s.kind === 'family_birthday'
+                    ? 'Birthday'
+                    : s.kind === 'family_task'
+                      ? 'Household task'
+                      : s.kind === 'family_date'
+                        ? 'Important date'
+                        : s.kind === 'task'
+                          ? 'Task'
+                          : s.kind === 'bill'
+                            ? 'Bill'
+                            : s.kind === 'document'
+                              ? 'Document'
+                              : s.kind === 'trial'
+                                ? 'Trial'
+                                : s.kind === 'loan'
+                                  ? 'Loan repayment'
+                                  : s.kind === 'contact'
+                                    ? 'Contact follow-up'
+                                    : 'Subscription';
   const overdue =
     s.kind === 'document' || s.kind === 'warranty' || s.kind === 'certification'
       ? 'expired'

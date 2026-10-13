@@ -412,6 +412,7 @@ export interface Notification extends OwnedRecord {
     | 'family_task'
     | 'family_date'
     | 'warranty'
+    | 'health_medication'
     | 'health_appointment'
     | 'career_follow_up'
     | 'career_interview'
@@ -432,6 +433,7 @@ export interface ReminderPreferences {
   loan_reminders: boolean;
   contact_reminders: boolean;
   family_reminders: boolean;
+  medication_reminders: boolean;
   health_reminders: boolean;
   health_lead_days: number;
   career_reminders: boolean;
@@ -458,6 +460,7 @@ export const DEFAULT_REMINDERS: ReminderPreferences = {
   loan_reminders: false,
   contact_reminders: false,
   family_reminders: false,
+  medication_reminders: false,
   health_reminders: false,
   health_lead_days: 1,
   career_reminders: false,
@@ -567,6 +570,51 @@ export interface ServiceInput {
   cost: string;
   notes: string;
 }
+export interface HealthLog extends OwnedRecord {
+  kind: 'fitness' | 'measurement';
+  title: string;
+  logged_on: string;
+  minutes: number | null;
+  value: number | null;
+  unit: string;
+  notes: string;
+  archived: boolean;
+  revision: number;
+}
+export interface MedicationPlan extends OwnedRecord {
+  title: string;
+  instructions: string;
+  starts_on: string;
+  ends_on: string | null;
+  weekdays: number[];
+  reminder_time: string;
+  timezone: string;
+  active: boolean;
+  archived: boolean;
+  revision: number;
+}
+export interface HealthExpense extends OwnedRecord {
+  transaction_id: string;
+  appointment_id: string | null;
+  notes: string;
+  archived: boolean;
+  revision: number;
+}
+export interface HealthLogInput {
+  kind: HealthLog['kind'];
+  title: string;
+  logged_on: string;
+  minutes: string;
+  value: string;
+  unit: string;
+  notes: string;
+}
+export type MedicationInput = Pick<
+  MedicationPlan,
+  'title' | 'instructions' | 'starts_on' | 'weekdays' | 'reminder_time' | 'timezone'
+> & { ends_on: string };
+export type HealthTrackingKind = 'log' | 'medication' | 'expense';
+export type HealthTrackingAction = 'archive' | 'restore' | 'pause' | 'resume';
 export interface HealthAppointment extends OwnedRecord {
   title: string;
   provider: string;
@@ -639,6 +687,9 @@ export interface TableRows {
   habit_periods: HabitPeriod;
   habit_checkins: HabitCheckin;
   goal_milestones: GoalMilestone;
+  health_logs: HealthLog;
+  medication_plans: MedicationPlan;
+  health_expenses: HealthExpense;
   health_appointments: HealthAppointment;
   health_documents: HealthDocument;
   career_records: CareerRecord;
@@ -854,6 +905,39 @@ export type Database = {
       };
       set_goal_milestone_done: {
         Args: { entry: string; expected_revision: number; completed: boolean };
+        Returns: undefined;
+      };
+      save_health_log: {
+        Args: {
+          entry: string;
+          w: string;
+          expected_revision: number | null;
+          details: { [key: string]: string | number | null };
+        };
+        Returns: string;
+      };
+      save_medication_plan: {
+        Args: {
+          entry: string;
+          w: string;
+          expected_revision: number | null;
+          details: { [key: string]: string | number[] | null };
+        };
+        Returns: string;
+      };
+      save_health_expense: {
+        Args: {
+          entry: string;
+          w: string;
+          expected_revision: number | null;
+          expense: string;
+          appointment: string | null;
+          expense_notes: string;
+        };
+        Returns: string;
+      };
+      act_on_health_tracking: {
+        Args: { entry: string; record_kind: string; expected_revision: number; action: string };
         Returns: undefined;
       };
       save_health_appointment: {
@@ -1074,6 +1158,7 @@ export type Database = {
           assets_enabled: boolean;
           warranty_days: number;
           maintenance_days: number;
+          medications_enabled: boolean;
           health_enabled: boolean;
           health_days: number;
           career_enabled: boolean;

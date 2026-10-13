@@ -143,6 +143,14 @@ import { UiService } from '../../core/services/ui';
         date. Archived certifications stop expiry alerts.
       </p>
       <label class="reminder-toggle"
+        ><input type="checkbox" formControlName="medication_reminders" />Medication schedules</label
+      >
+      <p class="form-hint">
+        One private in-app reminder per scheduled day, checked every five minutes after each
+        medication schedule's own time and time zone. LifeOS must be open to see notifications; no
+        email or push alert is sent.
+      </p>
+      <label class="reminder-toggle"
         ><input type="checkbox" formControlName="health_reminders" />Health appointments</label
       >
       <label
@@ -230,6 +238,7 @@ export class ReminderSettings {
     loan_reminders: false,
     contact_reminders: false,
     family_reminders: false,
+    medication_reminders: false,
     health_reminders: false,
     health_lead_days: [1, [Validators.required, Validators.min(0), Validators.max(90)]],
     career_reminders: false,

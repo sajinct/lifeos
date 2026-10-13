@@ -89,6 +89,16 @@ export class SearchDialog implements AfterViewInit {
           path: '/goals',
         })),
       ...this.store
+        .medicationPlans()
+        .filter((r) => r.owner_id === this.store.profile()?.id && !r.archived)
+        .map((r) => ({
+          id: r.id,
+          title: r.title,
+          type: 'Medication schedule',
+          icon: 'goal',
+          path: '/health',
+        })),
+      ...this.store
         .healthAppointments()
         .filter((r) => r.owner_id === this.store.profile()?.id)
         .map((r) => ({

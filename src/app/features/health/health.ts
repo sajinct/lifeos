@@ -3,13 +3,14 @@ import { DatePipe, TitleCasePipe } from '@angular/common';
 import { FormBuilder, FormControl, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { HealthRecords, HealthTab } from './health-records';
 import { HealthLibrary } from '../../core/services/health';
 import { UiService } from '../../core/services/ui';
 import { HealthAppointment, HealthAction } from '../../core/models/domain';
 import { emptyHealth, healthCsv } from '../../shared/utilities/health';
 @Component({
   selector: 'app-health',
-  imports: [DatePipe, TitleCasePipe, ReactiveFormsModule, RouterLink],
+  imports: [DatePipe, TitleCasePipe, ReactiveFormsModule, RouterLink, HealthRecords],
   templateUrl: './health.html',
 })
 export class HealthPage {
@@ -21,6 +22,11 @@ export class HealthPage {
   readonly selectedId = computed(
     () => this.params()?.get('reminder') ?? this.params()?.get('record'),
   );
+  readonly section = signal<'appointments' | HealthTab>('appointments');
+  tab(section: 'appointments' | HealthTab) {
+    this.section.set(section);
+    void this.router.navigate(['/health']);
+  }
   readonly search = signal('');
   readonly status = signal('scheduled');
   readonly busy = signal(false);
@@ -69,6 +75,11 @@ export class HealthPage {
     document_ids: new FormControl<string[]>([], { nonNullable: true }),
   });
   constructor() {
+    effect(() => {
+      const id = this.selectedId();
+      if (id && this.store.medicationPlans().some((r) => r.id === id))
+        this.section.set('medication');
+    });
     effect(() => {
       this.store.workspace();
       this.store.fileSession();

@@ -1,3 +1,4 @@
+import { healthTrackingSecurityTests } from './health-tracking-security';
 import { PGlite } from '@electric-sql/pglite';
 import { readFileSync, readdirSync } from 'node:fs';
 import { beforeAll, afterAll, describe, it, expect } from 'vitest';
@@ -122,7 +123,7 @@ describe('Actual PostgreSQL RLS and permission boundaries', () => {
         "select tablename,rowsecurity from pg_tables where schemaname='public'",
       )
     ).rows;
-    expect(rows.length).toBe(46);
+    expect(rows.length).toBe(49);
     expect(rows.every((r) => r.rowsecurity)).toBe(true);
   });
   it('denies anonymous reads and workspace creation', async () => {
@@ -1110,3 +1111,5 @@ taskWorkSecurityTests(() => db, asUser, A, B, C);
 projectSecurityTests(() => db, asUser, A, B, C);
 
 healthSecurityTests(() => db, asUser, A, B, C);
+
+healthTrackingSecurityTests(() => db, asUser, A, B, C);

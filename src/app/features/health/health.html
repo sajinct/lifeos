@@ -2,231 +2,255 @@
   <div>
     <span class="eyebrow">Make space for your wellbeing</span>
     <h1>Health & wellness</h1>
-    <p>Your appointments and related documents, kept private.</p>
+    <p>Appointments, fitness, measurements, schedules and expenses, kept private.</p>
   </div>
-  <button
-    class="button primary"
-    (click)="add()"
-    [disabled]="busy() || store.loading() || !store.writable()"
-  >
-    Add appointment
-  </button>
-</div>
-<div class="contact-stats">
-  <section class="panel">
-    <span>Scheduled appointments</span><strong>{{ counts().scheduled }}</strong>
-  </section>
-  <section class="panel">
-    <span>Completed visits</span><strong>{{ counts().completed }}</strong>
-  </section>
-  <section class="panel">
-    <span>Document links</span><strong>{{ counts().documents }}</strong>
-  </section>
-</div>
-<p class="form-hint">
-  Only you can access these records, including in shared workspaces. Appointment times are shown as
-  entered. Day reminders use your delivery hour and time zone in
-  <a routerLink="/settings">Settings</a>.
-</p>
-<div class="records-toolbar contact-toolbar">
-  <label class="filter-search"
-    ><span class="sr-only">Search health appointments</span
-    ><input
-      placeholder="Search appointments, providers or notes"
-      [value]="search()"
-      (input)="search.set($any($event.target).value)"
-  /></label>
-  <label
-    ><span class="sr-only">Appointment status filter</span
-    ><select [value]="status()" (change)="status.set($any($event.target).value)">
-      <option value="scheduled">Scheduled</option>
-      <option value="completed">Completed</option>
-      <option value="cancelled">Cancelled</option>
-      <option value="archived">Archived</option>
-      <option value="all">All appointments</option>
-    </select></label
-  >
-  <button
-    class="button"
-    (click)="export()"
-    [disabled]="!rows().length || store.loading() || !!store.error()"
-  >
-    Export appointments CSV
-  </button>
-</div>
-@if (selectedId()) {
-  <div class="file-reminder-banner">
-    Showing the selected appointment. <a routerLink="/health">Show all appointments</a>
-  </div>
-}
-@if (error() || store.error()) {
-  <p class="error-banner" role="alert">{{ error() || store.error() }}</p>
-}
-@if (formOpen()) {
-  <section class="panel subscription-form">
-    <h2>{{ editing() ? 'Edit appointment' : 'New appointment' }}</h2>
-    <form [formGroup]="form" (ngSubmit)="save()">
-      <div class="form-grid">
-        <label
-          >Appointment title<input
-            formControlName="title"
-            maxlength="200"
-            required
-            placeholder="Annual checkup"
-        /></label>
-        <label
-          >Provider or clinic (optional)<input formControlName="provider" maxlength="200"
-        /></label>
-        <label
-          >Appointment date<input
-            type="date"
-            formControlName="appointment_on"
-            min="1900-01-01"
-            max="2100-12-31"
-            required
-        /></label>
-        <label
-          >Appointment time (optional)<input type="time" formControlName="appointment_time"
-        /></label>
-        <label>Location (optional)<input formControlName="location" maxlength="300" /></label>
-        <label
-          >Appointment status<select formControlName="status">
-            <option value="scheduled">Scheduled</option>
-            <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
-          </select></label
-        >
-      </div>
-      <label
-        >Appointment notes<textarea
-          formControlName="notes"
-          maxlength="4000"
-          rows="3"
-          placeholder="What to bring or discuss"
-        ></textarea>
-      </label>
-      <fieldset class="asset-document-picker">
-        <legend>Link your documents and receipts</legend>
-        @for (f of library.documents(); track f.id) {
-          <label class="asset-document-option"
-            ><input
-              type="checkbox"
-              [checked]="form.controls.document_ids.value.includes(f.id)"
-              (change)="selectDocument(f.id, $any($event.target).checked)"
-            />{{ f.name }}
-            @if (f.status === 'archived') {
-              <span> · archived</span>
-            }
-          </label>
-        }
-        @if (!library.documents().length) {
-          <p class="form-hint">
-            Upload a file in <a routerLink="/documents">Documents & receipts</a> first, then link it
-            here.
-          </p>
-        }
-      </fieldset>
-      <p class="form-hint">
-        Document links retain the selected file version and its private access. Completed visits
-        must be today or earlier. Reminder delivery is separate from the appointment time.
-      </p>
-      <div class="heading-actions">
-        <button class="button primary" type="submit" [disabled]="busy()">Save appointment</button
-        ><button class="button" type="button" (click)="formOpen.set(false)" [disabled]="busy()">
-          Cancel appointment edit
-        </button>
-      </div>
-    </form>
-  </section>
-}
-<div class="contact-cards">
-  @for (r of rows(); track r.id) {
-    <article class="panel contact-card">
-      <div class="contact-card-heading">
-        <div>
-          <span class="eyebrow"
-            >Private · {{ r.status | titlecase }}
-            @if (r.archived) {
-              · Archived
-            }
-          </span>
-          <h2>{{ r.title }}</h2>
-          <p>
-            {{ r.provider || 'Provider not recorded' }}
-            @if (r.location) {
-              · {{ r.location }}
-            }
-          </p>
-        </div>
-      </div>
-      <p>
-        <strong>{{ r.appointment_on + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }}</strong>
-        @if (r.appointment_time) {
-          · {{ r.appointment_time }}
-        }
-        @if (!r.archived && r.status === 'scheduled' && r.appointment_on < library.today()) {
-          <span class="orange-text"> · Date passed</span>
-        }
-      </p>
-      @if (r.notes) {
-        <p class="project-notes">{{ r.notes }}</p>
-      }
-      <div class="heading-actions">
-        @for (l of links(r); track l.id) {
-          <button class="button subtle" (click)="openDocument(l.attachment_id)" [disabled]="busy()">
-            Open {{ documentName(l.attachment_id) }}
-          </button>
-        }
-      </div>
-      <div class="heading-actions">
-        @if (!r.archived) {
-          <button class="button" (click)="add(r)" [disabled]="busy() || !store.writable()">
-            Edit appointment
-          </button>
-          @if (r.status === 'scheduled') {
-            <button
-              class="button"
-              (click)="act(r, 'complete')"
-              [disabled]="busy() || !store.writable() || r.appointment_on > library.today()"
-            >
-              Mark visit completed
-            </button>
-            <button
-              class="button"
-              (click)="act(r, 'cancel')"
-              [disabled]="busy() || !store.writable()"
-            >
-              Mark cancelled
-            </button>
-          } @else {
-            <button
-              class="button"
-              (click)="act(r, 'reopen')"
-              [disabled]="busy() || !store.writable()"
-            >
-              Reopen appointment
-            </button>
-          }
-        }
-        <button
-          class="button"
-          (click)="act(r, r.archived ? 'restore' : 'archive')"
-          [disabled]="busy() || !store.writable()"
-        >
-          {{ r.archived ? 'Restore appointment' : 'Archive appointment' }}
-        </button>
-      </div>
-    </article>
-  } @empty {
-    <div class="panel empty-state">
-      <h2>{{ store.loading() ? 'Loading your appointments…' : 'No appointments to show' }}</h2>
-      <p>
-        {{
-          selectedId()
-            ? 'This appointment may no longer be available.'
-            : 'Add an appointment or change the filters to view your history.'
-        }}
-      </p>
-    </div>
+  @if (section() === 'appointments') {
+    <button
+      class="button primary"
+      (click)="add()"
+      [disabled]="busy() || store.loading() || !store.writable()"
+    >
+      Add appointment
+    </button>
   }
 </div>
+<div class="records-toolbar">
+  <div class="segmented">
+    <button [class.selected]="section() === 'appointments'" (click)="tab('appointments')">
+      Appointments</button
+    ><button [class.selected]="section() === 'fitness'" (click)="tab('fitness')">Fitness</button
+    ><button [class.selected]="section() === 'measurement'" (click)="tab('measurement')">
+      Measurements</button
+    ><button [class.selected]="section() === 'medication'" (click)="tab('medication')">
+      Medication</button
+    ><button [class.selected]="section() === 'expense'" (click)="tab('expense')">
+      Medical expenses
+    </button>
+  </div>
+</div>
+@if (section() === 'appointments') {
+  <div class="contact-stats">
+    <section class="panel">
+      <span>Scheduled appointments</span><strong>{{ counts().scheduled }}</strong>
+    </section>
+    <section class="panel">
+      <span>Completed visits</span><strong>{{ counts().completed }}</strong>
+    </section>
+    <section class="panel">
+      <span>Document links</span><strong>{{ counts().documents }}</strong>
+    </section>
+  </div>
+  <p class="form-hint">
+    Only you can access these records, including in shared workspaces. Appointment times are shown
+    as entered. Day reminders use your delivery hour and time zone in
+    <a routerLink="/settings">Settings</a>.
+  </p>
+  <div class="records-toolbar contact-toolbar">
+    <label class="filter-search"
+      ><span class="sr-only">Search health appointments</span
+      ><input
+        placeholder="Search appointments, providers or notes"
+        [value]="search()"
+        (input)="search.set($any($event.target).value)"
+    /></label>
+    <label
+      ><span class="sr-only">Appointment status filter</span
+      ><select [value]="status()" (change)="status.set($any($event.target).value)">
+        <option value="scheduled">Scheduled</option>
+        <option value="completed">Completed</option>
+        <option value="cancelled">Cancelled</option>
+        <option value="archived">Archived</option>
+        <option value="all">All appointments</option>
+      </select></label
+    >
+    <button
+      class="button"
+      (click)="export()"
+      [disabled]="!rows().length || store.loading() || !!store.error()"
+    >
+      Export appointments CSV
+    </button>
+  </div>
+  @if (selectedId()) {
+    <div class="file-reminder-banner">
+      Showing the selected appointment. <a routerLink="/health">Show all appointments</a>
+    </div>
+  }
+  @if (error() || store.error()) {
+    <p class="error-banner" role="alert">{{ error() || store.error() }}</p>
+  }
+  @if (formOpen()) {
+    <section class="panel subscription-form">
+      <h2>{{ editing() ? 'Edit appointment' : 'New appointment' }}</h2>
+      <form [formGroup]="form" (ngSubmit)="save()">
+        <div class="form-grid">
+          <label
+            >Appointment title<input
+              formControlName="title"
+              maxlength="200"
+              required
+              placeholder="Annual checkup"
+          /></label>
+          <label
+            >Provider or clinic (optional)<input formControlName="provider" maxlength="200"
+          /></label>
+          <label
+            >Appointment date<input
+              type="date"
+              formControlName="appointment_on"
+              min="1900-01-01"
+              max="2100-12-31"
+              required
+          /></label>
+          <label
+            >Appointment time (optional)<input type="time" formControlName="appointment_time"
+          /></label>
+          <label>Location (optional)<input formControlName="location" maxlength="300" /></label>
+          <label
+            >Appointment status<select formControlName="status">
+              <option value="scheduled">Scheduled</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
+            </select></label
+          >
+        </div>
+        <label
+          >Appointment notes<textarea
+            formControlName="notes"
+            maxlength="4000"
+            rows="3"
+            placeholder="What to bring or discuss"
+          ></textarea>
+        </label>
+        <fieldset class="asset-document-picker">
+          <legend>Link your documents and receipts</legend>
+          @for (f of library.documents(); track f.id) {
+            <label class="asset-document-option"
+              ><input
+                type="checkbox"
+                [checked]="form.controls.document_ids.value.includes(f.id)"
+                (change)="selectDocument(f.id, $any($event.target).checked)"
+              />{{ f.name }}
+              @if (f.status === 'archived') {
+                <span> · archived</span>
+              }
+            </label>
+          }
+          @if (!library.documents().length) {
+            <p class="form-hint">
+              Upload a file in <a routerLink="/documents">Documents & receipts</a> first, then link
+              it here.
+            </p>
+          }
+        </fieldset>
+        <p class="form-hint">
+          Document links retain the selected file version and its private access. Completed visits
+          must be today or earlier. Reminder delivery is separate from the appointment time.
+        </p>
+        <div class="heading-actions">
+          <button class="button primary" type="submit" [disabled]="busy()">Save appointment</button
+          ><button class="button" type="button" (click)="formOpen.set(false)" [disabled]="busy()">
+            Cancel appointment edit
+          </button>
+        </div>
+      </form>
+    </section>
+  }
+  <div class="contact-cards">
+    @for (r of rows(); track r.id) {
+      <article class="panel contact-card">
+        <div class="contact-card-heading">
+          <div>
+            <span class="eyebrow"
+              >Private · {{ r.status | titlecase }}
+              @if (r.archived) {
+                · Archived
+              }
+            </span>
+            <h2>{{ r.title }}</h2>
+            <p>
+              {{ r.provider || 'Provider not recorded' }}
+              @if (r.location) {
+                · {{ r.location }}
+              }
+            </p>
+          </div>
+        </div>
+        <p>
+          <strong>{{ r.appointment_on + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }}</strong>
+          @if (r.appointment_time) {
+            · {{ r.appointment_time }}
+          }
+          @if (!r.archived && r.status === 'scheduled' && r.appointment_on < library.today()) {
+            <span class="orange-text"> · Date passed</span>
+          }
+        </p>
+        @if (r.notes) {
+          <p class="project-notes">{{ r.notes }}</p>
+        }
+        <div class="heading-actions">
+          @for (l of links(r); track l.id) {
+            <button
+              class="button subtle"
+              (click)="openDocument(l.attachment_id)"
+              [disabled]="busy()"
+            >
+              Open {{ documentName(l.attachment_id) }}
+            </button>
+          }
+        </div>
+        <div class="heading-actions">
+          @if (!r.archived) {
+            <button class="button" (click)="add(r)" [disabled]="busy() || !store.writable()">
+              Edit appointment
+            </button>
+            @if (r.status === 'scheduled') {
+              <button
+                class="button"
+                (click)="act(r, 'complete')"
+                [disabled]="busy() || !store.writable() || r.appointment_on > library.today()"
+              >
+                Mark visit completed
+              </button>
+              <button
+                class="button"
+                (click)="act(r, 'cancel')"
+                [disabled]="busy() || !store.writable()"
+              >
+                Mark cancelled
+              </button>
+            } @else {
+              <button
+                class="button"
+                (click)="act(r, 'reopen')"
+                [disabled]="busy() || !store.writable()"
+              >
+                Reopen appointment
+              </button>
+            }
+          }
+          <button
+            class="button"
+            (click)="act(r, r.archived ? 'restore' : 'archive')"
+            [disabled]="busy() || !store.writable()"
+          >
+            {{ r.archived ? 'Restore appointment' : 'Archive appointment' }}
+          </button>
+        </div>
+      </article>
+    } @empty {
+      <div class="panel empty-state">
+        <h2>{{ store.loading() ? 'Loading your appointments…' : 'No appointments to show' }}</h2>
+        <p>
+          {{
+            selectedId()
+              ? 'This appointment may no longer be available.'
+              : 'Add an appointment or change the filters to view your history.'
+          }}
+        </p>
+      </div>
+    }
+  </div>
+} @else {
+  <app-health-records [section]="$any(section())" [selectedId]="selectedId() ?? null" />
+}

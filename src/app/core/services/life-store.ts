@@ -26,6 +26,9 @@ import {
   HabitPeriod,
   HabitCheckin,
   GoalMilestone,
+  HealthLog,
+  MedicationPlan,
+  HealthExpense,
   HealthAppointment,
   HealthDocument,
   CareerRecord,
@@ -91,6 +94,9 @@ export class LifeStore {
   readonly habitPeriods = signal<HabitPeriod[]>([]);
   readonly habitCheckins = signal<HabitCheckin[]>([]);
   readonly goalMilestones = signal<GoalMilestone[]>([]);
+  readonly healthLogs = signal<HealthLog[]>([]);
+  readonly medicationPlans = signal<MedicationPlan[]>([]);
+  readonly healthExpenses = signal<HealthExpense[]>([]);
   readonly healthAppointments = signal<HealthAppointment[]>([]);
   readonly healthDocuments = signal<HealthDocument[]>([]);
   readonly careerRecords = signal<CareerRecord[]>([]);
@@ -232,6 +238,9 @@ export class LifeStore {
     this.taskSeries.set(d.taskSeries);
     this.taskChecklist.set(d.taskChecklist);
     this.goalMilestones.set(d.goalMilestones);
+    this.healthLogs.set(d.healthLogs);
+    this.medicationPlans.set(d.medicationPlans);
+    this.healthExpenses.set(d.healthExpenses);
     this.healthAppointments.set(d.healthAppointments);
     this.healthDocuments.set(d.healthDocuments);
     this.careerRecords.set(d.careerRecords);
@@ -273,6 +282,9 @@ export class LifeStore {
     this.taskSeries.set([]);
     this.taskChecklist.set([]);
     this.goalMilestones.set([]);
+    this.healthLogs.set([]);
+    this.medicationPlans.set([]);
+    this.healthExpenses.set([]);
     this.healthAppointments.set([]);
     this.healthDocuments.set([]);
     this.careerRecords.set([]);
@@ -329,6 +341,9 @@ export class LifeStore {
         taskSeries: this.taskSeries(),
         taskChecklist: this.taskChecklist(),
         goalMilestones: this.goalMilestones(),
+        healthLogs: this.healthLogs(),
+        medicationPlans: this.medicationPlans(),
+        healthExpenses: this.healthExpenses(),
         healthAppointments: this.healthAppointments(),
         healthDocuments: this.healthDocuments(),
         careerRecords: this.careerRecords(),
@@ -382,6 +397,9 @@ export class LifeStore {
         this.taskSeries.set(d.taskSeries);
         this.taskChecklist.set(d.taskChecklist);
         this.goalMilestones.set(d.goalMilestones);
+        this.healthLogs.set(d.healthLogs);
+        this.medicationPlans.set(d.medicationPlans);
+        this.healthExpenses.set(d.healthExpenses);
         this.healthAppointments.set(d.healthAppointments);
         this.healthDocuments.set(d.healthDocuments);
         this.careerRecords.set(d.careerRecords);
@@ -775,6 +793,30 @@ export class LifeStore {
       this.habitPeriods.set(periodRows);
       this.habitCheckins.set(checkinRows);
       this.goalMilestones.set(milestoneRows);
+      const healthLogs: HealthLog[] = [],
+        medicationPlans: MedicationPlan[] = [],
+        healthExpenses: HealthExpense[] = [];
+      for (const table of ['health_logs', 'medication_plans', 'health_expenses'] as const)
+        for (let offset = 0; ; offset += 500) {
+          const page = await c
+            .from(table)
+            .select('*')
+            .eq('workspace_id', w.id)
+            .order('created_at')
+            .order('id')
+            .range(offset, offset + 499);
+          if (page.error) throw page.error;
+          if (run !== this.generation) return;
+          if (table === 'health_logs') healthLogs.push(...(page.data as HealthLog[]));
+          else if (table === 'medication_plans')
+            medicationPlans.push(...(page.data as MedicationPlan[]));
+          else healthExpenses.push(...(page.data as HealthExpense[]));
+          if (page.data.length < 500) break;
+        }
+      if (run !== this.generation) return;
+      this.healthLogs.set(healthLogs);
+      this.medicationPlans.set(medicationPlans);
+      this.healthExpenses.set(healthExpenses);
       const healthAppointments: HealthAppointment[] = [],
         healthDocuments: HealthDocument[] = [];
       for (const table of ['health_appointments', 'health_documents'] as const)
@@ -1568,6 +1610,9 @@ export class LifeStore {
       taskSeries: this.taskSeries(),
       taskChecklist: this.taskChecklist(),
       goalMilestones: this.goalMilestones(),
+      healthLogs: this.healthLogs(),
+      medicationPlans: this.medicationPlans(),
+      healthExpenses: this.healthExpenses(),
       healthAppointments: this.healthAppointments(),
       healthDocuments: this.healthDocuments(),
       careerRecords: this.careerRecords(),

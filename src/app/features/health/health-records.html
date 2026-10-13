@@ -1,0 +1,346 @@
+<div class="records-toolbar contact-toolbar">
+  <label class="filter-search"
+    ><span class="sr-only">Search health records</span
+    ><input
+      placeholder="Search your records"
+      [value]="search()"
+      (input)="search.set($any($event.target).value)"
+  /></label>
+  <label
+    ><input
+      type="checkbox"
+      [checked]="archived()"
+      (change)="archived.set($any($event.target).checked)"
+    />Show archived health records</label
+  >
+  <button class="button" (click)="export()" [disabled]="store.loading() || !!store.error()">
+    Export health CSV
+  </button>
+  <button
+    class="button primary"
+    (click)="add()"
+    [disabled]="busy() || store.loading() || !store.writable()"
+  >
+    {{
+      section() === 'medication'
+        ? 'Add medication schedule'
+        : section() === 'expense'
+          ? 'Link medical expense'
+          : section() === 'fitness'
+            ? 'Log fitness activity'
+            : 'Record measurement'
+    }}
+  </button>
+</div>
+@if (section() === 'fitness') {
+  <p class="file-library-note">
+    {{ minutes() }} minutes across your filtered, unarchived activity logs.
+  </p>
+}
+@if (section() === 'measurement') {
+  <p class="form-hint">
+    History groups records with the same name and unit. Values are shown as entered.
+  </p>
+  <div class="contact-stats">
+    @for (h of history(); track h.latest.id) {
+      <section class="panel">
+        <span>{{ h.latest.title }} · {{ h.latest.logged_on }}</span
+        ><strong>{{ h.latest.value }} {{ h.latest.unit }}</strong>
+        @if (h.previous) {
+          <small
+            >Previous: {{ h.previous.value }} {{ h.previous.unit }} ·
+            {{ h.previous.logged_on }}</small
+          >
+        }
+      </section>
+    }
+  </div>
+}
+@if (section() === 'medication') {
+  <p class="file-library-note">
+    Record the schedule and instructions you use. Each schedule creates one in-app reminder per
+    selected day after its own time and time zone. Enable Medication schedules in Settings. Open
+    LifeOS to see alerts; delivery is checked every five minutes. This records reminder schedules,
+    without a medication-taking history.
+  </p>
+}
+@if (section() === 'expense') {
+  <p class="file-library-note">
+    Link an existing Finance expense to your health records, optionally to an appointment. No new
+    payment or ledger entry is created. Totals cover the filtered, unarchived links across all
+    dates, separated by currency.
+  </p>
+  <div class="contact-stats">
+    @for (t of totals().rows; track t.currency) {
+      <section class="panel">
+        <span>Your recorded medical expenses · {{ t.currency }}</span
+        ><strong>{{ formatMoney(t.amount, t.currency) }}</strong>
+      </section>
+    }
+  </div>
+  @if (totals().error) {
+    <p class="error-banner">{{ totals().error }}</p>
+  }
+}
+@if (error() || store.error()) {
+  <p class="error-banner" role="alert">{{ error() || store.error() }}</p>
+}
+@if (editor()) {
+  <section class="panel subscription-form">
+    <h2>{{ editing() ? 'Edit health record' : 'New health record' }}</h2>
+    @if (section() === 'fitness' || section() === 'measurement') {
+      <form [formGroup]="logForm" (ngSubmit)="save()">
+        <div class="form-grid">
+          <label
+            >Record name<input
+              formControlName="title"
+              maxlength="200"
+              required
+              [placeholder]="section() === 'fitness' ? 'Walking' : 'Weight'" /></label
+          ><label
+            >Recorded date<input
+              type="date"
+              formControlName="logged_on"
+              min="1900-01-01"
+              [max]="library.health.today()"
+              required
+          /></label>
+          @if (section() === 'fitness') {
+            <label
+              >Activity duration (minutes)<input
+                formControlName="minutes"
+                inputmode="numeric"
+                required
+            /></label>
+          }
+          <label
+            >{{ section() === 'fitness' ? 'Activity value (optional)' : 'Measurement value'
+            }}<input formControlName="value" inputmode="decimal" /></label
+          ><label
+            >Recorded unit<input
+              formControlName="unit"
+              maxlength="40"
+              [placeholder]="section() === 'fitness' ? 'km' : 'kg'"
+          /></label>
+        </div>
+        <label
+          >Record notes<textarea formControlName="notes" maxlength="2000" rows="3"></textarea>
+        </label>
+        <div class="heading-actions">
+          <button type="submit" class="button primary" [disabled]="busy()">
+            Save health record</button
+          ><button type="button" class="button" (click)="editor.set(false)" [disabled]="busy()">
+            Cancel health edit
+          </button>
+        </div>
+      </form>
+    } @else if (section() === 'medication') {
+      <form [formGroup]="medicationForm" (ngSubmit)="save()">
+        <div class="form-grid">
+          <label
+            >Medication schedule name<input
+              formControlName="title"
+              maxlength="200"
+              required /></label
+          ><label
+            >Medication reminder time<input
+              type="time"
+              formControlName="reminder_time"
+              required /></label
+          ><label
+            >Medication time zone<input formControlName="timezone" maxlength="100" required
+          /></label>
+          <label
+            >Schedule start date<input
+              type="date"
+              formControlName="starts_on"
+              min="1900-01-01"
+              max="2100-12-31"
+              required /></label
+          ><label
+            >Schedule end date (optional)<input
+              type="date"
+              formControlName="ends_on"
+              min="1900-01-01"
+              max="2100-12-31"
+          /></label>
+        </div>
+        <fieldset class="asset-document-picker">
+          <legend>Medication reminder weekdays</legend>
+          @for (day of days; track day; let i = $index) {
+            <label class="asset-document-option"
+              ><input
+                type="checkbox"
+                [checked]="medicationForm.controls.weekdays.value.includes(i)"
+                (change)="selectDay(i, $any($event.target).checked)"
+              />{{ day }}</label
+            >
+          }
+        </fieldset>
+        <label
+          >Your recorded instructions<textarea
+            formControlName="instructions"
+            maxlength="2000"
+            rows="3"
+          ></textarea>
+        </label>
+        <div class="heading-actions">
+          <button type="submit" class="button primary" [disabled]="busy()">
+            Save medication schedule</button
+          ><button type="button" class="button" (click)="editor.set(false)" [disabled]="busy()">
+            Cancel health edit
+          </button>
+        </div>
+      </form>
+    } @else {
+      <form [formGroup]="expenseForm" (ngSubmit)="save()">
+        <div class="form-grid">
+          <label
+            >Recorded medical expense<select formControlName="expense">
+              <option value="">Choose your recorded expense</option>
+              @for (t of availableExpenses(); track t.id) {
+                <option [value]="t.id">
+                  {{ t.title }} · {{ money(t.id) }} · {{ t.booked_on }}
+                </option>
+              }
+            </select></label
+          ><label
+            >Related appointment<select formControlName="appointment">
+              <option value="">No appointment link</option>
+              @for (a of appointments(); track a.id) {
+                <option [value]="a.id">{{ a.title }} · {{ a.appointment_on }}</option>
+              }
+            </select></label
+          >
+        </div>
+        <label
+          >Medical expense notes<textarea
+            formControlName="notes"
+            maxlength="2000"
+            rows="3"
+          ></textarea>
+        </label>
+        <div class="heading-actions">
+          <button type="submit" class="button primary" [disabled]="busy()">
+            Save medical expense link</button
+          ><button type="button" class="button" (click)="editor.set(false)" [disabled]="busy()">
+            Cancel health edit
+          </button>
+        </div>
+      </form>
+    }
+  </section>
+}
+<div class="contact-cards">
+  @if (section() === 'fitness' || section() === 'measurement') {
+    @for (r of logs(); track r.id) {
+      <article class="panel contact-card">
+        <span class="eyebrow"
+          >Private
+          @if (r.archived) {
+            · Archived
+          }
+        </span>
+        <h2>{{ r.title }}</h2>
+        <p>
+          {{ r.logged_on + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }}
+          @if (r.minutes) {
+            · {{ r.minutes }} minutes
+          }
+          @if (r.value !== null) {
+            · {{ r.value }} {{ r.unit }}
+          }
+        </p>
+        <p class="project-notes">{{ r.notes }}</p>
+        <div class="heading-actions">
+          @if (!r.archived) {
+            <button class="button" (click)="add(r)" [disabled]="busy() || !store.writable()">
+              Edit log
+            </button>
+          }
+          <button
+            class="button"
+            (click)="act(r, 'log', r.archived ? 'restore' : 'archive')"
+            [disabled]="busy() || !store.writable()"
+          >
+            {{ r.archived ? 'Restore log' : 'Archive log' }}
+          </button>
+        </div>
+      </article>
+    } @empty {
+      <p class="empty-state">No matching health logs.</p>
+    }
+  } @else if (section() === 'medication') {
+    @for (r of plans(); track r.id) {
+      <article class="panel contact-card">
+        <span class="eyebrow"
+          >Private · {{ r.archived ? 'Archived' : r.active ? 'Active' : 'Paused' }}</span
+        >
+        <h2>{{ r.title }}</h2>
+        <p>{{ r.reminder_time }} · {{ r.timezone }}</p>
+        <p>
+          {{ weekdays(r) }} · {{ r.starts_on }}
+          @if (r.ends_on) {
+            through {{ r.ends_on }}
+          }
+        </p>
+        <p class="project-notes">{{ r.instructions }}</p>
+        <div class="heading-actions">
+          @if (!r.archived) {
+            <button class="button" (click)="add(r)" [disabled]="busy() || !store.writable()">
+              Edit medication schedule</button
+            ><button
+              class="button"
+              (click)="act(r, 'medication', r.active ? 'pause' : 'resume')"
+              [disabled]="busy() || !store.writable()"
+            >
+              {{ r.active ? 'Pause schedule' : 'Resume schedule' }}
+            </button>
+          }
+          <button
+            class="button"
+            (click)="act(r, 'medication', r.archived ? 'restore' : 'archive')"
+            [disabled]="busy() || !store.writable()"
+          >
+            {{ r.archived ? 'Restore schedule' : 'Archive schedule' }}
+          </button>
+        </div>
+      </article>
+    } @empty {
+      <p class="empty-state">No matching medication schedules.</p>
+    }
+  } @else {
+    @for (r of expenses(); track r.id) {
+      <article class="panel contact-card">
+        <span class="eyebrow"
+          >Private
+          @if (r.archived) {
+            · Archived
+          }
+        </span>
+        <h2>{{ transaction(r.transaction_id)?.title ?? 'Unavailable expense' }}</h2>
+        <p>{{ money(r.transaction_id) }} · {{ transaction(r.transaction_id)?.booked_on }}</p>
+        <p>{{ appointment(r.appointment_id) }}</p>
+        <p class="project-notes">{{ r.notes }}</p>
+        <div class="heading-actions">
+          @if (!r.archived) {
+            <button class="button" (click)="add(r)" [disabled]="busy() || !store.writable()">
+              Edit expense link
+            </button>
+          }
+          <button
+            class="button"
+            (click)="act(r, 'expense', r.archived ? 'restore' : 'archive')"
+            [disabled]="busy() || !store.writable()"
+          >
+            {{ r.archived ? 'Restore expense link' : 'Archive expense link' }}
+          </button>
+        </div>
+      </article>
+    } @empty {
+      <p class="empty-state">
+        No matching medical expense links. Record the expense in Finance first.
+      </p>
+    }
+  }
+</div>
