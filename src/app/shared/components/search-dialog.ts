@@ -187,13 +187,15 @@ export class SearchDialog implements AfterViewInit {
   navigate(result: { id: string; path: string; bucket?: string }) {
     this.ui.searchOpen.set(false);
     void this.router.navigateByUrl(
-      result.path === '/family' ||
-        result.path === '/assets' ||
-        result.path === '/career' ||
-        result.path === '/goals' ||
-        result.path === '/tasks'
-        ? result.path + '?reminder=' + encodeURIComponent(result.id)
-        : result.path,
+      result.path === '/projects'
+        ? result.path + '?linked=' + encodeURIComponent(result.id)
+        : result.path === '/family' ||
+            result.path === '/assets' ||
+            result.path === '/career' ||
+            result.path === '/goals' ||
+            result.path === '/tasks'
+          ? result.path + '?reminder=' + encodeURIComponent(result.id)
+          : result.path,
       {
         state: { search: this.query(), bucket: result.bucket },
       },

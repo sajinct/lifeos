@@ -3661,3 +3661,69 @@ td:last-child {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+.project-detail {
+  padding: 24px;
+  margin-bottom: 24px;
+}
+.project-detail .panel-heading {
+  padding: 0;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-block: 20px;
+}
+.project-detail form {
+  margin-block: 16px;
+}
+.project-stats {
+  margin-block: 20px;
+}
+.project-stats .stat-card {
+  gap: 10px;
+}
+.project-stats strong {
+  font-size: 24px;
+}
+.project-milestones article {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.project-milestones article > div:first-of-type {
+  flex: 1;
+  min-width: 160px;
+}
+.project-notes {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.project-budget-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+  margin-block: 16px;
+}
+.project-budget-grid article {
+  padding: 18px;
+}
+.project-budget-list > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.project-expense-form {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.project-expense-form label {
+  flex: 1;
+  min-width: 200px;
+}

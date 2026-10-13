@@ -1,0 +1,454 @@
+<section class="page-heading">
+  <div>
+    <span class="eyebrow">MAKE ROOM FOR PROGRESS</span>
+    <h1>Projects & planning</h1>
+    <p>Milestones, tasks and your personal project budget.</p>
+  </div>
+  <div class="heading-actions">
+    <button
+      class="button subtle"
+      (click)="export('projects')"
+      [disabled]="store.loading() || !!store.error()"
+    >
+      {{ selected() ? 'Export this project' : 'Export projects CSV' }}</button
+    ><button
+      class="button subtle"
+      (click)="export('milestones')"
+      [disabled]="store.loading() || !!store.error()"
+    >
+      Export milestones CSV</button
+    ><button
+      class="button primary"
+      (click)="editProject()"
+      [disabled]="busy() || !store.writable()"
+    >
+      <app-icon name="plus" />Add project
+    </button>
+  </div>
+</section>
+@if (error()) {
+  <p class="form-error" role="alert">{{ error() }}</p>
+}
+@if (linked()) {
+  <div class="file-library-note">
+    <span>Showing the linked project.</span
+    ><button class="button subtle" (click)="clearLinked()">Show all projects</button>
+  </div>
+}
+<div class="records-toolbar">
+  <div class="filter-search">
+    <app-icon name="search" /><input
+      aria-label="Search projects"
+      placeholder="Find a project…"
+      [value]="search()"
+      (input)="search.set($any($event.target).value)"
+    />
+  </div>
+  <select
+    aria-label="Project status filter"
+    [value]="status()"
+    (change)="status.set($any($event.target).value)"
+  >
+    <option value="all">All statuses</option>
+    <option value="active">Active</option>
+    <option value="paused">Paused</option>
+    <option value="completed">Completed</option></select
+  ><label
+    ><input
+      type="checkbox"
+      [checked]="showArchived()"
+      (change)="showArchived.set($any($event.target).checked)"
+    />Show archived milestones</label
+  >
+</div>
+@if (projectEditor()) {
+  <form class="panel project-detail" [formGroup]="projectForm" (ngSubmit)="saveProject()">
+    <div class="panel-heading">
+      <h2>{{ previousProject() ? 'Edit project' : 'New project' }}</h2>
+      <button
+        type="button"
+        class="button subtle"
+        (click)="projectEditor.set(false)"
+        [disabled]="busy()"
+      >
+        Close project editor
+      </button>
+    </div>
+    <label>Project title<input formControlName="title" maxlength="200" /></label
+    ><label
+      >Project description<textarea
+        formControlName="description"
+        maxlength="4000"
+        rows="3"
+      ></textarea>
+    </label>
+    <div class="form-row">
+      <label
+        >Project deadline<input
+          type="date"
+          formControlName="due_date"
+          min="1900-01-01"
+          max="2100-12-31" /></label
+      ><label
+        >Project status<select formControlName="status">
+          <option value="active">Active</option>
+          <option value="paused">Paused</option>
+          <option value="completed">Completed</option>
+        </select></label
+      ><label
+        >Project color<select formControlName="color">
+          <option value="purple">Purple</option>
+          <option value="green">Green</option>
+          <option value="orange">Orange</option>
+          <option value="blue">Blue</option>
+        </select></label
+      ><label
+        >Project sharing<select formControlName="visibility">
+          <option value="private">Only me</option>
+          <option value="workspace">Workspace members</option>
+        </select></label
+      >
+    </div>
+    <p class="muted">
+      Milestones follow project sharing. Your budgets and financial/time totals remain personal.
+      Keep a project shared while shared tasks, events or notes link to it.
+    </p>
+    <button class="button primary" [disabled]="busy() || !store.writable()">Save project</button>
+  </form>
+}
+@if (selected(); as p) {
+  <section class="panel project-detail">
+    <div class="panel-heading">
+      <div>
+        <span class="eyebrow">{{ p.visibility }} · {{ p.status }}</span>
+        <h2>{{ p.title }}</h2>
+        <p>{{ p.description }}</p>
+      </div>
+      <div class="heading-actions">
+        <button
+          class="button subtle"
+          (click)="editProject(p)"
+          [disabled]="busy() || !store.canEdit(p)"
+        >
+          Edit project</button
+        ><button class="button subtle" (click)="selectedId.set('')">Close project details</button>
+      </div>
+    </div>
+    <p>
+      {{
+        p.due_date ? (p.due_date + 'T00:00:00Z' | date: 'd MMM y' : 'UTC') : 'No project deadline'
+      }}
+      @if (p.status !== 'completed' && p.due_date && p.due_date < library.today()) {
+        <span class="orange-text"> · Overdue</span>
+      }
+    </p>
+    <div class="stats-grid project-stats">
+      <div class="stat-card">
+        <span>Visible tasks completed</span
+        ><strong>{{ summary(p).completed }} / {{ summary(p).tasks }}</strong>
+      </div>
+      <div class="stat-card">
+        <span>Milestones completed</span
+        ><strong>{{ summary(p).achieved }} / {{ summary(p).milestones }}</strong>
+      </div>
+      <div class="stat-card">
+        <span>Your recorded time</span><strong>{{ duration(summary(p).seconds) }}</strong
+        ><small
+          >{{ summary(p).sessions }} {{ summary(p).sessions === 1 ? 'session' : 'sessions' }}</small
+        >
+      </div>
+    </div>
+    <div class="panel-heading">
+      <h3>Project milestones</h3>
+      <button
+        class="button subtle"
+        (click)="editMilestone()"
+        [disabled]="busy() || !store.canEdit(p) || p.status === 'completed'"
+      >
+        Add milestone
+      </button>
+    </div>
+    <p class="muted">
+      Milestones and tasks track progress separately. Project status is updated manually. Reopen a
+      completed project to change its milestones.
+    </p>
+    @if (milestoneEditor()) {
+      <form [formGroup]="milestoneForm" (ngSubmit)="saveMilestone()">
+        <div class="form-row">
+          <label>Milestone title<input formControlName="title" maxlength="200" /></label
+          ><label
+            >Milestone deadline<input
+              type="date"
+              formControlName="due_on"
+              min="1900-01-01"
+              max="2100-12-31"
+          /></label>
+        </div>
+        <label
+          >Milestone notes<textarea formControlName="notes" maxlength="2000" rows="2"></textarea>
+        </label>
+        <div class="heading-actions">
+          <button class="button primary" [disabled]="busy()">Save milestone</button
+          ><button
+            type="button"
+            class="button subtle"
+            (click)="milestoneEditor.set(false)"
+            [disabled]="busy()"
+          >
+            Cancel milestone edit
+          </button>
+        </div>
+      </form>
+    }
+    <div class="project-milestones">
+      @for (m of steps(); track m.id) {
+        <article>
+          <button
+            class="task-checkbox"
+            [class.checked]="m.done"
+            [attr.aria-label]="(m.done ? 'Reopen ' : 'Complete ') + m.title"
+            (click)="milestoneAction(m, m.done ? 'reopen' : 'complete')"
+            [disabled]="busy() || !store.canEdit(p) || p.status === 'completed' || m.archived"
+          >
+            @if (m.done) {
+              <app-icon name="check" />
+            }
+          </button>
+          <div>
+            <strong>{{ m.title }}{{ m.archived ? ' · archived' : '' }}</strong>
+            <p>
+              {{
+                m.due_on
+                  ? (m.due_on + 'T00:00:00Z' | date: 'd MMM y' : 'UTC')
+                  : 'No milestone deadline'
+              }}
+              @if (!m.done && !m.archived && m.due_on && m.due_on < library.today()) {
+                <span class="orange-text"> · Overdue</span>
+              }
+              @if (m.completed_on) {
+                <span>
+                  · Completed {{ m.completed_on + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }}</span
+                >
+              }
+            </p>
+            @if (m.notes) {
+              <p class="project-notes">{{ m.notes }}</p>
+            }
+          </div>
+          <div class="heading-actions">
+            @if (!m.archived) {
+              <button
+                class="button subtle"
+                (click)="editMilestone(m)"
+                [disabled]="busy() || !store.canEdit(p) || p.status === 'completed'"
+                [attr.aria-label]="'Edit milestone ' + m.title"
+              >
+                Edit
+              </button>
+            }
+            <button
+              class="button subtle"
+              (click)="milestoneAction(m, m.archived ? 'restore' : 'archive')"
+              [disabled]="busy() || !store.canEdit(p) || p.status === 'completed'"
+            >
+              {{ m.archived ? 'Restore' : 'Archive' }}
+            </button>
+          </div>
+        </article>
+      } @empty {
+        <p class="empty-state">Add a milestone and give your next step a deadline.</p>
+      }
+    </div>
+    <div class="panel-heading">
+      <h3>Your project budget</h3>
+      <button class="button subtle" (click)="editBudget()" [disabled]="busy() || !store.writable()">
+        Add budget
+      </button>
+    </div>
+    <p class="muted">
+      A lifetime budget for each currency. Comparisons use only your recorded expenses, across all
+      dates. Currencies stay separate; no exchange-rate conversion or team spending totals.
+    </p>
+    @if (totals().error) {
+      <p class="form-error">{{ totals().error }}</p>
+    }
+    <div class="project-budget-grid">
+      @for (t of totals().rows; track t.currency) {
+        <article class="panel">
+          <span class="eyebrow">{{ t.currency }}</span>
+          <h3>{{ t.planned === null ? 'No active budget' : money(t.planned, t.currency) }}</h3>
+          <p>Your expenses: {{ money(t.spent, t.currency) }}</p>
+          @if (t.remaining !== null) {
+            <strong [class.orange-text]="t.remaining < 0"
+              >{{ t.remaining < 0 ? 'Over budget: ' : 'Remaining: '
+              }}{{ money(t.remaining < 0 ? -t.remaining : t.remaining, t.currency) }}</strong
+            >
+          }
+        </article>
+      } @empty {
+        <p class="empty-state">Add a personal budget or link one of your recorded expenses.</p>
+      }
+    </div>
+    @if (budgetEditor()) {
+      <form [formGroup]="budgetForm" (ngSubmit)="saveBudget()">
+        <div class="form-row">
+          <label
+            >Budget currency<input
+              formControlName="currency"
+              maxlength="3"
+              placeholder="INR" /></label
+          ><label
+            >Project budget amount<input
+              formControlName="amount"
+              inputmode="decimal"
+              placeholder="10000.00"
+          /></label>
+        </div>
+        <div class="heading-actions">
+          <button class="button primary" [disabled]="busy()">Save project budget</button
+          ><button
+            type="button"
+            class="button subtle"
+            (click)="budgetEditor.set(false)"
+            [disabled]="busy()"
+          >
+            Cancel budget edit
+          </button>
+        </div>
+      </form>
+    }
+    <div class="project-budget-list">
+      @for (b of budgets(); track b.id) {
+        <div>
+          <span
+            >{{ b.currency }} · {{ money(b.amount, b.currency)
+            }}{{ b.archived ? ' · archived' : '' }}</span
+          >
+          <div class="heading-actions">
+            @if (!b.archived) {
+              <button
+                class="button subtle"
+                (click)="editBudget(b)"
+                [disabled]="busy() || !store.writable()"
+                [attr.aria-label]="'Edit budget ' + b.currency"
+              >
+                Edit budget
+              </button>
+            }
+            <button
+              class="button subtle"
+              (click)="archiveBudget(b)"
+              [disabled]="busy() || !store.writable()"
+              [attr.aria-label]="(b.archived ? 'Restore budget ' : 'Archive budget ') + b.currency"
+            >
+              {{ b.archived ? 'Restore' : 'Archive' }}
+            </button>
+          </div>
+        </div>
+      }
+    </div>
+    <h3>Your linked expenses</h3>
+    <p class="muted">
+      Linking changes the project label only. It never changes an amount, account balance or another
+      person's records.
+    </p>
+    <form class="project-expense-form" [formGroup]="expenseForm" (ngSubmit)="linkExpense()">
+      <label
+        >Recorded expense<select formControlName="expense">
+          <option value="">Choose an unlinked expense</option>
+          @for (t of unlinkedExpenses(); track t.id) {
+            <option [value]="t.id">{{ expenseLabel(t) }}</option>
+          }
+        </select></label
+      ><button class="button subtle" [disabled]="busy() || !store.writable()">Link expense</button>
+    </form>
+    <div class="project-budget-list">
+      @for (t of linkedExpenses(); track t.id) {
+        <div>
+          <span>{{ expenseLabel(t) }}</span
+          ><button
+            class="button subtle"
+            (click)="unlinkExpense(t)"
+            [disabled]="busy() || !store.writable()"
+            [attr.aria-label]="'Unlink expense ' + t.title"
+          >
+            Unlink
+          </button>
+        </div>
+      } @empty {
+        <p class="muted">No expenses linked to this project.</p>
+      }
+    </div>
+    <div class="panel-heading">
+      <h3>Linked tasks</h3>
+      <button class="button subtle" (click)="ui.capture.set('task')" [disabled]="!store.writable()">
+        Add task
+      </button>
+    </div>
+    <p class="muted">
+      Choose this project when adding a task. Progress includes the tasks you can access; time
+      totals include only your recorded sessions and their original project attribution.
+    </p>
+    <div class="linked-tasks">
+      @for (t of selectedTasks(); track t.id) {
+        <div>
+          <button
+            class="task-checkbox"
+            [class.checked]="t.status === 'done'"
+            [disabled]="busy() || !store.canEdit(t)"
+            (click)="toggleTask(t)"
+            [attr.aria-label]="'Toggle ' + t.title"
+          >
+            @if (t.status === 'done') {
+              <app-icon name="check" />
+            }</button
+          ><a [routerLink]="['/tasks']" [queryParams]="{ reminder: t.id }">{{ t.title }}</a>
+        </div>
+      } @empty {
+        <p class="muted">No visible tasks linked yet.</p>
+      }
+    </div>
+  </section>
+} @else if (selectedId() && !store.loading()) {
+  <p class="file-library-note">This project is unavailable in the current workspace.</p>
+}
+<div class="record-cards">
+  @for (p of projects(); track p.id) {
+    <article class="panel record-card">
+      <span [class]="'icon-tile ' + p.color"><app-icon name="project" /></span
+      ><span class="record-privacy"
+        ><app-icon [name]="p.visibility === 'private' ? 'lock' : 'family'" />{{
+          p.visibility
+        }}</span
+      >
+      <h2>{{ p.title }}</h2>
+      <p>{{ p.description }}</p>
+      <div class="project-progress">
+        <div class="bar-track">
+          <i
+            [class]="'bar-fill ' + p.color"
+            [style.width.%]="summary(p).tasks ? (100 * summary(p).completed) / summary(p).tasks : 0"
+          ></i>
+        </div>
+        <strong>{{ summary(p).completed }} / {{ summary(p).tasks }} tasks</strong>
+      </div>
+      <p>
+        {{ summary(p).achieved }} / {{ summary(p).milestones }} milestones · Your time
+        {{ duration(summary(p).seconds) }}
+      </p>
+      <div class="record-meta">
+        <span>{{ p.status }}</span
+        ><span>{{
+          p.due_date ? (p.due_date + 'T00:00:00Z' | date: 'd MMM y' : 'UTC') : 'No deadline'
+        }}</span>
+      </div>
+      <button class="button subtle" (click)="open(p)" [attr.aria-label]="'Open project ' + p.title">
+        Open project
+      </button>
+    </article>
+  } @empty {
+    <div class="empty-state panel">
+      Start a project, then connect its milestones, tasks and your personal budget.
+    </div>
+  }
+</div>

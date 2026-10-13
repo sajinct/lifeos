@@ -31,6 +31,7 @@ export function demoData() {
   });
   const projects: Project[] = [
     {
+      revision: 1,
       ...base('p1'),
       title: 'Personal website',
       description: 'A little corner of the internet to call home.',
@@ -39,6 +40,7 @@ export function demoData() {
       due_date: date(12),
     },
     {
+      revision: 1,
       ...base('p2'),
       title: 'Home refresh',
       description: 'Make room for a calmer everyday.',
@@ -47,6 +49,7 @@ export function demoData() {
       due_date: date(20),
     },
     {
+      revision: 1,
       ...base('p3'),
       title: 'Learn something new',
       description: 'Build a consistent learning practice.',
@@ -356,6 +359,8 @@ export function demoData() {
     habits: [] as import('../models/domain').Habit[],
     habitPeriods: [] as import('../models/domain').HabitPeriod[],
     habitCheckins: [] as import('../models/domain').HabitCheckin[],
+    projectMilestones: [] as import('../models/domain').ProjectMilestone[],
+    projectBudgets: [] as import('../models/domain').ProjectBudget[],
     taskTimes: [] as import('../models/domain').TaskTime[],
     taskLists: [] as import('../models/domain').TaskList[],
     taskSeries: [] as import('../models/domain').TaskSeries[],

@@ -74,11 +74,37 @@ export interface TaskChecklist extends OwnedRecord {
   revision: number;
 }
 export interface Project extends OwnedRecord {
+  revision: number;
   title: string;
   description: string;
   status: 'active' | 'paused' | 'completed';
   color: string;
   due_date: string | null;
+}
+export interface ProjectMilestone extends OwnedRecord {
+  project_id: string;
+  title: string;
+  due_on: string | null;
+  notes: string;
+  done: boolean;
+  completed_on: string | null;
+  archived: boolean;
+  revision: number;
+}
+export interface ProjectBudget extends OwnedRecord {
+  project_id: string;
+  currency: string;
+  amount: number;
+  archived: boolean;
+  revision: number;
+}
+export interface ProjectInput {
+  title: string;
+  description: string;
+  status: Project['status'];
+  color: Project['color'];
+  due_date: string;
+  visibility: Visibility;
 }
 export interface CalendarEvent extends OwnedRecord {
   title: string;
@@ -578,6 +604,8 @@ export type CareerInput = Pick<
   document_ids: string[];
 };
 export interface TableRows {
+  project_milestones: ProjectMilestone;
+  project_budgets: ProjectBudget;
   task_time_entries: TaskTime;
   task_lists: TaskList;
   task_series: TaskSeries;
@@ -628,6 +656,55 @@ export type Database = {
     Tables: { [K in keyof TableRows]: Table<TableRows[K]> };
     Views: Record<string, never>;
     Functions: {
+      save_planned_project: {
+        Args: {
+          entry: string;
+          w: string;
+          expected_revision: number | null;
+          project_title: string;
+          project_description: string;
+          project_status: string;
+          project_color: string;
+          deadline: string | null;
+          sharing: Visibility;
+        };
+        Returns: string;
+      };
+      save_project_milestone: {
+        Args: {
+          entry: string;
+          w: string;
+          expected_revision: number | null;
+          parent: string;
+          milestone_title: string;
+          deadline: string | null;
+          milestone_notes: string;
+        };
+        Returns: string;
+      };
+      act_on_project_milestone: {
+        Args: { entry: string; expected_revision: number; action: string };
+        Returns: undefined;
+      };
+      save_project_budget: {
+        Args: {
+          entry: string;
+          w: string;
+          expected_revision: number | null;
+          parent: string;
+          budget_currency: string;
+          budget_amount: number;
+        };
+        Returns: string;
+      };
+      set_project_budget_archive: {
+        Args: { entry: string; expected_revision: number; archived_value: boolean };
+        Returns: undefined;
+      };
+      link_project_expense: {
+        Args: { entry: string; expected_project: string | null; parent: string | null };
+        Returns: undefined;
+      };
       workspace_task_members: { Args: { w: string }; Returns: TaskMember[] };
       assign_workspace_task: {
         Args: { entry: string; expected_revision: number; assignee: string | null };

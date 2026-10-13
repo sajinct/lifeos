@@ -38,6 +38,8 @@ import {
   OwnedRecord,
   Profile,
   Project,
+  ProjectMilestone,
+  ProjectBudget,
   Task,
   TaskList,
   TaskTime,
@@ -70,6 +72,8 @@ export class LifeStore {
   readonly taskSeries = signal<TaskSeries[]>([]);
   readonly taskChecklist = signal<TaskChecklist[]>([]);
   readonly tasks = signal<Task[]>([]);
+  readonly projectMilestones = signal<ProjectMilestone[]>([]);
+  readonly projectBudgets = signal<ProjectBudget[]>([]);
   readonly projects = signal<Project[]>([]);
   readonly events = signal<CalendarEvent[]>([]);
   readonly notes = signal<Note[]>([]);
@@ -214,6 +218,8 @@ export class LifeStore {
     this.habits.set(d.habits);
     this.habitPeriods.set(d.habitPeriods);
     this.habitCheckins.set(d.habitCheckins);
+    this.projectMilestones.set(d.projectMilestones);
+    this.projectBudgets.set(d.projectBudgets);
     this.taskTimes.set(d.taskTimes);
     this.taskMembers.set([
       { user_id: this.profile()!.id, display_name: this.profile()!.display_name, role: 'owner' },
@@ -253,6 +259,8 @@ export class LifeStore {
     this.habits.set([]);
     this.habitPeriods.set([]);
     this.habitCheckins.set([]);
+    this.projectMilestones.set([]);
+    this.projectBudgets.set([]);
     this.taskTimes.set([]);
     this.taskMembers.set([]);
     this.taskLists.set([]);
@@ -306,6 +314,8 @@ export class LifeStore {
         habits: this.habits(),
         habitPeriods: this.habitPeriods(),
         habitCheckins: this.habitCheckins(),
+        projectMilestones: this.projectMilestones(),
+        projectBudgets: this.projectBudgets(),
         taskTimes: this.taskTimes(),
         taskLists: this.taskLists(),
         taskSeries: this.taskSeries(),
@@ -348,6 +358,8 @@ export class LifeStore {
         this.habits.set(d.habits);
         this.habitPeriods.set(d.habitPeriods);
         this.habitCheckins.set(d.habitCheckins);
+        this.projectMilestones.set(d.projectMilestones);
+        this.projectBudgets.set(d.projectBudgets);
         this.taskTimes.set(d.taskTimes);
         this.taskMembers.set([
           {
@@ -415,7 +427,8 @@ export class LifeStore {
           .select('*')
           .eq('workspace_id', w.id)
           .order('created_at', { ascending: false })
-          .limit(500),
+          .order('id')
+          .range(0, 499),
         c
           .from('calendar_events')
           .select('*')
@@ -671,6 +684,42 @@ export class LifeStore {
       if (run !== this.generation) return;
       this.taskTimes.set(timeRows);
       this.taskMembers.set(directory);
+      const projectRows = [...(p.data ?? [])];
+      if (projectRows.length === 500)
+        for (let offset = 500; ; offset += 500) {
+          const page = await c
+            .from('projects')
+            .select('*')
+            .eq('workspace_id', w.id)
+            .order('created_at', { ascending: false })
+            .order('id')
+            .range(offset, offset + 499);
+          if (page.error) throw page.error;
+          if (run !== this.generation) return;
+          projectRows.push(...page.data);
+          if (page.data.length < 500) break;
+        }
+      const projectMilestoneRows: ProjectMilestone[] = [],
+        projectBudgetRows: ProjectBudget[] = [];
+      for (const table of ['project_milestones', 'project_budgets'] as const)
+        for (let offset = 0; ; offset += 500) {
+          const page = await c
+            .from(table)
+            .select('*')
+            .eq('workspace_id', w.id)
+            .order('created_at')
+            .order('id')
+            .range(offset, offset + 499);
+          if (page.error) throw page.error;
+          if (run !== this.generation) return;
+          if (table === 'project_milestones')
+            projectMilestoneRows.push(...(page.data as ProjectMilestone[]));
+          else projectBudgetRows.push(...(page.data as ProjectBudget[]));
+          if (page.data.length < 500) break;
+        }
+      if (run !== this.generation) return;
+      this.projectMilestones.set(projectMilestoneRows);
+      this.projectBudgets.set(projectBudgetRows);
       const taskLists: TaskList[] = [],
         taskSeries: TaskSeries[] = [],
         taskChecklist: TaskChecklist[] = [];
@@ -774,7 +823,7 @@ export class LifeStore {
       this.loans.set(allLoans);
       this.loanRepayments.set(allPayments);
       this.tasks.set(taskRows);
-      this.projects.set(p.data ?? []);
+      this.projects.set(projectRows);
       this.events.set(e.data ?? []);
       this.notes.set(n.data ?? []);
       this.goals.set(goalRows);
@@ -1020,13 +1069,18 @@ export class LifeStore {
       case 'project': {
         const row: Project = {
           ...b,
+          revision: 1,
           title,
           description: input.body,
           status: 'active',
           color: 'purple',
           due_date: input.date || null,
         };
-        if (!this.auth.demo()) check((await c!.from('projects').insert(row)).error);
+        if (!this.auth.demo()) {
+          const { revision, ...insert } = row;
+          void revision;
+          check((await c!.from('projects').insert(insert)).error);
+        }
         this.projects.update((v) => [row, ...v]);
         break;
       }
@@ -1474,6 +1528,8 @@ export class LifeStore {
       habits: this.habits(),
       habitPeriods: this.habitPeriods(),
       habitCheckins: this.habitCheckins(),
+      projectMilestones: this.projectMilestones(),
+      projectBudgets: this.projectBudgets(),
       taskTimes: this.taskTimes(),
       taskLists: this.taskLists(),
       taskSeries: this.taskSeries(),
