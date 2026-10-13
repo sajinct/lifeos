@@ -1,3 +1,4 @@
+import { cardSecurityTests } from './card-security';
 import { travelSecurityTests } from './travel-security';
 import { healthTrackingSecurityTests } from './health-tracking-security';
 import { PGlite } from '@electric-sql/pglite';
@@ -124,7 +125,7 @@ describe('Actual PostgreSQL RLS and permission boundaries', () => {
         "select tablename,rowsecurity from pg_tables where schemaname='public'",
       )
     ).rows;
-    expect(rows.length).toBe(53);
+    expect(rows.length).toBe(56);
     expect(rows.every((r) => r.rowsecurity)).toBe(true);
   });
   it('denies anonymous reads and workspace creation', async () => {
@@ -1116,3 +1117,5 @@ healthSecurityTests(() => db, asUser, A, B, C);
 healthTrackingSecurityTests(() => db, asUser, A, B, C);
 
 travelSecurityTests(() => db, asUser, A, B, C);
+
+cardSecurityTests(() => db, asUser, A, B, C);

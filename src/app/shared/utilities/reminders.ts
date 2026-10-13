@@ -1,4 +1,7 @@
 import {
+  CreditCard,
+  CardStatement,
+  CardPayment,
   Attachment,
   Bill,
   Task,
@@ -15,6 +18,7 @@ import {
   Asset,
   MaintenancePlan,
 } from '../../core/models/domain';
+import { statementBalance } from './cards';
 import { householdAnniversary } from './household';
 export interface ReminderSource {
   id: string;
@@ -41,9 +45,34 @@ export function reminderSources(
   career: CareerRecord[] = [],
   health: HealthAppointment[] = [],
   medications: MedicationPlan[] = [],
+  cardStatements: CardStatement[] = [],
+  cardPayments: CardPayment[] = [],
+  cards: CreditCard[] = [],
 ): ReminderSource[] {
   const today = reminderClock(now, p.reminder_timezone).day;
   return [
+    ...cardStatements
+      .filter(
+        (r) =>
+          p.bill_reminders &&
+          r.status === 'open' &&
+          statementBalance(r, cardPayments).remaining > 0 &&
+          cards.some(
+            (c) =>
+              c.id === r.card_id &&
+              c.owner_id === r.owner_id &&
+              c.workspace_id === r.workspace_id &&
+              c.reminders_enabled &&
+              !c.archived,
+          ),
+      )
+      .map((r) => ({
+        ...r,
+        title: cards.find((c) => c.id === r.card_id)!.title,
+        kind: 'card_statement' as const,
+        date: r.due_on,
+        days: p.bill_lead_days,
+      })),
     ...medications.flatMap((r) => {
       if (!p.medication_reminders || !r.active || r.archived) return [];
       const clock = reminderClock(now, r.timezone),
@@ -199,39 +228,41 @@ export function reminderPhase(source: ReminderSource, day: string): Notification
 }
 export function reminderTitle(s: ReminderSource, phase: Notification['phase']) {
   const label =
-    s.kind === 'health_medication'
-      ? 'Medication reminder'
-      : s.kind === 'health_appointment'
-        ? 'Health appointment'
-        : s.kind === 'career_follow_up'
-          ? 'Application follow-up'
-          : s.kind === 'career_interview'
-            ? 'Interview'
-            : s.kind === 'certification'
-              ? 'Certification'
-              : s.kind === 'warranty'
-                ? 'Asset warranty'
-                : s.kind === 'maintenance'
-                  ? 'Maintenance'
-                  : s.kind === 'family_birthday'
-                    ? 'Birthday'
-                    : s.kind === 'family_task'
-                      ? 'Household task'
-                      : s.kind === 'family_date'
-                        ? 'Important date'
-                        : s.kind === 'task'
-                          ? 'Task'
-                          : s.kind === 'bill'
-                            ? 'Bill'
-                            : s.kind === 'document'
-                              ? 'Document'
-                              : s.kind === 'trial'
-                                ? 'Trial'
-                                : s.kind === 'loan'
-                                  ? 'Loan repayment'
-                                  : s.kind === 'contact'
-                                    ? 'Contact follow-up'
-                                    : 'Subscription';
+    s.kind === 'card_statement'
+      ? 'Credit-card statement'
+      : s.kind === 'health_medication'
+        ? 'Medication reminder'
+        : s.kind === 'health_appointment'
+          ? 'Health appointment'
+          : s.kind === 'career_follow_up'
+            ? 'Application follow-up'
+            : s.kind === 'career_interview'
+              ? 'Interview'
+              : s.kind === 'certification'
+                ? 'Certification'
+                : s.kind === 'warranty'
+                  ? 'Asset warranty'
+                  : s.kind === 'maintenance'
+                    ? 'Maintenance'
+                    : s.kind === 'family_birthday'
+                      ? 'Birthday'
+                      : s.kind === 'family_task'
+                        ? 'Household task'
+                        : s.kind === 'family_date'
+                          ? 'Important date'
+                          : s.kind === 'task'
+                            ? 'Task'
+                            : s.kind === 'bill'
+                              ? 'Bill'
+                              : s.kind === 'document'
+                                ? 'Document'
+                                : s.kind === 'trial'
+                                  ? 'Trial'
+                                  : s.kind === 'loan'
+                                    ? 'Loan repayment'
+                                    : s.kind === 'contact'
+                                      ? 'Contact follow-up'
+                                      : 'Subscription';
   const overdue =
     s.kind === 'document' || s.kind === 'warranty' || s.kind === 'certification'
       ? 'expired'

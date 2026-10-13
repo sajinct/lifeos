@@ -46,6 +46,9 @@ export class Reminders {
         this.store.careerRecords(),
         this.store.healthAppointments(),
         this.store.medicationPlans(),
+        this.store.cardStatements(),
+        this.store.cardPayments(),
+        this.store.creditCards(),
       );
       const prefs = this.store.reminderPreferences();
       const workspace = this.store.workspace();
@@ -227,31 +230,33 @@ export class Reminders {
       const c = this.backend.requireClient();
       // Fetch the exact source even when it falls outside a screen's newest-500 window.
       const table =
-        n.source_kind === 'health_medication'
-          ? 'medication_plans'
-          : n.source_kind === 'health_appointment'
-            ? 'health_appointments'
-            : n.source_kind.startsWith('career_') || n.source_kind === 'certification'
-              ? 'career_records'
-              : n.source_kind === 'warranty'
-                ? 'assets'
-                : n.source_kind === 'maintenance'
-                  ? 'maintenance_plans'
-                  : n.source_kind === 'family_birthday'
-                    ? 'household_members'
-                    : n.source_kind === 'family_task' || n.source_kind === 'family_date'
-                      ? 'household_entries'
-                      : n.source_kind === 'task'
-                        ? 'tasks'
-                        : n.source_kind === 'bill'
-                          ? 'bills'
-                          : n.source_kind === 'document'
-                            ? 'attachments'
-                            : n.source_kind === 'loan'
-                              ? 'loans'
-                              : n.source_kind === 'contact'
-                                ? 'contacts'
-                                : 'subscriptions';
+        n.source_kind === 'card_statement'
+          ? 'card_statements'
+          : n.source_kind === 'health_medication'
+            ? 'medication_plans'
+            : n.source_kind === 'health_appointment'
+              ? 'health_appointments'
+              : n.source_kind.startsWith('career_') || n.source_kind === 'certification'
+                ? 'career_records'
+                : n.source_kind === 'warranty'
+                  ? 'assets'
+                  : n.source_kind === 'maintenance'
+                    ? 'maintenance_plans'
+                    : n.source_kind === 'family_birthday'
+                      ? 'household_members'
+                      : n.source_kind === 'family_task' || n.source_kind === 'family_date'
+                        ? 'household_entries'
+                        : n.source_kind === 'task'
+                          ? 'tasks'
+                          : n.source_kind === 'bill'
+                            ? 'bills'
+                            : n.source_kind === 'document'
+                              ? 'attachments'
+                              : n.source_kind === 'loan'
+                                ? 'loans'
+                                : n.source_kind === 'contact'
+                                  ? 'contacts'
+                                  : 'subscriptions';
       const { data, error } = await c
         .from(table)
         .select('*')
@@ -292,7 +297,9 @@ export class Reminders {
           ...rows.filter((r) => r.id !== data.id),
           data,
         ]);
-      } else if ('reminder_time' in data)
+      } else if ('cycle_end' in data)
+        this.store.cardStatements.update((rows) => [...rows.filter((r) => r.id !== data.id), data]);
+      else if ('reminder_time' in data)
         this.store.medicationPlans.update((rows) => [
           ...rows.filter((r) => r.id !== data.id),
           data,
@@ -405,26 +412,28 @@ export class Reminders {
     }
   }
   path(n: Notification) {
-    return n.source_kind === 'health_medication'
-      ? '/health'
-      : n.source_kind === 'health_appointment'
+    return n.source_kind === 'card_statement'
+      ? '/cards'
+      : n.source_kind === 'health_medication'
         ? '/health'
-        : n.source_kind?.startsWith('career_') || n.source_kind === 'certification'
-          ? '/career'
-          : n.source_kind === 'warranty' || n.source_kind === 'maintenance'
-            ? '/assets'
-            : n.source_kind?.startsWith('family_')
-              ? '/family'
-              : n.source_kind === 'task'
-                ? '/tasks'
-                : n.source_kind === 'bill'
-                  ? '/finance'
-                  : n.source_kind === 'document'
-                    ? '/documents'
-                    : n.source_kind === 'loan'
-                      ? '/loans'
-                      : n.source_kind === 'contact'
-                        ? '/contacts'
-                        : '/subscriptions';
+        : n.source_kind === 'health_appointment'
+          ? '/health'
+          : n.source_kind?.startsWith('career_') || n.source_kind === 'certification'
+            ? '/career'
+            : n.source_kind === 'warranty' || n.source_kind === 'maintenance'
+              ? '/assets'
+              : n.source_kind?.startsWith('family_')
+                ? '/family'
+                : n.source_kind === 'task'
+                  ? '/tasks'
+                  : n.source_kind === 'bill'
+                    ? '/finance'
+                    : n.source_kind === 'document'
+                      ? '/documents'
+                      : n.source_kind === 'loan'
+                        ? '/loans'
+                        : n.source_kind === 'contact'
+                          ? '/contacts'
+                          : '/subscriptions';
   }
 }

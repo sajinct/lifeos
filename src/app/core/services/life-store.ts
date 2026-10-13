@@ -3,6 +3,9 @@ import { AuthService } from '../auth/auth';
 import { Backend } from '../supabase/client';
 import {
   Account,
+  CreditCard,
+  CardStatement,
+  CardPayment,
   Attachment,
   Budget,
   Bill,
@@ -87,6 +90,9 @@ export class LifeStore {
   readonly events = signal<CalendarEvent[]>([]);
   readonly notes = signal<Note[]>([]);
   readonly goals = signal<Goal[]>([]);
+  readonly creditCards = signal<CreditCard[]>([]);
+  readonly cardStatements = signal<CardStatement[]>([]);
+  readonly cardPayments = signal<CardPayment[]>([]);
   readonly accounts = signal<Account[]>([]);
   readonly transactions = signal<Transaction[]>([]);
   readonly budgets = signal<Budget[]>([]);
@@ -224,6 +230,9 @@ export class LifeStore {
     this.events.set(d.events);
     this.notes.set(d.notes);
     this.goals.set(d.goals);
+    this.creditCards.set(d.creditCards);
+    this.cardStatements.set(d.cardStatements);
+    this.cardPayments.set(d.cardPayments);
     this.accounts.set(d.accounts);
     this.transactions.set(d.transactions);
     this.budgets.set(d.budgets);
@@ -274,6 +283,9 @@ export class LifeStore {
     this.events.set([]);
     this.notes.set([]);
     this.goals.set([]);
+    this.creditCards.set([]);
+    this.cardStatements.set([]);
+    this.cardPayments.set([]);
     this.accounts.set([]);
     this.transactions.set([]);
     this.budgets.set([]);
@@ -338,6 +350,9 @@ export class LifeStore {
         events: this.events(),
         notes: this.notes(),
         goals: this.goals(),
+        creditCards: this.creditCards(),
+        cardStatements: this.cardStatements(),
+        cardPayments: this.cardPayments(),
         accounts: this.accounts(),
         transactions: this.transactions(),
         budgets: this.budgets(),
@@ -391,6 +406,9 @@ export class LifeStore {
         this.events.set(d.events);
         this.notes.set(d.notes);
         this.goals.set(d.goals);
+        this.creditCards.set(d.creditCards);
+        this.cardStatements.set(d.cardStatements);
+        this.cardPayments.set(d.cardPayments);
         this.accounts.set(d.accounts);
         this.transactions.set(d.transactions);
         this.budgets.set(d.budgets);
@@ -817,6 +835,30 @@ export class LifeStore {
       this.habitPeriods.set(periodRows);
       this.habitCheckins.set(checkinRows);
       this.goalMilestones.set(milestoneRows);
+      const creditCards: CreditCard[] = [],
+        cardStatements: CardStatement[] = [],
+        cardPayments: CardPayment[] = [];
+      for (const table of ['credit_cards', 'card_statements', 'card_payments'] as const)
+        for (let offset = 0; ; offset += 500) {
+          const page = await c
+            .from(table)
+            .select('*')
+            .eq('workspace_id', w.id)
+            .order('created_at')
+            .order('id')
+            .range(offset, offset + 499);
+          if (page.error) throw page.error;
+          if (run !== this.generation) return;
+          if (table === 'credit_cards') creditCards.push(...(page.data as CreditCard[]));
+          else if (table === 'card_statements')
+            cardStatements.push(...(page.data as CardStatement[]));
+          else cardPayments.push(...(page.data as CardPayment[]));
+          if (page.data.length < 500) break;
+        }
+      if (run !== this.generation) return;
+      this.creditCards.set(creditCards);
+      this.cardStatements.set(cardStatements);
+      this.cardPayments.set(cardPayments);
       const travelPlans: TravelPlan[] = [],
         travelEntries: TravelEntry[] = [],
         travelBudgets: TravelBudget[] = [],
@@ -1313,6 +1355,8 @@ export class LifeStore {
           (a) => a.id === input.account_id && a.owner_id === b.owner_id,
         );
         if (!account) throw new Error('Choose an account you own.');
+        if (this.creditCards().some((c) => c.account_id === account.id && c.archived))
+          throw new Error('Restore card before recording ledger entries.');
         const row: Transaction = {
           ...b,
           visibility: 'private',
@@ -1346,12 +1390,20 @@ export class LifeStore {
   }
   async transfer(source: string, destination: string, amount: string, requestId: string) {
     const value = parseMoney(amount);
+    if (this.creditCards().some((c) => c.account_id === source || c.account_id === destination))
+      throw new Error('Use Credit cards to record statement payments.');
     if (source === destination) throw new Error('Choose two different accounts.');
     const owned = this.accounts().filter(
       (a) => a.owner_id === (this.auth.demo() ? 'demo-user' : this.auth.user()?.id),
     );
     const a = owned.find((a) => a.id === source),
       b = owned.find((a) => a.id === destination);
+    if (
+      this.creditCards().some(
+        (c) => c.archived && (c.account_id === source || c.account_id === destination),
+      )
+    )
+      throw new Error('Restore card before recording ledger entries.');
     if (!a || !b || a.currency !== b.currency)
       throw new Error('Choose accounts you own with matching currencies.');
     if (!this.auth.demo()) {
@@ -1583,6 +1635,7 @@ export class LifeStore {
     let count = current.occurrence_count;
     let next = current.next_on;
     let posted = 0;
+    if (this.creditCards().some((c) => c.account_id === current.account_id && c.archived)) return 0;
     const entries: Transaction[] = [];
     while (next <= localDate() && posted < 100) {
       entries.push({
@@ -1646,6 +1699,9 @@ export class LifeStore {
       events: this.events(),
       notes: this.notes(),
       goals: this.goals(),
+      creditCards: this.creditCards(),
+      cardStatements: this.cardStatements(),
+      cardPayments: this.cardPayments(),
       accounts: this.accounts(),
       transactions: this.transactions(),
       budgets: this.budgets(),

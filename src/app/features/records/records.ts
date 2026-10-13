@@ -1,7 +1,7 @@
 import { Component, computed, inject, signal, effect } from '@angular/core';
 import { DatePipe, DecimalPipe, NgTemplateOutlet } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { LifeStore } from '../../core/services/life-store';
 import { UiService } from '../../core/services/ui';
 import {
@@ -29,6 +29,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
     NgTemplateOutlet,
     ReactiveFormsModule,
     FinancePlanning,
+    RouterLink,
     TaskTimePanel,
   ],
   templateUrl: './records.html',

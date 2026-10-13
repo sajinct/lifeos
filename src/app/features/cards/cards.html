@@ -1,0 +1,384 @@
+<header class="page-heading">
+  <div>
+    <span class="eyebrow">FINANCE</span>
+    <h1>Credit cards</h1>
+    <p>Billing cycles, confirmed statements and payments. Private to you.</p>
+  </div>
+  <div class="actions">
+    <a class="button subtle" routerLink="/finance">Open Finance</a
+    ><button
+      class="button primary"
+      (click)="newCard()"
+      [disabled]="busy() || store.loading() || !store.writable()"
+    >
+      Add card
+    </button>
+  </div>
+</header>
+@if (error()) {
+  <p class="error-message" role="alert">{{ error() }}</p>
+}
+@if (cardEditor()) {
+  <section class="panel" style="padding: 24px; margin-bottom: 20px">
+    <h2>{{ previousCard() ? 'Edit card' : 'New credit card' }}</h2>
+    <form [formGroup]="cardForm" (ngSubmit)="saveCard()" class="capture-form">
+      <label
+        >Card name<input
+          formControlName="title"
+          maxlength="200"
+          placeholder="Everyday card"
+          required /></label
+      ><label
+        >Last four digits (optional)<input
+          formControlName="last_four"
+          maxlength="4"
+          inputmode="numeric"
+      /></label>
+      @if (!previousCard()) {
+        <label>Currency<input formControlName="currency" maxlength="3" required /></label
+        ><label
+          >Opening debt<input formControlName="opening_debt" inputmode="decimal" required /><small
+            >Existing debt before the purchases you will record in LifeOS.</small
+          ></label
+        >
+      }
+      <label
+        >Credit limit<input formControlName="credit_limit" inputmode="decimal" required /><small
+          >Use 0 when unknown.</small
+        ></label
+      ><label
+        >Statement closing day<input
+          formControlName="closing_day"
+          type="number"
+          min="1"
+          max="31"
+          required /></label
+      ><label
+        >Payment due day<input
+          formControlName="due_day"
+          type="number"
+          min="1"
+          max="31"
+          required /></label
+      ><label>Notes<textarea formControlName="notes" maxlength="2000"></textarea></label
+      ><label class="check"
+        ><input formControlName="reminders_enabled" type="checkbox" />Remind me about unpaid
+        statements</label
+      >
+      <p class="muted">
+        Days 29–31 use the last day of shorter months. Reminders also require Bill reminders in
+        Settings and appear in the app.
+      </p>
+      <div class="actions">
+        <button class="button primary" [disabled]="busy() || !store.writable()">Save card</button
+        ><button type="button" class="button subtle" (click)="cardEditor.set(false)">Cancel</button>
+      </div>
+    </form>
+  </section>
+}
+<div class="toolbar">
+  <label
+    >Find a card<input
+      placeholder="Name or last four digits"
+      [value]="search()"
+      (input)="search.set($any($event.target).value)" /></label
+  ><label class="check"
+    ><input
+      type="checkbox"
+      [checked]="archived()"
+      (change)="archived.set($any($event.target).checked)"
+    />Show archived cards</label
+  >
+</div>
+<div class="card-grid">
+  @for (c of rows(); track c.id) {
+    <button class="panel" style="padding: 22px; text-align: left" (click)="select(c)">
+      <span class="eyebrow">{{ c.last_four ? '•••• ' + c.last_four : 'CREDIT CARD' }}</span>
+      <h2>{{ c.title }}</h2>
+      <strong>{{ money(debt(c), c) }}</strong>
+      <p class="muted">
+        {{ debt(c) < 0 ? 'Credit balance' : 'Recorded debt' }} · closes {{ c.closing_day }} · due
+        day {{ c.due_day }}
+      </p>
+    </button>
+  } @empty {
+    <div class="panel empty-state">
+      {{ store.loading() ? 'Loading cards…' : 'Add a card to start tracking your statements.' }}
+    </div>
+  }
+</div>
+@if (selected(); as c) {
+  <section class="panel" style="padding: 24px; margin-top: 24px">
+    <header class="section-heading">
+      <div>
+        <span class="eyebrow"
+          >PRIVATE · {{ currency(c) }}{{ c.last_four ? ' · •••• ' + c.last_four : '' }}</span
+        >
+        <h2>{{ c.title }}</h2>
+        <p class="muted">
+          Record card purchases as expenses on this card account in Finance. Record refunds as
+          income on that account.
+        </p>
+      </div>
+      <div class="actions">
+        <button class="button subtle" (click)="export()">Export statements</button>
+        @if (store.writable()) {
+          <button class="button subtle" (click)="newCard(c)" [disabled]="busy() || c.archived">
+            Edit card</button
+          ><button
+            class="button subtle"
+            (click)="act(c, 'card', c.archived ? 'restore' : 'archive')"
+            [disabled]="busy()"
+          >
+            {{ c.archived ? 'Restore card' : 'Archive card' }}
+          </button>
+        }
+      </div>
+    </header>
+    <div class="card-grid">
+      <article>
+        <span class="eyebrow">RECORDED CARD DEBT</span>
+        <h2>{{ money(debt(c), c) }}</h2>
+        <small>Includes opening debt, purchases, refunds and transfers.</small>
+      </article>
+      <article>
+        <span class="eyebrow">CREDIT LIMIT</span>
+        <h2>{{ c.credit_limit ? money(c.credit_limit, c) : 'Not set' }}</h2>
+        <small>{{
+          c.credit_limit
+            ? 'Available: ' + money(c.credit_limit - debt(c), c)
+            : 'No limit check applied'
+        }}</small>
+      </article>
+      @if (current(); as s) {
+        <article>
+          <span class="eyebrow">CURRENT STATEMENT REMAINING</span>
+          <h2>{{ money(remaining(s), c) }}</h2>
+          <small
+            >{{ status(s) }} · due {{ s.due_on + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }}</small
+          >
+          <p>Minimum still due: {{ money(balance(s, store.cardPayments()).minimum, c) }}</p>
+        </article>
+      }
+    </div>
+    <p class="muted">
+      The bank statement total is a snapshot, including carried debt. A new statement replaces the
+      previous due balance; statement totals are never added to the expense ledger. Record interest
+      and fees separately as card-account expenses.
+    </p>
+    @if (c.notes) {
+      <p>{{ c.notes }}</p>
+    }
+    <div class="actions" style="margin: 20px 0">
+      @if (store.writable() && !c.archived) {
+        <button class="button primary" (click)="newStatement()" [disabled]="busy()">
+          Add statement
+        </button>
+        @if (current(); as s) {
+          <button class="button subtle" (click)="newStatement(s)" [disabled]="busy()">
+            Edit current statement</button
+          ><button
+            class="button primary"
+            (click)="newPayment()"
+            [disabled]="busy() || remaining(s) === 0"
+          >
+            Record payment
+          </button>
+        }
+      }
+    </div>
+    @if (statementEditor()) {
+      <form [formGroup]="statementForm" (ngSubmit)="saveStatement()" class="capture-form">
+        <h3>{{ previousStatement() ? 'Edit statement' : 'Confirm bank statement' }}</h3>
+        <label
+          >Cycle closing date<input
+            formControlName="cycle_end"
+            type="date"
+            [readonly]="!!previousStatement()"
+            (change)="suggestDue()"
+            required /></label
+        ><label>Payment due date<input formControlName="due_on" type="date" required /></label
+        ><label
+          >Full statement total<input formControlName="amount" inputmode="decimal" required /><small
+            >Include any unpaid amount carried from earlier statements. Enter the bank’s confirmed
+            total.</small
+          ></label
+        ><label
+          >Minimum due<input formControlName="minimum_due" inputmode="decimal" required /></label
+        ><label
+          >Statement notes<textarea formControlName="notes" maxlength="2000"></textarea>
+        </label>
+        <p class="muted">
+          Billing days suggest dates. Check them against your bank statement before saving. New
+          statements must close after the current cycle.
+        </p>
+        <div class="actions">
+          <button class="button primary" [disabled]="busy()">Save statement</button
+          ><button type="button" class="button subtle" (click)="statementEditor.set(false)">
+            Cancel
+          </button>
+        </div>
+      </form>
+    }
+    @if (paymentEditor()) {
+      <form [formGroup]="paymentForm" (ngSubmit)="pay()" class="capture-form">
+        <h3>Record a completed payment</h3>
+        <label
+          >Paying bank account<select formControlName="source" required>
+            <option value="">Choose account</option>
+            @for (a of banks(); track a.id) {
+              <option [value]="a.id">{{ a.name }}</option>
+            }
+          </select></label
+        ><label>Payment amount<input formControlName="amount" inputmode="decimal" required /></label
+        ><label>Payment date<input formControlName="date" type="date" required /></label
+        ><label>Payment notes<textarea formControlName="notes" maxlength="2000"></textarea></label>
+        <p class="muted">
+          This records your completed bank payment as a transfer. It does not send money. Payment
+          must fit the current statement’s remaining amount and recorded card debt.
+        </p>
+        <div class="actions">
+          <button class="button primary" [disabled]="busy() || !banks().length">Save payment</button
+          ><button type="button" class="button subtle" (click)="paymentEditor.set(false)">
+            Cancel
+          </button>
+        </div>
+      </form>
+    }
+    <h3 style="margin-top: 24px">Statement history</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Cycle closes</th>
+            <th>Due</th>
+            <th>Total</th>
+            <th>Payments</th>
+            <th>Unpaid snapshot</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (s of statements(); track s.id) {
+            <tr>
+              <td>
+                {{ s.cycle_end + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }}
+                @if (s.notes) {
+                  <small>{{ s.notes }}</small>
+                }
+              </td>
+              <td>{{ s.due_on + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }}</td>
+              <td>{{ money(s.amount, c) }}</td>
+              <td>{{ money(balance(s, store.cardPayments()).paid, c) }}</td>
+              <td>{{ money(remaining(s), c) }}</td>
+              <td>{{ status(s) }}</td>
+              <td>
+                @if (s.status === 'open' && store.writable() && !c.archived) {
+                  <button
+                    class="button subtle"
+                    (click)="act(s, 'statement', 'cancel')"
+                    [disabled]="busy()"
+                  >
+                    Cancel statement
+                  </button>
+                }
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="7">No confirmed statement yet.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <p class="muted">
+      Current statement payments include any recorded card payments after its closing date, even
+      when recorded against the previous statement. Earlier unpaid snapshots are historical. Only
+      the current statement is due. Cancelling it restores the previous statement; reverse its
+      payments first. Payments on older statements remain fixed until newer statements are
+      cancelled.
+    </p>
+    <h3>Payment history</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Bank account</th>
+            <th>Amount</th>
+            <th>Statement closes</th>
+            <th>Notes</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (p of payments(); track p.id) {
+            <tr>
+              <td>{{ p.booked_on + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }}</td>
+              <td>
+                @for (a of store.accounts(); track a.id) {
+                  @if (a.id === p.source_account_id) {
+                    {{ a.name }}
+                  }
+                }
+              </td>
+              <td>{{ money(p.amount, c) }}</td>
+              <td>
+                @for (s of statements(); track s.id) {
+                  @if (s.id === p.statement_id) {
+                    {{ s.cycle_end + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }}
+                  }
+                }
+              </td>
+              <td>{{ p.notes }}</td>
+              <td>{{ p.voided ? 'Reversed' : 'Recorded' }}</td>
+              <td>
+                @if (
+                  !p.voided && p.statement_id === current()?.id && store.writable() && !c.archived
+                ) {
+                  <button class="button subtle" (click)="voidPayment(p.id)" [disabled]="busy()">
+                    Reverse payment
+                  </button>
+                }
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="7">No recorded payments.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <h3>Card ledger</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Entry</th>
+            <th>Type</th>
+            <th>Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (t of ledger(); track t.id) {
+            <tr>
+              <td>{{ t.booked_on + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }}</td>
+              <td>{{ t.title }}</td>
+              <td>{{ t.kind.replace('_', ' ') }}</td>
+              <td>{{ money(t.amount, c) }}</td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="4">No ledger entries. Opening debt: {{ money(debt(c), c) }}.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+}

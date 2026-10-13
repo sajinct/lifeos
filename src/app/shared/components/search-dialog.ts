@@ -75,6 +75,16 @@ export class SearchDialog implements AfterViewInit {
     if (!q) return [];
     return [
       ...this.store
+        .creditCards()
+        .filter((c) => !c.archived && c.owner_id === this.store.profile()?.id)
+        .map((c) => ({
+          id: c.id,
+          title: c.title,
+          type: 'Credit card',
+          icon: 'wallet',
+          path: '/cards',
+        })),
+      ...this.store
         .goals()
         .filter((g) => g.status === 'active')
         .map((g) => ({ id: g.id, title: g.title, type: 'Goal', icon: 'goal', path: '/goals' })),
@@ -217,7 +227,7 @@ export class SearchDialog implements AfterViewInit {
   navigate(result: { id: string; path: string; bucket?: string }) {
     this.ui.searchOpen.set(false);
     void this.router.navigateByUrl(
-      result.path === '/projects' || result.path === '/travel'
+      result.path === '/projects' || result.path === '/travel' || result.path === '/cards'
         ? result.path + '?linked=' + encodeURIComponent(result.id)
         : result.path === '/family' ||
             result.path === '/assets' ||

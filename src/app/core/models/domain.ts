@@ -184,6 +184,55 @@ export interface MilestoneInput {
   due_on: string;
   notes: string;
 }
+export interface CreditCard extends OwnedRecord {
+  account_id: string;
+  title: string;
+  last_four: string;
+  closing_day: number;
+  due_day: number;
+  credit_limit: number;
+  notes: string;
+  reminders_enabled: boolean;
+  archived: boolean;
+  revision: number;
+}
+export interface CardStatement extends OwnedRecord {
+  card_id: string;
+  cycle_end: string;
+  due_on: string;
+  amount: number;
+  minimum_due: number;
+  notes: string;
+  status: 'open' | 'superseded' | 'cancelled';
+  revision: number;
+}
+export interface CardPayment extends OwnedRecord {
+  card_id: string;
+  statement_id: string;
+  source_account_id: string;
+  amount: number;
+  booked_on: string;
+  notes: string;
+  voided: boolean;
+  reversal_id: string | null;
+}
+export type CardInput = Pick<
+  CreditCard,
+  'title' | 'last_four' | 'closing_day' | 'due_day' | 'notes' | 'reminders_enabled'
+> & { currency: string; opening_debt: string; credit_limit: string };
+export interface StatementInput {
+  cycle_end: string;
+  due_on: string;
+  amount: string;
+  minimum_due: string;
+  notes: string;
+}
+export interface CardPaymentInput {
+  source: string;
+  amount: string;
+  date: string;
+  notes: string;
+}
 export interface Account extends OwnedRecord {
   name: string;
   currency: string;
@@ -403,6 +452,7 @@ export interface Notification extends OwnedRecord {
   source_kind:
     | 'task'
     | 'bill'
+    | 'card_statement'
     | 'document'
     | 'subscription'
     | 'trial'
@@ -743,6 +793,9 @@ export type CareerInput = Pick<
   document_ids: string[];
 };
 export interface TableRows {
+  credit_cards: CreditCard;
+  card_statements: CardStatement;
+  card_payments: CardPayment;
   travel_plans: TravelPlan;
   travel_entries: TravelEntry;
   travel_budgets: TravelBudget;
@@ -804,6 +857,42 @@ export type Database = {
     Tables: { [K in keyof TableRows]: Table<TableRows[K]> };
     Views: Record<string, never>;
     Functions: {
+      save_credit_card: {
+        Args: {
+          entry: string;
+          w: string;
+          expected_revision: number | null;
+          details: { [key: string]: string | number | boolean };
+        };
+        Returns: string;
+      };
+      save_card_statement: {
+        Args: {
+          entry: string;
+          w: string;
+          expected_revision: number | null;
+          parent: string;
+          details: { [key: string]: string | number };
+        };
+        Returns: string;
+      };
+      record_card_payment: {
+        Args: {
+          entry: string;
+          w: string;
+          statement: string;
+          source: string;
+          payment_amount: number;
+          payment_date: string;
+          payment_notes: string;
+        };
+        Returns: string;
+      };
+      void_card_payment: { Args: { entry: string }; Returns: undefined };
+      act_on_card_record: {
+        Args: { entry: string; record_kind: string; expected_revision: number; action: string };
+        Returns: undefined;
+      };
       save_travel_plan: {
         Args: {
           entry: string;
