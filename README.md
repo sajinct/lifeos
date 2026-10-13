@@ -35,13 +35,14 @@ Open http://127.0.0.1:4200 and choose **Explore a demo workspace**. Sample recor
 - Private health appointments with provider/location/date/time/notes, owned document-version links, completion/cancellation, archive/restore, personal day reminders and filtered CSV exports.
 - Private fitness logs, measurement history grouped by name/unit, medication schedules with weekday/time/zone reminders and pause/archive controls, and medical expense links that preserve the Finance ledger.
 - Private trips and personal events with itineraries, booking references/amounts, per-currency budgets, linked Finance expenses, checklists, guest RSVP/party sizes, archive/restore and CSV exports.
-- Private-by-default records, 61 RLS-protected application tables, private Storage policies, typed client access and server-only reminder dispatch.
+- Finance CSV imports with browser-side previews, account/currency validation, duplicate and bank-reference checks, row selection and atomic retry-safe batches.
+- Private-by-default records, 62 RLS-protected application tables, private Storage policies, typed client access and server-only reminder dispatch.
 - Date-filtered Finance reports with separate currency totals, monthly cash flow, category trends, budget comparisons, recorded subscription expenses and loan interest, plus filtered CSV and workspace JSON exports.
 - Currency-aware summaries, linked project records and idempotent transfer requests.
 - Installable PWA manifest/service worker that caches static assets only; offline indication.
 - GitHub Actions checks and Pages deployment supporting repository paths and custom domains.
 
-The foundation is complete, and all fifteen original module areas now have working features across Phases 2–4. The full ERP scope still has pending features: deeper Finance, Family, Calendar, Notes and Learning functionality, broader reports, email automation, imports and AI. The app does not expose empty routes for unimplemented features.
+The foundation is complete, and all fifteen original module areas now have working features across Phases 2–4. The full ERP scope still has pending features: deeper Finance, Family, Calendar, Notes and Learning functionality, broader reports, email automation, broader JSON imports and AI. The app does not expose empty routes for unimplemented features.
 
 ## Connect and deploy
 

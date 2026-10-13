@@ -1,0 +1,66 @@
+:host {
+  display: block;
+}
+.import-setup,
+.import-preview,
+.import-success {
+  padding: 24px;
+  margin-bottom: 20px;
+}
+.import-setup h2,
+.import-success h2 {
+  margin-bottom: 10px;
+}
+.import-setup > p {
+  margin: 12px 0;
+  line-height: 1.6;
+}
+.import-text {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+}
+.import-text textarea {
+  font-family: ui-monospace, monospace;
+  resize: vertical;
+}
+.import-confirm {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 20px 0 4px;
+}
+.import-confirm p {
+  max-width: 700px;
+  line-height: 1.6;
+}
+.import-confirm button {
+  white-space: nowrap;
+}
+.import-count {
+  white-space: nowrap;
+  color: var(--muted);
+}
+td small {
+  display: block;
+  margin-top: 5px;
+  max-width: 350px;
+}
+td input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+}
+.form-error {
+  margin: 12px 0;
+}
+@media (max-width: 700px) {
+  .import-confirm {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .import-setup,
+  .import-preview {
+    padding: 16px;
+  }
+}

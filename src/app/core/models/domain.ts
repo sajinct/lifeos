@@ -313,6 +313,8 @@ export interface Account extends OwnedRecord {
   opening_balance: number;
 }
 export interface Transaction extends OwnedRecord {
+  import_reference?: string | null;
+  import_batch_id?: string | null;
   title: string;
   account_id: string;
   amount: number;
@@ -936,6 +938,10 @@ export type Database = {
     Tables: { [K in keyof TableRows]: Table<TableRows[K]> };
     Views: Record<string, never>;
     Functions: {
+      import_finance_csv: {
+        Args: { entry: string; w: string; account: string; rows: { [key: string]: string }[] };
+        Returns: { imported: number; skipped: number };
+      };
       save_investment_holding: {
         Args: {
           entry: string;

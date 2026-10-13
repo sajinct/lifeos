@@ -12,6 +12,11 @@ export const routes: Routes = [
     loadComponent: () => import('./layout/shell').then((m) => m.Shell),
     children: [
       {
+        path: 'finance/import',
+        loadComponent: () =>
+          import('./features/finance-import/finance-import').then((m) => m.FinanceImportPage),
+      },
+      {
         path: '',
         loadComponent: () => import('./features/dashboard/dashboard').then((m) => m.Dashboard),
       },

@@ -1,0 +1,161 @@
+<section class="page-heading">
+  <div>
+    <span class="eyebrow">FINANCE · YOUR PRIVATE LEDGER</span>
+    <h1>Import transactions</h1>
+    <p>Review your CSV before adding income and expenses to an account.</p>
+  </div>
+  <div class="heading-actions">
+    <button class="button subtle" (click)="template()">Download CSV template</button
+    ><a class="button subtle" routerLink="/finance">Back to Finance</a>
+  </div>
+</section>
+<section class="panel import-setup" [formGroup]="form">
+  <h2>1. Choose an account and CSV</h2>
+  <p class="muted">
+    One account per file. Up to 500 rows and 1 MiB, encoded as UTF-8. Files are read in your
+    browser; only the selected rows are saved.
+  </p>
+  <div class="form-row">
+    <label
+      >Destination account<select
+        formControlName="account"
+        [attr.disabled]="busy() || pending() ? '' : null"
+      >
+        <option value="">Choose your own account</option>
+        @for (a of accounts(); track a.id) {
+          <option [value]="a.id">{{ a.name }} · {{ a.currency }}</option>
+        }
+      </select></label
+    >
+    <label
+      >CSV file<input
+        type="file"
+        accept=".csv,text/csv"
+        (change)="file($event)"
+        [disabled]="busy() || !!pending()"
+    /></label>
+  </div>
+  <label class="import-text"
+    >Or paste CSV<textarea
+      formControlName="text"
+      rows="7"
+      spellcheck="false"
+      [attr.disabled]="busy() || pending() ? '' : null"
+      placeholder="date,title,kind,amount,currency,category,reference"
+    ></textarea>
+  </label>
+  <p class="form-hint">
+    {{ filename() ? 'Loaded ' + filename() + '. ' : '' }}Use YYYY-MM-DD dates, income or expense,
+    positive amounts with up to two decimals, and the account’s exact currency. Optional references
+    identify bank transactions. Remove the example row from the template.
+  </p>
+  <p class="form-hint">
+    Use the dedicated transfer, loan, card payment, or investment flows for those movements. The
+    import records bookkeeping entries and does not move money. Identical date, title, type, amount
+    and category are skipped; enter genuinely identical purchases individually in Finance.
+  </p>
+  <button
+    class="button primary"
+    (click)="preview()"
+    [disabled]="busy() || !!pending() || !store.writable()"
+  >
+    Preview CSV
+  </button>
+</section>
+@if (error()) {
+  <p class="form-error" role="alert">{{ error() }}</p>
+}
+@if (result(); as r) {
+  <section class="panel import-success" role="status">
+    <h2>Import complete</h2>
+    <p>
+      {{ r.imported }} {{ r.imported === 1 ? 'transaction' : 'transactions' }} added.
+      {{ r.skipped }} matching {{ r.skipped === 1 ? 'row' : 'rows' }} skipped during saving.
+    </p>
+    <a routerLink="/finance" class="button primary">View your ledger</a>
+  </section>
+}
+@if (rows().length) {
+  <section class="panel import-preview">
+    <div class="panel-heading">
+      <div>
+        <h2>2. Review and select rows</h2>
+        <p class="muted">
+          {{ ready().length }} ready · {{ duplicates() }}
+          {{ duplicates() === 1 ? 'duplicate' : 'duplicates' }} · {{ invalid() }} invalid. Invalid
+          and duplicate rows will not be imported.
+        </p>
+      </div>
+      <span class="import-count">{{ selected().size }} selected</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Include</th>
+            <th>Line</th>
+            <th>Transaction</th>
+            <th>Date</th>
+            <th>Amount</th>
+            <th>Review</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (r of rows(); track r.line) {
+            <tr>
+              <td>
+                <input
+                  type="checkbox"
+                  [attr.aria-label]="'Include line ' + r.line"
+                  [checked]="selected().has(r.line)"
+                  [disabled]="r.status !== 'ready' || busy() || !!pending()"
+                  (change)="toggle(r.line)"
+                />
+              </td>
+              <td>{{ r.line }}</td>
+              <td>
+                <strong>{{ r.values['title'] }}</strong
+                ><small>{{ r.values['kind'] }} · {{ r.values['category'] }}</small>
+                @if (r.values['reference']) {
+                  <small>Ref: {{ r.values['reference'] }}</small>
+                }
+              </td>
+              <td>{{ r.values['date'] }}</td>
+              <td>{{ r.values['amount'] }} {{ r.values['currency'] }}</td>
+              <td>
+                <span [class.form-error]="r.status === 'invalid'">{{ r.status }}</span>
+                @for (message of r.messages; track message) {
+                  <small>{{ message }}</small>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <div class="import-confirm">
+      <p class="form-hint">
+        The server rechecks ownership, currency, dates and duplicates before saving this entire
+        batch. Keep the same batch for a safe retry if the connection fails.
+      </p>
+      <button
+        class="button primary"
+        (click)="save()"
+        [disabled]="busy() || !store.writable() || (!selected().size && !pending())"
+      >
+        {{
+          busy()
+            ? 'Saving…'
+            : pending()
+              ? 'Retry this batch'
+              : 'Import ' +
+                selected().size +
+                (selected().size === 1 ? ' selected row' : ' selected rows')
+        }}
+      </button>
+    </div>
+    @if (pending() && !busy()) {
+      <button class="text-button" (click)="clear()">Discard preview and start again</button>
+    }
+  </section>
+}
