@@ -570,6 +570,72 @@ export interface ServiceInput {
   cost: string;
   notes: string;
 }
+export interface TravelPlan extends OwnedRecord {
+  kind: 'trip' | 'event';
+  title: string;
+  location: string;
+  starts_on: string;
+  ends_on: string;
+  timezone: string;
+  status: 'planning' | 'active' | 'completed' | 'cancelled';
+  notes: string;
+  archived: boolean;
+  revision: number;
+}
+export type TravelPlanInput = Pick<
+  TravelPlan,
+  'kind' | 'title' | 'location' | 'starts_on' | 'ends_on' | 'timezone' | 'status' | 'notes'
+>;
+export interface TravelEntry extends OwnedRecord {
+  plan_id: string;
+  kind: 'itinerary' | 'booking' | 'checklist' | 'guest';
+  title: string;
+  date_on: string | null;
+  end_on: string | null;
+  time_at: string;
+  end_time: string;
+  location: string;
+  reference: string;
+  cost: number | null;
+  currency: string;
+  email: string;
+  phone: string;
+  guest_count: number | null;
+  status: string;
+  notes: string;
+  archived: boolean;
+  revision: number;
+}
+export type TravelEntryInput = Pick<
+  TravelEntry,
+  | 'kind'
+  | 'title'
+  | 'time_at'
+  | 'end_time'
+  | 'location'
+  | 'reference'
+  | 'currency'
+  | 'email'
+  | 'phone'
+  | 'status'
+  | 'notes'
+> & { date_on: string; end_on: string; cost: string; guest_count: string };
+export interface TravelBudget extends OwnedRecord {
+  plan_id: string;
+  currency: string;
+  amount: number;
+  archived: boolean;
+  revision: number;
+}
+export interface TravelExpense extends OwnedRecord {
+  plan_id: string;
+  transaction_id: string;
+  notes: string;
+  archived: boolean;
+  revision: number;
+}
+export type TravelRecordKind = 'plan' | 'entry' | 'budget' | 'expense';
+export type TravelAction = 'archive' | 'restore' | 'complete' | 'reopen';
 export interface HealthLog extends OwnedRecord {
   kind: 'fitness' | 'measurement';
   title: string;
@@ -677,6 +743,10 @@ export type CareerInput = Pick<
   document_ids: string[];
 };
 export interface TableRows {
+  travel_plans: TravelPlan;
+  travel_entries: TravelEntry;
+  travel_budgets: TravelBudget;
+  travel_expenses: TravelExpense;
   project_milestones: ProjectMilestone;
   project_budgets: ProjectBudget;
   task_time_entries: TaskTime;
@@ -734,6 +804,51 @@ export type Database = {
     Tables: { [K in keyof TableRows]: Table<TableRows[K]> };
     Views: Record<string, never>;
     Functions: {
+      save_travel_plan: {
+        Args: {
+          entry: string;
+          w: string;
+          expected_revision: number | null;
+          details: { [key: string]: string };
+        };
+        Returns: string;
+      };
+      save_travel_entry: {
+        Args: {
+          entry: string;
+          w: string;
+          expected_revision: number | null;
+          parent: string;
+          details: { [key: string]: string | number | null };
+        };
+        Returns: string;
+      };
+      save_travel_budget: {
+        Args: {
+          entry: string;
+          w: string;
+          expected_revision: number | null;
+          parent: string;
+          budget_currency: string;
+          budget_amount: number;
+        };
+        Returns: string;
+      };
+      save_travel_expense: {
+        Args: {
+          entry: string;
+          w: string;
+          expected_revision: number | null;
+          parent: string;
+          expense: string;
+          expense_notes: string;
+        };
+        Returns: string;
+      };
+      act_on_travel_record: {
+        Args: { entry: string; record_kind: string; expected_revision: number; action: string };
+        Returns: undefined;
+      };
       save_planned_project: {
         Args: {
           entry: string;

@@ -26,6 +26,10 @@ import {
   HabitPeriod,
   HabitCheckin,
   GoalMilestone,
+  TravelPlan,
+  TravelEntry,
+  TravelBudget,
+  TravelExpense,
   HealthLog,
   MedicationPlan,
   HealthExpense,
@@ -94,6 +98,10 @@ export class LifeStore {
   readonly habitPeriods = signal<HabitPeriod[]>([]);
   readonly habitCheckins = signal<HabitCheckin[]>([]);
   readonly goalMilestones = signal<GoalMilestone[]>([]);
+  readonly travelPlans = signal<TravelPlan[]>([]);
+  readonly travelEntries = signal<TravelEntry[]>([]);
+  readonly travelBudgets = signal<TravelBudget[]>([]);
+  readonly travelExpenses = signal<TravelExpense[]>([]);
   readonly healthLogs = signal<HealthLog[]>([]);
   readonly medicationPlans = signal<MedicationPlan[]>([]);
   readonly healthExpenses = signal<HealthExpense[]>([]);
@@ -238,6 +246,10 @@ export class LifeStore {
     this.taskSeries.set(d.taskSeries);
     this.taskChecklist.set(d.taskChecklist);
     this.goalMilestones.set(d.goalMilestones);
+    this.travelPlans.set(d.travelPlans);
+    this.travelEntries.set(d.travelEntries);
+    this.travelBudgets.set(d.travelBudgets);
+    this.travelExpenses.set(d.travelExpenses);
     this.healthLogs.set(d.healthLogs);
     this.medicationPlans.set(d.medicationPlans);
     this.healthExpenses.set(d.healthExpenses);
@@ -282,6 +294,10 @@ export class LifeStore {
     this.taskSeries.set([]);
     this.taskChecklist.set([]);
     this.goalMilestones.set([]);
+    this.travelPlans.set([]);
+    this.travelEntries.set([]);
+    this.travelBudgets.set([]);
+    this.travelExpenses.set([]);
     this.healthLogs.set([]);
     this.medicationPlans.set([]);
     this.healthExpenses.set([]);
@@ -341,6 +357,10 @@ export class LifeStore {
         taskSeries: this.taskSeries(),
         taskChecklist: this.taskChecklist(),
         goalMilestones: this.goalMilestones(),
+        travelPlans: this.travelPlans(),
+        travelEntries: this.travelEntries(),
+        travelBudgets: this.travelBudgets(),
+        travelExpenses: this.travelExpenses(),
         healthLogs: this.healthLogs(),
         medicationPlans: this.medicationPlans(),
         healthExpenses: this.healthExpenses(),
@@ -397,6 +417,10 @@ export class LifeStore {
         this.taskSeries.set(d.taskSeries);
         this.taskChecklist.set(d.taskChecklist);
         this.goalMilestones.set(d.goalMilestones);
+        this.travelPlans.set(d.travelPlans);
+        this.travelEntries.set(d.travelEntries);
+        this.travelBudgets.set(d.travelBudgets);
+        this.travelExpenses.set(d.travelExpenses);
         this.healthLogs.set(d.healthLogs);
         this.medicationPlans.set(d.medicationPlans);
         this.healthExpenses.set(d.healthExpenses);
@@ -793,6 +817,37 @@ export class LifeStore {
       this.habitPeriods.set(periodRows);
       this.habitCheckins.set(checkinRows);
       this.goalMilestones.set(milestoneRows);
+      const travelPlans: TravelPlan[] = [],
+        travelEntries: TravelEntry[] = [],
+        travelBudgets: TravelBudget[] = [],
+        travelExpenses: TravelExpense[] = [];
+      for (const table of [
+        'travel_plans',
+        'travel_entries',
+        'travel_budgets',
+        'travel_expenses',
+      ] as const)
+        for (let offset = 0; ; offset += 500) {
+          const page = await c
+            .from(table)
+            .select('*')
+            .eq('workspace_id', w.id)
+            .order('created_at')
+            .order('id')
+            .range(offset, offset + 499);
+          if (page.error) throw page.error;
+          if (run !== this.generation) return;
+          if (table === 'travel_plans') travelPlans.push(...(page.data as TravelPlan[]));
+          else if (table === 'travel_entries') travelEntries.push(...(page.data as TravelEntry[]));
+          else if (table === 'travel_budgets') travelBudgets.push(...(page.data as TravelBudget[]));
+          else travelExpenses.push(...(page.data as TravelExpense[]));
+          if (page.data.length < 500) break;
+        }
+      if (run !== this.generation) return;
+      this.travelPlans.set(travelPlans);
+      this.travelEntries.set(travelEntries);
+      this.travelBudgets.set(travelBudgets);
+      this.travelExpenses.set(travelExpenses);
       const healthLogs: HealthLog[] = [],
         medicationPlans: MedicationPlan[] = [],
         healthExpenses: HealthExpense[] = [];
@@ -1610,6 +1665,10 @@ export class LifeStore {
       taskSeries: this.taskSeries(),
       taskChecklist: this.taskChecklist(),
       goalMilestones: this.goalMilestones(),
+      travelPlans: this.travelPlans(),
+      travelEntries: this.travelEntries(),
+      travelBudgets: this.travelBudgets(),
+      travelExpenses: this.travelExpenses(),
       healthLogs: this.healthLogs(),
       medicationPlans: this.medicationPlans(),
       healthExpenses: this.healthExpenses(),

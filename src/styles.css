@@ -3732,3 +3732,7 @@ td:last-child {
   flex: 1;
   min-width: 200px;
 }
+.travel-tabs {
+  flex-wrap: wrap;
+  max-width: 100%;
+}

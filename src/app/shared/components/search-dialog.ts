@@ -89,6 +89,16 @@ export class SearchDialog implements AfterViewInit {
           path: '/goals',
         })),
       ...this.store
+        .travelPlans()
+        .filter((r) => r.owner_id === this.store.profile()?.id && !r.archived)
+        .map((r) => ({
+          id: r.id,
+          title: r.title,
+          type: r.kind === 'trip' ? 'Trip' : 'Personal event',
+          icon: 'calendar',
+          path: '/travel',
+        })),
+      ...this.store
         .medicationPlans()
         .filter((r) => r.owner_id === this.store.profile()?.id && !r.archived)
         .map((r) => ({
@@ -207,7 +217,7 @@ export class SearchDialog implements AfterViewInit {
   navigate(result: { id: string; path: string; bucket?: string }) {
     this.ui.searchOpen.set(false);
     void this.router.navigateByUrl(
-      result.path === '/projects'
+      result.path === '/projects' || result.path === '/travel'
         ? result.path + '?linked=' + encodeURIComponent(result.id)
         : result.path === '/family' ||
             result.path === '/assets' ||

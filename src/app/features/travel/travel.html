@@ -1,0 +1,573 @@
+<div class="page-heading">
+  <div>
+    <span class="eyebrow">Make room for new memories</span>
+    <h1>Travel & events</h1>
+    <p>Your trips and personal events, planned privately.</p>
+  </div>
+  <div class="heading-actions">
+    <button
+      class="button"
+      (click)="export('plans')"
+      [disabled]="store.loading() || !!store.error()"
+    >
+      Export plans CSV</button
+    ><button
+      class="button primary"
+      (click)="editPlan()"
+      [disabled]="busy() || store.loading() || !store.writable()"
+    >
+      Add trip or event
+    </button>
+  </div>
+</div>
+<p class="form-hint">
+  Only you can access these records, including in shared workspaces. Bookings and guest responses
+  are records you maintain. Adding a guest sends no invitation or access grant.
+</p>
+@if (error() || store.error()) {
+  <p class="error-banner" role="alert">{{ error() || store.error() }}</p>
+}
+@if (linked()) {
+  <div class="file-reminder-banner">
+    Showing the linked plan.
+    <button class="button" (click)="clearLinked()">Show all travel plans</button>
+  </div>
+}
+<div class="records-toolbar contact-toolbar">
+  <label class="filter-search"
+    ><span class="sr-only">Search travel plans</span
+    ><input
+      placeholder="Search plans, destinations or notes"
+      [value]="search()"
+      (input)="search.set($any($event.target).value)" /></label
+  ><select
+    aria-label="Travel plan type filter"
+    [value]="kind()"
+    (change)="kind.set($any($event.target).value)"
+  >
+    <option value="all">Trips and events</option>
+    <option value="trip">Trips</option>
+    <option value="event">Personal events</option></select
+  ><label
+    ><input
+      type="checkbox"
+      [checked]="archived()"
+      (change)="archived.set($any($event.target).checked)"
+    />Show archived plans</label
+  >
+</div>
+@if (planEditor()) {
+  <section class="panel subscription-form">
+    <h2>{{ previousPlan() ? 'Edit plan' : 'New trip or event' }}</h2>
+    <form [formGroup]="planForm" (ngSubmit)="savePlan()">
+      <div class="form-grid">
+        <label
+          >Plan type<select formControlName="kind">
+            <option value="trip">Trip</option>
+            <option value="event">Personal event</option>
+          </select></label
+        ><label>Plan name<input formControlName="title" maxlength="200" required /></label
+        ><label>Destination or venue<input formControlName="location" maxlength="300" /></label
+        ><label>Plan time zone<input formControlName="timezone" maxlength="100" required /></label>
+        <label
+          >Plan start date<input
+            type="date"
+            formControlName="starts_on"
+            min="1900-01-01"
+            max="2100-12-31"
+            required /></label
+        ><label
+          >Plan end date<input
+            type="date"
+            formControlName="ends_on"
+            min="1900-01-01"
+            max="2100-12-31"
+            required /></label
+        ><label
+          >Plan status<select formControlName="status">
+            <option value="planning">Planning</option>
+            <option value="active">Active</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+          </select></label
+        >
+      </div>
+      <label
+        >Plan notes<textarea formControlName="notes" rows="3" maxlength="4000"></textarea>
+      </label>
+      <div class="heading-actions">
+        <button type="submit" class="button primary" [disabled]="busy()">Save travel plan</button
+        ><button type="button" class="button" (click)="planEditor.set(false)" [disabled]="busy()">
+          Cancel plan edit
+        </button>
+      </div>
+    </form>
+  </section>
+}
+@if (selected(); as p) {
+  <section class="panel project-detail">
+    <div class="panel-heading">
+      <div>
+        <span class="eyebrow"
+          >Private · {{ p.kind | titlecase }} · {{ p.status | titlecase }}
+          @if (p.archived) {
+            · Archived
+          }
+        </span>
+        <h2>{{ p.title }}</h2>
+        <p>{{ p.location }}</p>
+      </div>
+      <div class="heading-actions">
+        @if (!p.archived) {
+          <button
+            class="button"
+            (click)="editPlan(p)"
+            [disabled]="busy() || store.loading() || !store.writable()"
+          >
+            Edit travel plan
+          </button>
+        }
+        <button
+          class="button"
+          (click)="act(p, 'plan', p.archived ? 'restore' : 'archive')"
+          [disabled]="busy() || store.loading() || !store.writable()"
+        >
+          {{ p.archived ? 'Restore plan' : 'Archive plan' }}</button
+        ><button class="button" (click)="selectedId.set('')">Close plan details</button>
+      </div>
+    </div>
+    <p>
+      {{ p.starts_on + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }} –
+      {{ p.ends_on + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }} · Times in {{ p.timezone }}
+    </p>
+    <p class="project-notes">{{ p.notes }}</p>
+    <div class="contact-stats">
+      <section class="panel">
+        <span>Checklist completed</span
+        ><strong>{{ summary(p).done }} / {{ summary(p).checks }}</strong>
+      </section>
+      <section class="panel">
+        <span>Itinerary items / bookings</span
+        ><strong>{{ summary(p).itinerary }} / {{ summary(p).bookings }}</strong>
+      </section>
+      <section class="panel">
+        <span>Accepted guests</span><strong>{{ summary(p).guests }}</strong>
+      </section>
+    </div>
+    @if (p.archived || p.status === 'completed' || p.status === 'cancelled') {
+      <p class="form-hint">
+        Restore an archived plan or change its status to Planning/Active before changing itinerary,
+        bookings, checklists or guests. Financial records can still be updated on completed or
+        cancelled plans.
+      </p>
+    }
+    <div class="records-toolbar contact-toolbar">
+      <div class="segmented travel-tabs">
+        <button
+          [class.selected]="tabName() === 'itinerary'"
+          (click)="tab('itinerary')"
+          [disabled]="busy()"
+        >
+          Itinerary</button
+        ><button
+          [class.selected]="tabName() === 'booking'"
+          (click)="tab('booking')"
+          [disabled]="busy()"
+        >
+          Bookings</button
+        ><button
+          [class.selected]="tabName() === 'budget'"
+          (click)="tab('budget')"
+          [disabled]="busy()"
+        >
+          Budgets</button
+        ><button
+          [class.selected]="tabName() === 'expense'"
+          (click)="tab('expense')"
+          [disabled]="busy()"
+        >
+          Expenses</button
+        ><button
+          [class.selected]="tabName() === 'checklist'"
+          (click)="tab('checklist')"
+          [disabled]="busy()"
+        >
+          Checklist</button
+        ><button
+          [class.selected]="tabName() === 'guest'"
+          (click)="tab('guest')"
+          [disabled]="busy()"
+        >
+          Guests
+        </button>
+      </div>
+      <label
+        ><input
+          type="checkbox"
+          [checked]="childArchived()"
+          (change)="childArchived.set($any($event.target).checked)"
+        />Show archived planning records</label
+      >
+    </div>
+    @if (tabName() === 'budget' || tabName() === 'expense') {
+      <p class="form-hint">
+        Budgets compare your linked Finance expenses across all dates. Booking amounts are reference
+        figures and create no spending. Currency totals stay separate.
+      </p>
+      <div class="contact-stats">
+        @for (t of totals().rows; track t.currency) {
+          <section class="panel">
+            <span>{{ t.currency }} · Budget</span
+            ><strong>{{
+              t.planned === null ? 'No active budget' : money(t.planned, t.currency)
+            }}</strong>
+            <p>Recorded expenses: {{ money(t.spent, t.currency) }}</p>
+            @if (t.remaining !== null) {
+              <p>Remaining: {{ money(t.remaining, t.currency) }}</p>
+            }
+          </section>
+        }
+      </div>
+      @if (totals().error) {
+        <p class="error-banner">{{ totals().error }}</p>
+      }
+      <button
+        class="button"
+        (click)="export('finances')"
+        [disabled]="store.loading() || !!store.error()"
+      >
+        Export travel finances CSV
+      </button>
+      @if (tabName() === 'budget') {
+        <button class="button primary" (click)="editBudget()" [disabled]="!financialWritable()">
+          Add travel budget
+        </button>
+        @if (budgetEditor()) {
+          <form class="subscription-form" [formGroup]="budgetForm" (ngSubmit)="saveBudget()">
+            <div class="form-grid">
+              <label>Travel budget currency<input formControlName="currency" maxlength="3" /></label
+              ><label
+                >Travel budget amount<input formControlName="amount" inputmode="decimal"
+              /></label>
+            </div>
+            <div class="heading-actions">
+              <button type="submit" class="button primary" [disabled]="busy()">
+                Save travel budget</button
+              ><button
+                type="button"
+                class="button"
+                (click)="budgetEditor.set(false)"
+                [disabled]="busy()"
+              >
+                Cancel budget edit
+              </button>
+            </div>
+          </form>
+        }
+        <div class="project-budget-list">
+          @for (r of budgets(); track r.id) {
+            <div>
+              <span
+                >{{ r.currency }} · {{ money(r.amount, r.currency) }}
+                @if (r.archived) {
+                  · Archived
+                }
+              </span>
+              <div class="heading-actions">
+                @if (!r.archived) {
+                  <button class="button" (click)="editBudget(r)" [disabled]="!financialWritable()">
+                    Edit travel budget
+                  </button>
+                }
+                <button
+                  class="button"
+                  (click)="act(r, 'budget', r.archived ? 'restore' : 'archive')"
+                  [disabled]="!financialWritable()"
+                >
+                  {{ r.archived ? 'Restore budget' : 'Archive budget' }}
+                </button>
+              </div>
+            </div>
+          } @empty {
+            <p class="empty-state">No matching budgets.</p>
+          }
+        </div>
+      } @else {
+        <p class="form-hint">
+          Linking preserves the amount, account and balance. An expense can have one active travel
+          link; archive its previous link before moving it to a different plan.
+        </p>
+        <button class="button primary" (click)="editExpense()" [disabled]="!financialWritable()">
+          Link travel expense
+        </button>
+        @if (expenseEditor()) {
+          <form class="subscription-form" [formGroup]="expenseForm" (ngSubmit)="saveExpense()">
+            <label
+              >Recorded travel expense<select formControlName="expense">
+                <option value="">Choose a recorded expense</option>
+                @for (t of availableExpenses(); track t.id) {
+                  <option [value]="t.id">{{ expenseLabel(t.id) }}</option>
+                }
+              </select></label
+            ><label
+              >Travel expense notes<textarea
+                formControlName="notes"
+                maxlength="2000"
+                rows="2"
+              ></textarea>
+            </label>
+            <div class="heading-actions">
+              <button type="submit" class="button primary" [disabled]="busy()">
+                Save travel expense link</button
+              ><button
+                type="button"
+                class="button"
+                (click)="expenseEditor.set(false)"
+                [disabled]="busy()"
+              >
+                Cancel expense edit
+              </button>
+            </div>
+          </form>
+        }
+        <div class="project-budget-list">
+          @for (r of expenses(); track r.id) {
+            <div>
+              <div>
+                <strong>{{ expenseLabel(r.transaction_id) }}</strong>
+                @if (r.archived) {
+                  <span> · Archived link</span>
+                }
+                <p class="project-notes">{{ r.notes }}</p>
+              </div>
+              <div class="heading-actions">
+                @if (!r.archived) {
+                  <button class="button" (click)="editExpense(r)" [disabled]="!financialWritable()">
+                    Edit travel expense link
+                  </button>
+                }
+                <button
+                  class="button"
+                  (click)="act(r, 'expense', r.archived ? 'restore' : 'archive')"
+                  [disabled]="!financialWritable()"
+                >
+                  {{ r.archived ? 'Restore expense link' : 'Archive expense link' }}
+                </button>
+              </div>
+            </div>
+          } @empty {
+            <p class="empty-state">
+              No matching expense links. Record the expense in Finance first.
+            </p>
+          }
+        </div>
+      }
+    } @else {
+      <div class="heading-actions">
+        <button class="button primary" (click)="editEntry()" [disabled]="!planningWritable()">
+          Add
+          {{
+            tabName() === 'checklist'
+              ? 'checklist item'
+              : tabName() === 'guest'
+                ? 'guest'
+                : tabName() === 'booking'
+                  ? 'booking'
+                  : 'itinerary item'
+          }}</button
+        ><button
+          class="button"
+          (click)="export('entries')"
+          [disabled]="store.loading() || !!store.error()"
+        >
+          Export planning CSV
+        </button>
+      </div>
+      @if (entryEditor()) {
+        <form class="subscription-form" [formGroup]="entryForm" (ngSubmit)="saveEntry()">
+          <h3>{{ previousEntry() ? 'Edit' : 'New' }} {{ entryForm.controls.kind.value }}</h3>
+          <div class="form-grid">
+            <label
+              >Planning item name<input formControlName="title" maxlength="200" required /></label
+            ><label
+              >Planning item status<select formControlName="status">
+                @for (s of entryStatuses(); track s) {
+                  <option [value]="s">{{ s | titlecase }}</option>
+                }
+              </select></label
+            >
+            @if (
+              entryForm.controls.kind.value === 'itinerary' ||
+              entryForm.controls.kind.value === 'booking'
+            ) {
+              <label
+                >Item start date<input
+                  type="date"
+                  formControlName="date_on"
+                  [min]="p.starts_on"
+                  [max]="p.ends_on"
+                  required /></label
+              ><label
+                >Item end date (optional)<input
+                  type="date"
+                  formControlName="end_on"
+                  [min]="p.starts_on"
+                  [max]="p.ends_on" /></label
+              ><label
+                >Item start time (optional)<input type="time" formControlName="time_at" /></label
+              ><label
+                >Item end time (optional)<input type="time" formControlName="end_time" /></label
+              ><label>Item location<input formControlName="location" maxlength="300" /></label
+              ><label
+                >Booking or itinerary reference<input formControlName="reference" maxlength="200"
+              /></label>
+              @if (entryForm.controls.kind.value === 'booking') {
+                <label
+                  >Booking amount (optional)<input
+                    formControlName="cost"
+                    inputmode="decimal" /></label
+                ><label>Booking currency<input formControlName="currency" maxlength="3" /></label>
+              }
+            } @else if (entryForm.controls.kind.value === 'guest') {
+              <label
+                >Guest party size<input
+                  formControlName="guest_count"
+                  inputmode="numeric"
+                  required /></label
+              ><label>Guest email (optional)<input formControlName="email" maxlength="200" /></label
+              ><label>Guest phone (optional)<input formControlName="phone" maxlength="50" /></label>
+            }
+          </div>
+          <label
+            >Planning item notes<textarea
+              formControlName="notes"
+              maxlength="2000"
+              rows="3"
+            ></textarea>
+          </label>
+          <div class="heading-actions">
+            <button type="submit" class="button primary" [disabled]="busy()">
+              Save planning item</button
+            ><button
+              type="button"
+              class="button"
+              (click)="entryEditor.set(false)"
+              [disabled]="busy()"
+            >
+              Cancel planning edit
+            </button>
+          </div>
+        </form>
+      }
+      <div class="contact-cards">
+        @for (r of entries(); track r.id) {
+          <article class="panel contact-card">
+            <span class="eyebrow"
+              >{{ r.status | titlecase }}
+              @if (r.archived) {
+                · Archived
+              }
+            </span>
+            <div class="contact-card-heading">
+              <div>
+                <h2>{{ r.title }}</h2>
+                <p>{{ r.location }}</p>
+              </div>
+            </div>
+            @if (r.date_on) {
+              <p>
+                {{ r.date_on + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }}
+                @if (r.end_on && r.end_on !== r.date_on) {
+                  – {{ r.end_on + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }}
+                }
+                @if (r.time_at) {
+                  · {{ r.time_at }}
+                  @if (r.end_time) {
+                    – {{ r.end_time }}
+                  }
+                }
+                · {{ p.timezone }}
+              </p>
+            }
+            @if (r.reference) {
+              <p>Reference: {{ r.reference }}</p>
+            }
+            @if (r.cost !== null) {
+              <p>Booking amount: {{ money(r.cost, r.currency) }} · reference only</p>
+            }
+            @if (r.guest_count !== null) {
+              <p>{{ r.guest_count }} guests · {{ r.email }} {{ r.phone }}</p>
+            }
+            <p class="project-notes">{{ r.notes }}</p>
+            <div class="heading-actions">
+              @if (!r.archived) {
+                <button class="button" (click)="editEntry(r)" [disabled]="!planningWritable()">
+                  Edit planning item
+                </button>
+                @if (r.kind === 'checklist' || r.kind === 'itinerary') {
+                  <button
+                    class="button"
+                    (click)="act(r, 'entry', r.status === 'done' ? 'reopen' : 'complete')"
+                    [disabled]="!planningWritable()"
+                  >
+                    {{ r.status === 'done' ? 'Reopen item' : 'Complete item' }}
+                  </button>
+                }
+              }
+              <button
+                class="button"
+                (click)="act(r, 'entry', r.archived ? 'restore' : 'archive')"
+                [disabled]="!planningWritable()"
+              >
+                {{ r.archived ? 'Restore item' : 'Archive item' }}
+              </button>
+            </div>
+          </article>
+        } @empty {
+          <p class="empty-state">No matching planning entries.</p>
+        }
+      </div>
+    }
+  </section>
+} @else if (selectedId() && !store.loading()) {
+  <p class="error-banner">This plan is no longer available in this workspace.</p>
+}
+<div class="contact-cards">
+  @for (p of plans(); track p.id) {
+    <article class="panel contact-card">
+      <span class="eyebrow"
+        >Private · {{ p.kind | titlecase }} · {{ p.status | titlecase }}
+        @if (p.archived) {
+          · Archived
+        }
+      </span>
+      <div class="contact-card-heading">
+        <div>
+          <h2>{{ p.title }}</h2>
+          <p>{{ p.location }}</p>
+        </div>
+      </div>
+      <p>
+        {{ p.starts_on + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }} –
+        {{ p.ends_on + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }}
+      </p>
+      <p>
+        {{ summary(p).done }} / {{ summary(p).checks }} checklist items ·
+        {{ summary(p).guests }} accepted guests
+      </p>
+      <button
+        class="button"
+        (click)="open(p)"
+        [disabled]="busy()"
+        [attr.aria-label]="'Open plan ' + p.title"
+      >
+        Open plan
+      </button>
+    </article>
+  } @empty {
+    <section class="panel empty-state">
+      <h2>{{ store.loading() ? 'Loading your plans…' : 'No matching plans' }}</h2>
+      <p>Add a trip or personal event to start planning.</p>
+    </section>
+  }
+</div>
