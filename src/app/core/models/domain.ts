@@ -869,6 +869,17 @@ export type CareerInput = Pick<
   document_ids: string[];
 };
 export interface TableRows {
+  finance_json_links: {
+    id: string;
+    workspace_id: string;
+    owner_id: string;
+    source_kind: 'account' | 'transaction';
+    source_id: string;
+    account_id: string;
+    transaction_id: string | null;
+    details: Record<string, unknown>;
+    created_at: string;
+  };
   investment_holdings: InvestmentHolding;
   investment_entries: InvestmentEntry;
   wealth_exclusions: WealthExclusion;
@@ -938,6 +949,26 @@ export type Database = {
     Tables: { [K in keyof TableRows]: Table<TableRows[K]> };
     Views: Record<string, never>;
     Functions: {
+      import_finance_json: {
+        Args: {
+          entry: string;
+          w: string;
+          payload: {
+            accounts: { [key: string]: string | boolean | null }[];
+            transactions: {
+              source_id: string;
+              account_source: string;
+              row: { [key: string]: string };
+            }[];
+          };
+        };
+        Returns: {
+          accounts_created: number;
+          accounts_reused: number;
+          imported: number;
+          skipped: number;
+        };
+      };
       import_finance_csv: {
         Args: { entry: string; w: string; account: string; rows: { [key: string]: string }[] };
         Returns: { imported: number; skipped: number };

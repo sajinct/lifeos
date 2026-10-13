@@ -12,6 +12,13 @@ export const routes: Routes = [
     loadComponent: () => import('./layout/shell').then((m) => m.Shell),
     children: [
       {
+        path: 'finance/import-json',
+        loadComponent: () =>
+          import('./features/finance-json-import/finance-json-import').then(
+            (m) => m.FinanceJsonImportPage,
+          ),
+      },
+      {
         path: 'finance/import',
         loadComponent: () =>
           import('./features/finance-import/finance-import').then((m) => m.FinanceImportPage),

@@ -1,0 +1,207 @@
+<section class="page-heading">
+  <div>
+    <span class="eyebrow">FINANCE · PRIVATE, ADDITIVE IMPORTS</span>
+    <h1>Import Finance JSON</h1>
+    <p>Map exported accounts and review ordinary income and expenses before saving.</p>
+  </div>
+  <div class="heading-actions">
+    <button class="button subtle" (click)="template()">Download JSON template</button
+    ><a routerLink="/finance" class="button subtle">Back to Finance</a>
+  </div>
+</section>
+<section class="panel import-setup" [formGroup]="form">
+  <h2>1. Load a LifeOS export</h2>
+  <p class="muted">
+    Up to 50 accounts, 500 transactions and 5 MiB. Files are decoded in your browser. Only selected
+    Finance records are sent to Supabase.
+  </p>
+  <label
+    >JSON file<input
+      type="file"
+      accept=".json,application/json"
+      [disabled]="busy() || !!pending()"
+      (change)="file($event)" /></label
+  ><label class="import-text"
+    >Or paste JSON<textarea
+      formControlName="text"
+      rows="5"
+      spellcheck="false"
+      placeholder="LifeOS workspace export or Finance JSON template"
+      [attr.disabled]="busy() || pending() ? '' : null"
+    ></textarea>
+  </label>
+  <p class="form-hint">
+    This imports accounts and unlinked income/expense entries. Transfers, loans, project-linked
+    entries, billing schedules and other modules are left out. Missing movements can affect
+    reconstructed balances. Use dedicated flows for those records. Imported records belong privately
+    to your signed-in account in this workspace.
+  </p>
+  <button
+    class="button primary"
+    (click)="preview()"
+    [disabled]="busy() || !!pending() || !store.writable()"
+  >
+    {{ busy() && !pending() ? 'Reading…' : 'Preview JSON' }}
+  </button>
+</section>
+@if (error()) {
+  <p class="form-error" role="alert">{{ error() }}</p>
+}
+@if (result(); as r) {
+  <section class="panel import-success" role="status">
+    <h2>Import complete</h2>
+    <p>
+      {{ r.accounts_created }} {{ r.accounts_created === 1 ? 'account' : 'accounts' }} created ·
+      {{ r.accounts_reused }}
+      {{ r.accounts_reused === 1 ? 'account mapping' : 'account mappings' }} reused ·
+      {{ r.imported }} {{ r.imported === 1 ? 'transaction' : 'transactions' }} added ·
+      {{ r.skipped }} matching {{ r.skipped === 1 ? 'transaction' : 'transactions' }} skipped during
+      saving.
+    </p>
+    <a routerLink="/finance" class="button primary">View your ledger</a>
+  </section>
+}
+@if (source(); as source) {
+  <section class="panel import-preview">
+    <h2>2. Map source accounts</h2>
+    <p class="form-hint">
+      Choose an existing account of the same currency or explicitly create one. Existing balances
+      and names stay unchanged. New accounts use the exported opening balance. Saved source mappings
+      stay fixed on future imports. Remove the template’s example records before using your own
+      data.
+    </p>
+    @if (source.omitted.length) {
+      <p class="form-hint">Other sections left out: {{ source.omitted.join(', ') }}.</p>
+    }
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Source account</th>
+            <th>Opening balance</th>
+            <th>Destination</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (a of source.accounts; track a.source_id) {
+            <tr>
+              <td>
+                <strong>{{ a.name || 'Invalid account' }}</strong
+                ><small>{{ a.currency }} · {{ a.source_id }}</small>
+                @if (a.card_source) {
+                  <small>Credit card: map to an existing card.</small>
+                }
+              </td>
+              <td>{{ a.opening_balance || 'Invalid' }} {{ a.currency }}</td>
+              <td>
+                <select
+                  [attr.aria-label]="'Destination for ' + a.name"
+                  [value]="mapping()[a.source_id]"
+                  [disabled]="busy() || !!pending() || !!a.error || bound(a)"
+                  (change)="map(a, $event)"
+                >
+                  <option value="skip">Skip this account</option>
+                  @if (!a.card_source) {
+                    <option value="new">Create new account from export</option>
+                  }
+                  @for (t of options(a); track t.id) {
+                    <option [value]="t.id">{{ t.name }} · {{ t.currency }}</option>
+                  }
+                </select>
+                @if (bound(a)) {
+                  <small>Saved destination mapping</small>
+                }
+                @if (a.error || mappingError(a)) {
+                  <small class="form-error">{{ a.error || mappingError(a) }}</small>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <section class="panel import-preview">
+    <div class="panel-heading">
+      <div>
+        <h2>3. Review transactions</h2>
+        <p class="muted">
+          {{ counts()['ready'] }} ready · {{ counts()['duplicate'] }} duplicates ·
+          {{ counts()['invalid'] }} invalid · {{ counts()['unsupported'] }} unsupported ·
+          {{ counts()['unmapped'] }} unmapped
+        </p>
+      </div>
+      <span class="import-count">{{ selected().size }} selected</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Include</th>
+            <th>Transaction</th>
+            <th>Date</th>
+            <th>Amount</th>
+            <th>Review</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (r of rows(); track r.index) {
+            <tr>
+              <td>
+                <input
+                  type="checkbox"
+                  [attr.aria-label]="'Include transaction ' + (r.index + 1)"
+                  [checked]="selected().has(r.index)"
+                  [disabled]="busy() || !!pending() || r.status !== 'ready'"
+                  (change)="toggle(r.index)"
+                />
+              </td>
+              <td>
+                <strong>{{ r.title }}</strong>
+                @if (r.row) {
+                  <small>{{ r.row.kind }} · {{ r.row.category }}</small>
+                }
+                <small>Source account: {{ r.account_source }}</small>
+              </td>
+              <td>{{ r.row?.date || '—' }}</td>
+              <td>{{ r.row?.amount }} {{ r.row?.currency }}</td>
+              <td>
+                <span [class.form-error]="r.status === 'invalid'">{{ r.status }}</span>
+                @if (r.message) {
+                  <small>{{ r.message }}</small>
+                }
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="5">No transactions. You can still import the mapped accounts.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <div class="import-confirm">
+      <p class="form-hint">
+        {{ mapped() }} account mappings and {{ selected().size }} selected transactions. The whole
+        batch saves together, with ownership, currency and duplicate checks repeated by the server.
+        An import does not move money or overwrite existing records.
+      </p>
+      <button
+        class="button primary"
+        (click)="save()"
+        [disabled]="busy() || (!pending() && (!store.writable() || mappingErrors() || !mapped()))"
+      >
+        {{
+          busy()
+            ? 'Saving…'
+            : pending()
+              ? 'Retry this JSON batch'
+              : 'Import selected Finance records'
+        }}
+      </button>
+    </div>
+    @if (pending() && !busy()) {
+      <button class="text-button" (click)="clear()">Discard preview and start again</button>
+    }
+  </section>
+}
