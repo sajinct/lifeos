@@ -1,0 +1,148 @@
+<section class="page-heading">
+  <div>
+    <span class="eyebrow">SHOPPING · YOUR PRIVATE WORKSPACE</span>
+    <h1>Import Shopping</h1>
+    <p>Bring grocery lists, quantities and checked items into this workspace after review.</p>
+  </div>
+  <div class="heading-actions">
+    <button class="button subtle" (click)="template()">Download Shopping JSON template</button
+    ><a class="button subtle" routerLink="/family/shopping">View shopping lists</a>
+  </div>
+</section>
+<section class="panel import-setup" [formGroup]="form">
+  <h2>1. Load your Shopping JSON</h2>
+  <p class="muted">
+    A LifeOS workspace export or the template: 1–100 lists, up to 500 items total and 5 MiB. Item
+    positions must be unique from 1 to 500 within each list.
+  </p>
+  <label
+    >Shopping JSON file<input
+      type="file"
+      accept=".json,application/json"
+      (change)="file($event)"
+      [disabled]="busy() || !!pending()"
+  /></label>
+  <label class="import-text"
+    >Or paste Shopping JSON<textarea
+      formControlName="text"
+      rows="6"
+      spellcheck="false"
+      [attr.disabled]="busy() || pending() ? '' : null"
+    ></textarea>
+  </label>
+  <p class="form-hint">
+    Only selected lists and their items are saved. New lists are private and have new IDs. Names,
+    categories, quantities, units, positions, notes, checked state and archives are preserved.
+    Original ownership, sharing, check attribution, timestamps and other modules are omitted.
+    Checked items are attributed to you at import time. Existing lists are not overwritten. Keep
+    source list IDs stable on reupload; a new ID creates a new list even if its title matches.
+    Remove template examples before importing.
+  </p>
+  <button
+    class="button primary"
+    (click)="preview()"
+    [disabled]="busy() || !!pending() || !store.writable()"
+  >
+    Preview Shopping JSON
+  </button>
+</section>
+@if (error()) {
+  <p class="form-error" role="alert">{{ error() }}</p>
+}
+@if (result(); as r) {
+  <section class="panel import-success" role="status">
+    <h2>Import complete</h2>
+    <p>
+      {{ r.lists_imported }} {{ r.lists_imported === 1 ? 'list' : 'lists' }} and
+      {{ r.items_imported }} {{ r.items_imported === 1 ? 'item' : 'items' }} added ·
+      {{ r.skipped }} previously imported lists skipped.
+    </p>
+    <a class="button primary" routerLink="/family/shopping">View shopping lists</a>
+  </section>
+}
+@if (source(); as s) {
+  <section class="panel import-preview">
+    <h2>2. Review lists and item history</h2>
+    <p class="form-hint">
+      {{ ready() }} ready {{ ready() === 1 ? 'list' : 'lists' }}. Unchanged reuploads preserve later
+      edits, checked states and archives. Changed source contents are conflicts.
+      @if (s.omitted.length) {
+        Other sections omitted: {{ s.omitted.join(', ') }}.
+      }
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Import</th>
+            <th>List</th>
+            <th>Items & history</th>
+            <th>Review</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (candidate of s.rows; track candidate.index) {
+            <tr>
+              <td>
+                <input
+                  type="checkbox"
+                  [checked]="selected().has(candidate.index)"
+                  (change)="toggle(candidate.index)"
+                  [disabled]="
+                    busy() ||
+                    !!pending() ||
+                    !candidate.row ||
+                    state(candidate.row.source_id) !== 'ready'
+                  "
+                  [attr.aria-label]="'Import ' + candidate.title"
+                />
+              </td>
+              <td>
+                <strong>{{ candidate.title }}</strong
+                ><small>{{ candidate.row?.source_id }}</small>
+              </td>
+              <td>
+                @if (candidate.row; as row) {
+                  {{ row.kind }}{{ row.archived ? ' · archived' : ''
+                  }}<small
+                    >{{ row.items.length }} {{ row.items.length === 1 ? 'item' : 'items' }} ·
+                    {{ checked(row) }} checked · {{ archived(row) }} archived</small
+                  >
+                  <details>
+                    <summary>
+                      Review {{ row.items.length }} {{ row.items.length === 1 ? 'item' : 'items' }}
+                    </summary>
+                    <ul>
+                      @for (item of row.items; track item.position) {
+                        <li>
+                          <strong>{{ item.name }}</strong> · {{ item.quantity }} {{ item.unit }} ·
+                          {{ item.category }}{{ item.checked ? ' · checked' : ''
+                          }}{{ item.archived ? ' · archived' : '' }}
+                          @if (item.notes) {
+                            <small>{{ item.notes }}</small>
+                          }
+                        </li>
+                      }
+                    </ul>
+                  </details>
+                }
+              </td>
+              <td>{{ candidate.error || message(candidate.row!.source_id) }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <div class="import-actions">
+      <button
+        class="button primary"
+        (click)="save()"
+        [disabled]="busy() || (!pending() && !selected().size) || !store.writable()"
+      >
+        {{ pending() ? 'Retry the same Shopping import' : 'Import selected lists' }}</button
+      ><button class="button subtle" (click)="discard()" [disabled]="busy()">
+        Discard preview
+      </button>
+    </div>
+  </section>
+}

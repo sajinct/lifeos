@@ -164,8 +164,8 @@ import { EmailSettings } from './email-settings';
           tools.
         </p>
         <div class="roadmap-list">
-          <span>Next: Hosted recovery validation</span><span>Then: Further imports & planning</span
-          ><span>Later: AI & integrations</span>
+          <span>Next: Further imports & planning</span
+          ><span>Deferred: Hosted recovery validation</span><span>Later: AI & integrations</span>
         </div>
       </section>
     </div>

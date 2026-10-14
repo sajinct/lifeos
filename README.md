@@ -48,6 +48,7 @@ Open http://127.0.0.1:4200 and choose **Explore a demo workspace**. Sample recor
 - Monthly household category budgets with explicit owned-expense contributions, private Finance links, currency-specific remaining/overspending views, refresh/withdraw controls and CSV/JSON metadata history.
 - Education profiles linked to household members, school/class/year details, installment due dates, per-currency fee balances, partial payments, reversible corrections, private existing-expense links and CSV/JSON metadata history.
 - Grocery and shopping lists with private defaults, explicit workspace sharing, collaborative item editing/checking, decimal quantities/categories, archived history, revision-safe retries and filtered CSV/JSON metadata exports.
+- Shopping JSON imports with selected-list previews, exact quantity and checked/archive preservation, private defaults and immutable source IDs that protect later edits on reupload.
 - Controlled document sharing: selected completed versions, specific workspace recipients, read/download access, revocation and automatic revocation on member removal. Private attachment metadata and Finance links stay private.
 - Private-by-default records, 84 RLS-protected application tables, private Storage policies, typed client access and server-only reminder dispatch.
 - Date-filtered Finance reports with separate currency totals, monthly cash flow, category trends, budget comparisons, recorded subscription expenses and loan interest, plus filtered CSV and workspace JSON exports.

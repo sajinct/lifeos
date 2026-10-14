@@ -1,3 +1,4 @@
+import { shoppingImportSecurityTests } from './shopping-import-security';
 import { documentSharingSecurityTests } from './document-sharing-security';
 import { householdBudgetSecurityTests } from './household-budget-security';
 import { educationSecurityTests } from './education-security';
@@ -1138,6 +1139,8 @@ educationSecurityTests(() => db, asUser, A, B, C);
 householdBudgetSecurityTests(() => db, asUser, A, B, C);
 
 documentSharingSecurityTests(() => db, asUser, A, B, C);
+
+shoppingImportSecurityTests(() => db, asUser, A, B, C);
 
 describe('Full security-fixture database snapshot recovery', () => {
   it('restores every fixture row, permission and schema definition in a separate database', async () => {

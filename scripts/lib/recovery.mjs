@@ -338,8 +338,37 @@ async function seed(db) {
     first,
     a,
   ]);
+  const shoppingImport = randomUUID(),
+    shoppingPayload = [
+      {
+        source_id: 'recovery-shopping-import',
+        kind: 'grocery',
+        title: 'Recovery imported groceries',
+        notes: '',
+        archived: false,
+        items: [
+          {
+            position: 1,
+            name: 'Synthetic rice',
+            category: 'Food',
+            quantity: 1.25,
+            unit: 'kg',
+            notes: '',
+            checked: true,
+            archived: false,
+          },
+        ],
+      },
+    ];
+  await db.query('select public.import_shopping_json($1,$2,$3)', [
+    shoppingImport,
+    w,
+    JSON.stringify(shoppingPayload),
+  ]);
   await db.exec('reset role');
   return {
+    shoppingImport,
+    shoppingPayload,
     documentShare,
     documentRequest,
     a,
@@ -646,6 +675,47 @@ export async function runLocalRecoveryDrill({ output } = {}) {
     ]);
     checks.push(
       'Selected document version grants preserve exact retries, metadata privacy and revoke/restore behavior',
+    );
+    const importResult = (
+      await restored.query('select public.import_shopping_json($1,$2,$3) result', [
+        fixture.shoppingImport,
+        fixture.w,
+        JSON.stringify(fixture.shoppingPayload),
+      ])
+    ).rows[0].result;
+    assert(
+      importResult.lists_imported === 1 && importResult.items_imported === 1,
+      'Restored Shopping batch receipt differs.',
+    );
+    const importedList = (
+      await restored.query(
+        "select id,revision from public.shopping_lists where workspace_id=$1 and title='Recovery imported groceries'",
+        [fixture.w],
+      )
+    ).rows[0];
+    await restored.query('select public.set_shopping_archived($1,$2,$3,true)', [
+      randomUUID(),
+      importedList.id,
+      importedList.revision,
+    ]);
+    const replay = (
+      await restored.query('select public.import_shopping_json($1,$2,$3) result', [
+        randomUUID(),
+        fixture.w,
+        JSON.stringify(fixture.shoppingPayload),
+      ])
+    ).rows[0].result;
+    assert(
+      replay.skipped === 1 &&
+        (
+          await restored.query('select archived from public.shopping_lists where id=$1', [
+            importedList.id,
+          ])
+        ).rows[0].archived,
+      'Shopping reupload undid later archive state.',
+    );
+    checks.push(
+      'Shopping import source bindings and batch receipts survive restore without duplicating lists or undoing later edits',
     );
     const old = (
       await restored.query('select status,version_number from public.attachments where id=$1', [

@@ -1228,6 +1228,14 @@ export type Database = {
     Tables: { [K in keyof TableRows]: Table<TableRows[K]> };
     Views: Record<string, never>;
     Functions: {
+      preview_shopping_import: {
+        Args: { w: string; payload: { [key: string]: unknown }[] };
+        Returns: import('../../shared/utilities/shopping-import').ShoppingImportReview[];
+      };
+      import_shopping_json: {
+        Args: { entry: string; w: string; payload: { [key: string]: unknown }[] };
+        Returns: import('../../shared/utilities/shopping-import').ShoppingImportResult;
+      };
       document_share_catalog: {
         Args: { w: string; after_id?: string | null };
         Returns: DocumentShare[];

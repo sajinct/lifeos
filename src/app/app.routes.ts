@@ -100,6 +100,11 @@ export const routes: Routes = [
         loadComponent: () => import('./features/education/education').then((m) => m.EducationPage),
       },
       {
+        path: 'family/shopping/import-json',
+        loadComponent: () =>
+          import('./features/shopping-import/shopping-import').then((m) => m.ShoppingImportPage),
+      },
+      {
         path: 'family/shopping',
         loadComponent: () => import('./features/shopping/shopping').then((m) => m.ShoppingPage),
       },
