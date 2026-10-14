@@ -207,7 +207,10 @@ import { UiService } from '../../core/services/ui';
       <button type="submit" class="button primary" [disabled]="busy() || store.loading()">
         {{ busy() ? 'Saving…' : 'Save reminders' }}
       </button>
-      <p class="form-hint">Delivery happens in LifeOS. Email reminders can be added later.</p>
+      <p class="form-hint">
+        Delivery happens in LifeOS. Supported email reminders have separate opt-ins under Email
+        reminders & summaries.
+      </p>
     </form>
   </section>`,
 })

@@ -21,3 +21,7 @@ enable_confirmations = true
 [storage]
 enabled = true
 file_size_limit = "10MiB"
+
+[functions.email-dispatch]
+# This scheduler-only endpoint independently verifies its private dispatch header.
+verify_jwt = false

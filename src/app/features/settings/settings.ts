@@ -5,9 +5,10 @@ import { UiService } from '../../core/services/ui';
 import { ALL_WIDGETS, WorkspaceKind } from '../../core/models/domain';
 import { Icon } from '../../shared/components/icon';
 import { ReminderSettings } from './reminder-settings';
+import { EmailSettings } from './email-settings';
 @Component({
   selector: 'app-settings',
-  imports: [ReactiveFormsModule, Icon, ReminderSettings],
+  imports: [ReactiveFormsModule, Icon, ReminderSettings, EmailSettings],
   template: ` <section class="page-heading">
       <div>
         <span class="eyebrow">MAKE YOURSELF AT HOME</span>
@@ -17,6 +18,7 @@ import { ReminderSettings } from './reminder-settings';
     </section>
     <div class="settings-grid">
       <app-reminder-settings />
+      <app-email-settings />
       <section class="panel settings-panel">
         <h2>Your profile</h2>
         <p>The little details that make this yours.</p>
@@ -157,13 +159,13 @@ import { ReminderSettings } from './reminder-settings';
       <section class="panel settings-panel">
         <h2>What’s next</h2>
         <p>
-          The foundation and first productivity tools are ready. LifeOS grows one useful module at a
-          time.
+          Core modules, imports and opt-in email automation are ready. The remaining roadmap deepens
+          your everyday tools.
         </p>
         <div class="roadmap-list">
-          <span>Next: Existing module enhancements</span
-          ><span>Then: Imports & email automation</span
-          ><span>Later: Imports, AI & integrations</span>
+          <span>Next: Calendar, Notes & Learning enhancements</span
+          ><span>Then: Broader imports, reports & restore drills</span
+          ><span>Later: AI & integrations</span>
         </div>
       </section>
     </div>

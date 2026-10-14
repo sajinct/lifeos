@@ -3,6 +3,7 @@ import { financeImportSecurityTests } from './finance-import-security';
 import { financeJsonSecurityTests } from './finance-json-security';
 import { recordJsonSecurityTests } from './record-json-security';
 import { calendarJsonSecurityTests } from './calendar-json-security';
+import { emailSecurityTests } from './email-security';
 import { cardSecurityTests } from './card-security';
 import { travelSecurityTests } from './travel-security';
 import { healthTrackingSecurityTests } from './health-tracking-security';
@@ -56,7 +57,7 @@ beforeAll(async () => {
   // Supabase platform shims only. The application's SQL migration runs unchanged.
   await db.exec(`create role anon;create role authenticated;create role service_role bypassrls;
     create schema auth;grant usage on schema auth to authenticated,anon,service_role;
-    create table auth.users(id uuid primary key,raw_user_meta_data jsonb default '{}');
+    create table auth.users(id uuid primary key,raw_user_meta_data jsonb default '{}',email text,email_confirmed_at timestamptz);
     create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
     grant execute on function auth.uid() to public;
     create schema storage;grant usage on schema storage to authenticated,anon;
@@ -130,7 +131,7 @@ describe('Actual PostgreSQL RLS and permission boundaries', () => {
         "select tablename,rowsecurity from pg_tables where schemaname='public'",
       )
     ).rows;
-    expect(rows.length).toBe(66);
+    expect(rows.length).toBe(68);
     expect(rows.every((r) => r.rowsecurity)).toBe(true);
   });
   it('denies anonymous reads and workspace creation', async () => {
@@ -1130,3 +1131,4 @@ financeImportSecurityTests(() => db, asUser, A, B, C);
 financeJsonSecurityTests(() => db, asUser, A, B, C);
 recordJsonSecurityTests(() => db, asUser, A, B, C);
 calendarJsonSecurityTests(() => db, asUser, A, B, C);
+emailSecurityTests(() => db, asUser);

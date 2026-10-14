@@ -8,6 +8,28 @@ export interface OwnedRecord {
   created_at: string;
   updated_at: string;
 }
+export interface EmailPreferences {
+  owner_id: string;
+  reminder_emails: boolean;
+  daily_digest: boolean;
+  weekly_digest: boolean;
+  finance_frequency: 'off' | 'weekly' | 'monthly';
+  delivery_hour: number;
+  weekly_day: number;
+  delivery_timezone: string;
+  revision: number;
+}
+export interface EmailDelivery {
+  id: string;
+  workspace_id: string;
+  owner_id: string;
+  kind: 'reminder' | 'daily' | 'weekly' | 'financial';
+  status: 'queued' | 'sending' | 'accepted' | 'failed' | 'cancelled' | 'uncertain';
+  attempts: number;
+  accepted_at: string | null;
+  error_code: string | null;
+  created_at: string;
+}
 export interface Profile {
   id: string;
   display_name: string;
@@ -869,6 +891,8 @@ export type CareerInput = Pick<
   document_ids: string[];
 };
 export interface TableRows {
+  email_preferences: EmailPreferences;
+  email_deliveries: EmailDelivery;
   record_json_links: {
     id: string;
     workspace_id: string;
@@ -962,6 +986,20 @@ export type Database = {
     Tables: { [K in keyof TableRows]: Table<TableRows[K]> };
     Views: Record<string, never>;
     Functions: {
+      email_delivery_available: { Args: Record<string, never>; Returns: boolean };
+      save_email_preferences: {
+        Args: {
+          expected_revision: number;
+          reminders_enabled: boolean;
+          daily_enabled: boolean;
+          weekly_enabled: boolean;
+          finance_schedule: string;
+          hour: number;
+          weekday: number;
+          timezone: string;
+        };
+        Returns: EmailPreferences;
+      };
       import_record_json: {
         Args: {
           entry: string;
