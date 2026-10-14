@@ -1015,7 +1015,67 @@ export interface ShoppingItemInput {
   checked: boolean;
   archived: boolean;
 }
+export interface EducationStudent extends OwnedRecord {
+  member_id: string | null;
+  name: string;
+  institution: string;
+  class_name: string;
+  academic_year: string;
+  notes: string;
+  archived: boolean;
+  revision: number;
+}
+export interface EducationFee extends Omit<OwnedRecord, 'visibility'> {
+  student_id: string;
+  title: string;
+  due_on: string;
+  amount: number;
+  currency: string;
+  notes: string;
+  archived: boolean;
+  revision: number;
+}
+export interface EducationPayment extends Omit<OwnedRecord, 'visibility'> {
+  fee_id: string;
+  amount: number;
+  paid_on: string;
+  reference: string;
+  notes: string;
+  voided: boolean;
+  revision: number;
+}
+export interface EducationPaymentLink extends Omit<OwnedRecord, 'visibility'> {
+  transaction_id: string | null;
+}
+export interface EducationStudentInput {
+  member_id: string;
+  name: string;
+  institution: string;
+  class_name: string;
+  academic_year: string;
+  notes: string;
+  visibility: Visibility;
+}
+export interface EducationFeeInput {
+  title: string;
+  due_on: string;
+  amount: string;
+  currency: string;
+  notes: string;
+}
+export interface EducationPaymentInput {
+  amount: string;
+  paid_on: string;
+  reference: string;
+  notes: string;
+  expense: string;
+}
 export interface TableRows {
+  education_students: EducationStudent;
+  education_fees: EducationFee;
+  education_payments: EducationPayment;
+  education_payment_links: EducationPaymentLink;
+
   shopping_lists: ShoppingList;
   shopping_items: ShoppingItem;
   learning_items: LearningItem;
@@ -1119,6 +1179,75 @@ export type Database = {
     Tables: { [K in keyof TableRows]: Table<TableRows[K]> };
     Views: Record<string, never>;
     Functions: {
+      save_education_student: {
+        Args: {
+          request: string;
+          entry: string;
+          w: string;
+          expected_revision: number | null;
+          student_name: string;
+          school: string;
+          school_class: string;
+          school_year: string;
+          student_notes: string;
+          household_member: string | null;
+          sharing: Visibility;
+        };
+        Returns: string;
+      };
+      save_education_fee: {
+        Args: {
+          request: string;
+          entry: string;
+          parent: string;
+          expected_revision: number | null;
+          expected_parent_revision: number;
+          fee_title: string;
+          deadline: string;
+          fee_amount: number;
+          fee_currency: string;
+          fee_notes: string;
+        };
+        Returns: string;
+      };
+      record_education_payment: {
+        Args: {
+          request: string;
+          entry: string;
+          parent: string;
+          expected_fee_revision: number;
+          expected_student_revision: number;
+          payment_amount: number;
+          payment_date: string;
+          payment_reference: string;
+          payment_notes: string;
+          expense: string | null;
+        };
+        Returns: string;
+      };
+      set_education_archive: {
+        Args: {
+          request: string;
+          entry: string;
+          record_kind: 'student' | 'fee';
+          expected_revision: number;
+          expected_student_revision: number;
+          is_archived: boolean;
+        };
+        Returns: undefined;
+      };
+      set_education_payment_void: {
+        Args: {
+          request: string;
+          entry: string;
+          expected_revision: number;
+          expected_fee_revision: number;
+          expected_student_revision: number;
+          is_voided: boolean;
+        };
+        Returns: undefined;
+      };
+
       save_shopping_list: {
         Args: {
           request: string;

@@ -1,0 +1,427 @@
+<section class="page-heading">
+  <div>
+    <span class="eyebrow">FAMILY & HOUSEHOLD</span>
+    <h1>Education & school fees</h1>
+    <p>Keep school details, upcoming fees and payment history together.</p>
+  </div>
+  <div class="heading-actions">
+    <a class="button subtle" routerLink="/family">Back to household</a
+    ><button
+      class="button subtle"
+      (click)="refresh()"
+      [disabled]="busy() || !!pending() || store.loading()"
+    >
+      Refresh education</button
+    ><button class="button primary" (click)="create()" [disabled]="!canChange()">
+      Add student
+    </button>
+  </div>
+</section>
+<p class="sharing-note">
+  Private by default. Sharing exposes student details, fees and payment history to current and
+  future workspace members. The creator and workspace owner manage shared records; other members can
+  read. Finance expense links remain private to their owner.
+</p>
+@if (store.error()) {
+  <p class="error" role="alert">{{ store.error() }}</p>
+}
+@if (error()) {
+  <p class="error" role="alert">{{ error() }}</p>
+}
+@if (pending()) {
+  <section class="panel retry">
+    <p>
+      This change is kept for an exact retry. To use newer data, discard it, refresh and start
+      again.
+    </p>
+    <button class="button primary" (click)="retry()" [disabled]="busy()">Retry change</button
+    ><button class="button subtle" (click)="resetDraft()" [disabled]="busy()">
+      Discard pending change
+    </button>
+  </section>
+}
+@if (editing()) {
+  <section class="panel">
+    <h2>{{ previous() ? 'Edit student' : 'Add student' }}</h2>
+    <form [formGroup]="form" (ngSubmit)="saveStudent()">
+      <fieldset [disabled]="busy() || !!pending() || !store.writable()">
+        <div class="form-row">
+          <label>Student name<input formControlName="name" maxlength="200" required /></label
+          ><label
+            >School or institution<input formControlName="institution" maxlength="200" required
+          /></label>
+        </div>
+        <div class="form-row">
+          <label
+            >Class or course<input formControlName="class_name" maxlength="100" required /></label
+          ><label
+            >Academic year<input
+              formControlName="academic_year"
+              maxlength="60"
+              placeholder="2026–2027"
+              required /></label
+          ><label
+            >Student sharing<select
+              formControlName="visibility"
+              [attr.disabled]="
+                previous() && previous()!.owner_id !== store.profile()?.id ? '' : null
+              "
+            >
+              <option value="private">Private</option>
+              <option value="workspace">Shared with workspace</option>
+            </select></label
+          >
+        </div>
+        <label
+          >Household member (optional)<select
+            formControlName="member_id"
+            [attr.disabled]="previous() && previous()!.owner_id !== store.profile()?.id ? '' : null"
+          >
+            <option value="">No household link</option>
+            @for (m of library.memberChoices(); track m.id) {
+              @if (m.status === 'active' || previous()?.member_id === m.id) {
+                <option [value]="m.id">
+                  {{ m.name }} · {{ m.visibility === 'private' ? 'Private' : 'Shared' }}
+                </option>
+              }
+            }
+          </select></label
+        >
+        <p class="form-help">
+          To share a linked student, the household member must also be shared. Only the student
+          creator changes this link or sharing.
+        </p>
+        <label
+          >Student notes<textarea formControlName="notes" maxlength="2000" rows="2"></textarea>
+        </label>
+        <div class="heading-actions">
+          <button class="button primary" type="submit">Save student</button
+          ><button class="button subtle" type="button" (click)="resetDraft()">
+            Cancel student edit
+          </button>
+        </div>
+      </fieldset>
+    </form>
+  </section>
+}
+<section class="panel">
+  <div class="form-row">
+    <label
+      >Find a student<input
+        [value]="search()"
+        (input)="search.set($any($event.target).value)"
+        placeholder="Search student, school, class or year" /></label
+    ><label
+      >Student view<select [value]="view()" (change)="view.set($any($event.target).value)">
+        <option value="current">Current students</option>
+        <option value="archived">Archived students</option>
+      </select></label
+    >
+  </div>
+  @if (linked()) {
+    <p>
+      Showing a linked student.
+      <button class="button subtle" (click)="clearLink()">Show all students</button>
+    </p>
+  }
+  <div class="student-grid">
+    @for (s of rows(); track s.id) {
+      <article class="student-card" [class.selected]="student()?.id === s.id">
+        <span class="eyebrow"
+          >{{ s.visibility === 'private' ? 'PRIVATE' : 'SHARED'
+          }}{{ s.archived ? ' · ARCHIVED' : '' }}</span
+        >
+        <h3>{{ s.name }}</h3>
+        <p>{{ s.institution }} · {{ s.class_name }}<br />{{ s.academic_year }}</p>
+        <button
+          class="button subtle"
+          (click)="open(s)"
+          [attr.aria-label]="'Open student ' + s.name"
+          [disabled]="busy() || !!pending()"
+        >
+          Open student
+        </button>
+      </article>
+    } @empty {
+      <p class="empty-state">
+        {{ store.loading() ? 'Loading students…' : 'No students match this view.' }}
+      </p>
+    }
+  </div>
+</section>
+@if (student(); as s) {
+  <section class="panel student-detail">
+    <div class="detail-heading">
+      <div>
+        <span class="eyebrow"
+          >{{ s.visibility === 'private' ? 'PRIVATE' : 'SHARED'
+          }}{{ s.archived ? ' · ARCHIVED' : '' }}</span
+        >
+        <h2>{{ s.name }}</h2>
+        <p>{{ s.institution }} · {{ s.class_name }} · {{ s.academic_year }}</p>
+      </div>
+      <div class="heading-actions">
+        <button
+          class="button subtle"
+          (click)="exportCsv()"
+          [disabled]="store.loading() || !!store.error() || !fees().length"
+        >
+          Export fees CSV</button
+        ><button
+          class="button subtle"
+          (click)="exportCsv(true)"
+          [disabled]="store.loading() || !!store.error() || !fees().length"
+        >
+          Export payments CSV
+        </button>
+        @if (store.canEdit(s)) {
+          <button class="button subtle" (click)="edit(s)" [disabled]="!canChange() || s.archived">
+            Edit student</button
+          ><button class="button subtle" (click)="archive(s)" [disabled]="!canChange()">
+            {{ s.archived ? 'Restore student' : 'Archive student' }}
+          </button>
+        }
+      </div>
+    </div>
+    @if (s.notes) {
+      <p class="literal">{{ s.notes }}</p>
+    }
+    @if (s.member_id) {
+      <p class="form-help">
+        Linked household profile ·
+        <a routerLink="/family" [queryParams]="{ reminder: s.member_id }">View household member</a>
+      </p>
+    }
+    @if (s.archived) {
+      <p>Restore this student to change fees or payments. Their history is kept.</p>
+    }
+    <div class="form-row">
+      <label
+        >Fee view<select [value]="feeView()" (change)="feeView.set($any($event.target).value)">
+          <option value="current">All current fees</option>
+          <option value="remaining">Outstanding fees</option>
+          <option value="overdue">Overdue fees</option>
+          <option value="paid">Paid fees</option>
+          <option value="archived">Archived fees</option>
+        </select></label
+      ><label
+        >Payment history view<select
+          [value]="paymentView()"
+          (change)="paymentView.set($any($event.target).value)"
+        >
+          <option value="all">All payments</option>
+          <option value="active">Recorded payments</option>
+          <option value="voided">Voided payments</option>
+        </select></label
+      ><button class="button primary" (click)="startFee()" [disabled]="!canManage()">
+        Schedule fee
+      </button>
+    </div>
+    <div class="totals">
+      @for (t of totals(); track t.currency) {
+        <article>
+          <span>{{ t.currency }} · CURRENT FILTER</span
+          ><strong>{{ t.remaining | number: '1.2-2' }} outstanding</strong
+          ><small
+            >{{ t.paid | number: '1.2-2' }} paid · {{ t.overdue | number: '1.2-2' }} overdue</small
+          >
+        </article>
+      }
+    </div>
+    @if (feeEditor()) {
+      <form class="child-editor" [formGroup]="feeForm" (ngSubmit)="saveFee()">
+        <h3>{{ editingFee() ? 'Edit fee' : 'Schedule fee' }}</h3>
+        <fieldset [disabled]="busy() || !!pending() || !store.writable()">
+          <div class="form-row">
+            <label
+              >Fee title<input
+                formControlName="title"
+                maxlength="200"
+                placeholder="Term 1 tuition"
+                required /></label
+            ><label
+              >Due date<input
+                type="date"
+                formControlName="due_on"
+                min="1900-01-01"
+                max="2100-12-31"
+                required
+            /></label>
+          </div>
+          <div class="form-row">
+            <label
+              >Scheduled amount<input
+                inputmode="decimal"
+                formControlName="amount"
+                required /></label
+            ><label>Fee currency<input formControlName="currency" maxlength="3" required /></label>
+          </div>
+          <label
+            >Fee notes<textarea formControlName="notes" maxlength="2000" rows="2"></textarea>
+          </label>
+          <p class="form-help">
+            Schedule each installment as a separate fee. Currency is fixed once payment history
+            exists.
+          </p>
+          <div class="heading-actions">
+            <button class="button primary" type="submit">Save fee</button
+            ><button class="button subtle" type="button" (click)="closeChildren()">
+              Cancel fee edit
+            </button>
+          </div>
+        </fieldset>
+      </form>
+    }
+    @if (payingFee(); as f) {
+      <form class="child-editor" [formGroup]="paymentForm" (ngSubmit)="recordPayment()">
+        <h3>Record payment · {{ f.title }}</h3>
+        <p>
+          {{ f.currency }} {{ library.balance(f).remaining | number: '1.2-2' }} outstanding. This
+          records a payment you have already made.
+        </p>
+        <fieldset [disabled]="busy() || !!pending() || !store.writable()">
+          <label
+            >Finance expense (optional)<select
+              formControlName="expense"
+              (change)="chooseExpense($any($event.target).value)"
+            >
+              <option value="">No Finance link</option>
+              @for (t of library.expenseChoices(f); track t.id) {
+                <option [value]="t.id">
+                  {{ t.title }} · {{ f.currency }} {{ t.amount | number: '1.2-2' }} ·
+                  {{ t.booked_on }}
+                </option>
+              }
+            </select></label
+          >
+          <p class="form-help">
+            Link only your own matching expense. Amount, currency and payment date must match.
+            Linking creates no new Finance transaction.
+          </p>
+          <div class="form-row">
+            <label
+              >Payment amount<input inputmode="decimal" formControlName="amount" required /></label
+            ><label
+              >Payment date<input
+                type="date"
+                formControlName="paid_on"
+                min="1900-01-01"
+                [max]="library.today()"
+                required /></label
+            ><label>Receipt reference<input formControlName="reference" maxlength="120" /></label>
+          </div>
+          <label
+            >Payment notes<textarea formControlName="notes" maxlength="2000" rows="2"></textarea>
+          </label>
+          <div class="heading-actions">
+            <button class="button primary" type="submit">Save payment</button
+            ><button class="button subtle" type="button" (click)="closeChildren()">
+              Cancel payment
+            </button>
+          </div>
+        </fieldset>
+      </form>
+    }
+    <div class="fee-list">
+      @for (f of fees(); track f.id) {
+        <article class="fee-card">
+          <div class="detail-heading">
+            <div>
+              <span class="eyebrow">{{
+                f.archived
+                  ? 'ARCHIVED FEE'
+                  : library.balance(f).remaining === 0
+                    ? 'PAID'
+                    : f.due_on < library.today()
+                      ? 'OVERDUE'
+                      : 'SCHEDULED'
+              }}</span>
+              <h3>{{ f.title }}</h3>
+              <p>
+                Due {{ f.due_on + 'T00:00:00Z' | date: 'mediumDate' : 'UTC' }} · {{ f.currency }}
+                {{ f.amount | number: '1.2-2' }}
+              </p>
+              <strong
+                >{{ f.currency }}
+                {{ library.balance(f).remaining | number: '1.2-2' }} outstanding</strong
+              ><small>{{ library.balance(f).paid | number: '1.2-2' }} paid</small>
+            </div>
+            <div class="heading-actions">
+              @if (store.canEdit(s)) {
+                <button
+                  class="button primary"
+                  (click)="startPayment(f)"
+                  [disabled]="!canManage() || f.archived || library.balance(f).remaining === 0"
+                  [attr.aria-label]="'Record payment ' + f.title"
+                >
+                  Record payment</button
+                ><button
+                  class="button subtle"
+                  (click)="startFee(f)"
+                  [disabled]="!canManage() || f.archived"
+                  [attr.aria-label]="'Edit fee ' + f.title"
+                >
+                  Edit</button
+                ><button
+                  class="button subtle"
+                  (click)="archive(s, f)"
+                  [disabled]="!canManage()"
+                  [attr.aria-label]="(f.archived ? 'Restore fee ' : 'Archive fee ') + f.title"
+                >
+                  {{ f.archived ? 'Restore' : 'Archive' }}
+                </button>
+              }
+            </div>
+          </div>
+          @if (f.notes) {
+            <p class="literal">{{ f.notes }}</p>
+          }
+          <details>
+            <summary>Payment history · {{ library.payments(f).length }} records</summary>
+            <p class="form-help">
+              Payment details are kept as history. Void an incorrect record and add a replacement.
+              Void/restore changes the education balance; linked Finance expenses stay unchanged.
+            </p>
+            @for (p of payments(f); track p.id) {
+              <div class="payment-row">
+                <div>
+                  <strong
+                    >{{ f.currency }} {{ p.amount | number: '1.2-2' }} ·
+                    {{ p.voided ? 'Voided' : 'Recorded' }}</strong
+                  ><span
+                    >{{ p.paid_on + 'T00:00:00Z' | date: 'mediumDate' : 'UTC'
+                    }}{{ p.reference ? ' · ' + p.reference : '' }}</span
+                  >
+                  @if (p.notes) {
+                    <p class="literal">{{ p.notes }}</p>
+                  }
+                  @if (library.linkStatus(p, f)) {
+                    <small>{{ library.linkStatus(p, f) }}</small>
+                  }
+                </div>
+                @if (store.canEdit(s)) {
+                  <button
+                    class="button subtle"
+                    (click)="voidPayment(f, p)"
+                    [disabled]="!canManage() || f.archived"
+                    [attr.aria-label]="
+                      (p.voided ? 'Restore payment ' : 'Void payment ') + (p.reference || p.paid_on)
+                    "
+                  >
+                    {{ p.voided ? 'Restore payment' : 'Void payment' }}
+                  </button>
+                }
+              </div>
+            } @empty {
+              <p class="empty-state">No payments in this history view.</p>
+            }
+          </details>
+        </article>
+      } @empty {
+        <p class="empty-state">
+          No fees in this view. Schedule tuition, transport or other installments.
+        </p>
+      }
+    </div>
+  </section>
+}

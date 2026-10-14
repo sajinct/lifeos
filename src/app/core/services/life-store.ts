@@ -25,6 +25,10 @@ import {
   Member,
   Note,
   NoteDocument,
+  EducationStudent,
+  EducationFee,
+  EducationPayment,
+  EducationPaymentLink,
   ShoppingList,
   ShoppingItem,
   LearningItem,
@@ -104,6 +108,10 @@ export class LifeStore {
   readonly calendarSeries = signal<CalendarSeries[]>([]);
   readonly notes = signal<Note[]>([]);
   readonly noteDocuments = signal<NoteDocument[]>([]);
+  readonly educationStudents = signal<EducationStudent[]>([]);
+  readonly educationFees = signal<EducationFee[]>([]);
+  readonly educationPayments = signal<EducationPayment[]>([]);
+  readonly educationPaymentLinks = signal<EducationPaymentLink[]>([]);
   readonly shoppingLists = signal<ShoppingList[]>([]);
   readonly shoppingItems = signal<ShoppingItem[]>([]);
   readonly learningItems = signal<LearningItem[]>([]);
@@ -259,6 +267,10 @@ export class LifeStore {
     this.learningDocuments.set(d.learningDocuments);
     this.learningNotes.set(d.learningNotes);
     this.learningUnits.set(d.learningUnits);
+    this.educationStudents.set(d.educationStudents);
+    this.educationFees.set(d.educationFees);
+    this.educationPayments.set(d.educationPayments);
+    this.educationPaymentLinks.set(d.educationPaymentLinks);
     this.shoppingLists.set(d.shoppingLists);
     this.shoppingItems.set(d.shoppingItems);
     this.learningItems.set(d.learningItems);
@@ -326,6 +338,10 @@ export class LifeStore {
     this.learningDocuments.set([]);
     this.learningNotes.set([]);
     this.learningUnits.set([]);
+    this.educationStudents.set([]);
+    this.educationFees.set([]);
+    this.educationPayments.set([]);
+    this.educationPaymentLinks.set([]);
     this.shoppingLists.set([]);
     this.shoppingItems.set([]);
     this.learningItems.set([]);
@@ -406,6 +422,10 @@ export class LifeStore {
         learningDocuments: this.learningDocuments(),
         learningNotes: this.learningNotes(),
         learningUnits: this.learningUnits(),
+        educationStudents: this.educationStudents(),
+        educationFees: this.educationFees(),
+        educationPayments: this.educationPayments(),
+        educationPaymentLinks: this.educationPaymentLinks(),
         shoppingLists: this.shoppingLists(),
         shoppingItems: this.shoppingItems(),
         learningItems: this.learningItems(),
@@ -475,6 +495,10 @@ export class LifeStore {
         this.learningDocuments.set(d.learningDocuments);
         this.learningNotes.set(d.learningNotes);
         this.learningUnits.set(d.learningUnits);
+        this.educationStudents.set(d.educationStudents);
+        this.educationFees.set(d.educationFees);
+        this.educationPayments.set(d.educationPayments);
+        this.educationPaymentLinks.set(d.educationPaymentLinks);
         this.shoppingLists.set(d.shoppingLists);
         this.shoppingItems.set(d.shoppingItems);
         this.learningItems.set(d.learningItems);
@@ -900,6 +924,66 @@ export class LifeStore {
       if (run !== this.generation) return;
       this.projectMilestones.set(projectMilestoneRows);
       this.projectBudgets.set(projectBudgetRows);
+      const educationStudents: EducationStudent[] = [];
+      for (let offset = 0; ; offset += 500) {
+        const page = await c
+          .from('education_students')
+          .select('*')
+          .eq('workspace_id', w.id)
+          .order('created_at')
+          .order('id')
+          .range(offset, offset + 499);
+        if (page.error) throw page.error;
+        if (run !== this.generation) return;
+        educationStudents.push(...(page.data as EducationStudent[]));
+        if (page.data.length < 500) break;
+      }
+      this.educationStudents.set(educationStudents);
+      const educationFees: EducationFee[] = [];
+      for (let offset = 0; ; offset += 500) {
+        const page = await c
+          .from('education_fees')
+          .select('*')
+          .eq('workspace_id', w.id)
+          .order('created_at')
+          .order('id')
+          .range(offset, offset + 499);
+        if (page.error) throw page.error;
+        if (run !== this.generation) return;
+        educationFees.push(...(page.data as EducationFee[]));
+        if (page.data.length < 500) break;
+      }
+      this.educationFees.set(educationFees);
+      const educationPayments: EducationPayment[] = [];
+      for (let offset = 0; ; offset += 500) {
+        const page = await c
+          .from('education_payments')
+          .select('*')
+          .eq('workspace_id', w.id)
+          .order('created_at')
+          .order('id')
+          .range(offset, offset + 499);
+        if (page.error) throw page.error;
+        if (run !== this.generation) return;
+        educationPayments.push(...(page.data as EducationPayment[]));
+        if (page.data.length < 500) break;
+      }
+      this.educationPayments.set(educationPayments);
+      const educationPaymentLinks: EducationPaymentLink[] = [];
+      for (let offset = 0; ; offset += 500) {
+        const page = await c
+          .from('education_payment_links')
+          .select('*')
+          .eq('workspace_id', w.id)
+          .order('created_at')
+          .order('id')
+          .range(offset, offset + 499);
+        if (page.error) throw page.error;
+        if (run !== this.generation) return;
+        educationPaymentLinks.push(...(page.data as EducationPaymentLink[]));
+        if (page.data.length < 500) break;
+      }
+      this.educationPaymentLinks.set(educationPaymentLinks);
       const shoppingLists: ShoppingList[] = [],
         shoppingItems: ShoppingItem[] = [];
       for (const table of ['shopping_lists', 'shopping_items'] as const)
@@ -1959,6 +2043,10 @@ export class LifeStore {
       calendarSeries: this.calendarSeries(),
       notes: this.notes(),
       noteDocuments: this.noteDocuments(),
+      educationStudents: this.educationStudents(),
+      educationFees: this.educationFees(),
+      educationPayments: this.educationPayments(),
+      educationPaymentLinks: this.educationPaymentLinks(),
       shoppingLists: this.shoppingLists(),
       shoppingItems: this.shoppingItems(),
       learningItems: this.learningItems(),

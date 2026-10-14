@@ -288,6 +288,22 @@ async function seed(db) {
     "select public.save_shopping_item($1,$2,$3,1,2,'Milk','Dairy',1.5,'litres','',true,false)",
     [shoppingRequest, shoppingItem, shoppingList],
   );
+  const educationStudent = randomUUID(),
+    educationFee = randomUUID(),
+    educationPayment = randomUUID(),
+    educationRequest = randomUUID();
+  await db.query(
+    "select public.save_education_student($1,$2,$3,null,'Synthetic student','Example school','Grade 5','2026–2027','',null,'private')",
+    [randomUUID(), educationStudent, w],
+  );
+  await db.query(
+    "select public.save_education_fee($1,$2,$3,null,1,'Term 1','2026-12-31',1000,'INR','')",
+    [randomUUID(), educationFee, educationStudent],
+  );
+  await db.query(
+    "select public.record_education_payment($1,$2,$3,1,2,100,'2026-01-15','Synthetic receipt','',null)",
+    [educationRequest, educationPayment, educationFee],
+  );
   await db.exec('reset role');
   return {
     a,
@@ -300,6 +316,10 @@ async function seed(db) {
     transfer,
     note,
     noteRequest,
+    educationStudent,
+    educationFee,
+    educationPayment,
+    educationRequest,
     shoppingList,
     shoppingItem,
     shoppingRequest,
@@ -438,6 +458,19 @@ export async function runLocalRecoveryDrill({ output } = {}) {
       'Workspace owner read member-private records.',
     );
     checks.push('Workspace owner cannot read a member’s learning, journal or attachment metadata');
+    assert(
+      (
+        await restored.query('select id from public.education_students where id=$1', [
+          fixture.educationStudent,
+        ])
+      ).rows.length === 0 &&
+        (
+          await restored.query('select id from public.education_payments where id=$1', [
+            fixture.educationPayment,
+          ])
+        ).rows.length === 0,
+      'Workspace owner read private education history.',
+    );
     await user(restored, fixture.b);
     assert(
       (await restored.query('select id from public.accounts where id=$1', [fixture.from])).rows
@@ -463,6 +496,38 @@ export async function runLocalRecoveryDrill({ output } = {}) {
     );
     checks.push(
       'Shared shopping items preserve their creator, check actor/time, parent revision and exact request replay',
+    );
+    await restored.query(
+      "select public.record_education_payment($1,$2,$3,1,2,100,'2026-01-15','Synthetic receipt','',null)",
+      [fixture.educationRequest, fixture.educationPayment, fixture.educationFee],
+    );
+    assert(
+      (
+        await restored.query('select revision from public.education_payments where id=$1', [
+          fixture.educationPayment,
+        ])
+      ).rows[0]?.revision === 1,
+      'Restored education payment replay duplicated history.',
+    );
+    await restored.query('select public.set_education_payment_void($1,$2,1,2,3,true)', [
+      randomUUID(),
+      fixture.educationPayment,
+    ]);
+    await restored.query('select public.set_education_payment_void($1,$2,2,3,4,false)', [
+      randomUUID(),
+      fixture.educationPayment,
+    ]);
+    assert(
+      (
+        await restored.query(
+          'select coalesce(sum(amount),0)::text paid from public.education_payments where fee_id=$1 and not voided',
+          [fixture.educationFee],
+        )
+      ).rows[0]?.paid === '100.00',
+      'Restored education payment balance differs.',
+    );
+    checks.push(
+      'Private education fees and payment history retain exact retries, revisions and reversible corrections',
     );
     const old = (
       await restored.query('select status,version_number from public.attachments where id=$1', [

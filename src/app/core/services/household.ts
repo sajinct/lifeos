@@ -106,6 +106,13 @@ export class HouseholdLibrary {
       throw new Error(
         'Unlink shared responsibilities and dates before making this member private.',
       );
+    if (
+      v.visibility === 'private' &&
+      this.store.educationStudents().some((s) => s.member_id === id && s.visibility === 'workspace')
+    )
+      throw new Error(
+        'Unlink or make linked education records private before making this household member private.',
+      );
     const now = new Date().toISOString(),
       row: HouseholdMember = {
         id,

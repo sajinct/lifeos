@@ -1,3 +1,4 @@
+import { educationSecurityTests } from './education-security';
 import { shoppingSecurityTests } from './shopping-security';
 import { notesSecurityTests } from './notes-security';
 import { learningSecurityTests } from './learning-security';
@@ -120,7 +121,7 @@ describe('Actual PostgreSQL RLS and permission boundaries', () => {
         "select tablename,rowsecurity from pg_tables where schemaname='public'",
       )
     ).rows;
-    expect(rows.length).toBe(76);
+    expect(rows.length).toBe(80);
     expect(rows.every((r) => r.rowsecurity)).toBe(true);
   });
   it('denies anonymous reads and workspace creation', async () => {
@@ -1130,11 +1131,13 @@ learningImportSecurityTests(() => db, asUser, A, B, C);
 
 shoppingSecurityTests(() => db, asUser, A, B, C);
 
+educationSecurityTests(() => db, asUser, A, B, C);
+
 describe('Full security-fixture database snapshot recovery', () => {
   it('restores every fixture row, permission and schema definition in a separate database', async () => {
     const result = await restoreDatabaseSnapshot(db);
     try {
-      expect(result.database.publicTables).toBe(76);
+      expect(result.database.publicTables).toBe(80);
       expect(result.database.rows).toBeGreaterThan(100);
       expect(result.inventory.records.some((r) => r.schema === 'private' && r.rows > 0)).toBe(true);
       expect(result.inventory.records.some((r) => r.schema === 'auth' && r.rows > 0)).toBe(true);

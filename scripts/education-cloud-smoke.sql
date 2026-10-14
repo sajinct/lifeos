@@ -1,0 +1,42 @@
+-- Disposable synthetic students, ledger metadata and payments; all changes roll back.
+begin;
+create temporary table lifeos_education_smoke(result text);
+do $$
+declare a uuid:=gen_random_uuid();b uuid:=gen_random_uuid();w uuid;s uuid:=gen_random_uuid();f uuid:=gen_random_uuid();p uuid:=gen_random_uuid();request uuid:=gen_random_uuid();account uuid;expense uuid;m uuid:=gen_random_uuid();denied boolean;begin
+ insert into auth.users(id,raw_user_meta_data)values(a,'{"display_name":"Disposable education workspace owner"}'),(b,'{"display_name":"Disposable education creator"}');
+ perform set_config('request.jwt.claim.sub',a::text,true);set local role authenticated;
+ w:=public.create_workspace('Disposable education review','family');perform public.set_workspace_member(w,b,'editor');
+ perform set_config('request.jwt.claim.sub',b::text,true);
+ perform public.save_household_member(m,w,null,'Synthetic household student','Child',null,'','private');
+ perform public.save_education_student(gen_random_uuid(),s,w,null,'Synthetic student','Example school','Grade 5','2026–2027','Literal <script>text</script>',m,'private');
+ perform public.save_education_fee(gen_random_uuid(),f,s,null,1,'Term 1','2026-12-31',1000,'INR','');
+ insert into public.accounts(workspace_id,name,currency,opening_balance)values(w,'Synthetic tuition account','INR',10000) returning id into account;
+ expense:=public.record_transaction(w,account,'Synthetic tuition expense',100,'expense','Education','2026-01-15');
+ perform public.record_education_payment(request,p,f,1,2,100,'2026-01-15','Synthetic receipt','',expense);
+ perform public.record_education_payment(request,p,f,1,2,100,'2026-01-15','Synthetic receipt','',expense);
+ if (select revision from public.education_payments where id=p)<>1 or (select revision from public.education_students where id=s)<>3 then raise exception 'Payment replay changed history';end if;
+ denied:=false;begin perform public.record_education_payment(gen_random_uuid(),gen_random_uuid(),f,2,3,901,'2026-01-15','','',null);exception when others then denied:=true;end;if not denied then raise exception 'Overpayment accepted';end if;
+ perform set_config('request.jwt.claim.sub',a::text,true);
+ if exists(select 1 from public.education_students where id=s) or exists(select 1 from public.education_fees where id=f) or exists(select 1 from public.education_payments where id=p) then raise exception 'Workspace owner read private education';end if;
+ perform set_config('request.jwt.claim.sub',b::text,true);perform public.save_household_member(m,w,1,'Synthetic household student','Child',null,'','workspace');
+ perform public.save_education_student(gen_random_uuid(),s,w,3,'Synthetic student','Example school','Grade 5','2026–2027','',m,'workspace');
+ denied:=false;begin perform public.save_household_member(m,w,2,'Synthetic household student','Child',null,'','private');exception when others then denied:=true;end;if not denied then raise exception 'Private member behind shared education accepted';end if;
+ perform set_config('request.jwt.claim.sub',a::text,true);
+ if not exists(select 1 from public.education_payments where id=p) then raise exception 'Shared payment history unavailable';end if;
+ if exists(select 1 from public.education_payment_links where id=p) or exists(select 1 from public.transactions where id=expense) then raise exception 'Shared education exposed private Finance';end if;
+ denied:=false;begin perform public.save_education_student(gen_random_uuid(),s,w,4,'Synthetic student','Example school','Grade 5','2026–2027','',m,'private');exception when others then denied:=true;end;if not denied then raise exception 'Workspace owner changed creator sharing';end if;
+ perform public.set_education_payment_void(gen_random_uuid(),p,1,2,4,true);
+ perform public.set_education_payment_void(gen_random_uuid(),p,2,3,5,false);
+ if (select sum(amount) from public.education_payments where fee_id=f and not voided)<>100 then raise exception 'Void/restore balance failed';end if;
+ perform public.set_education_archive(gen_random_uuid(),s,'student',6,6,true);
+ denied:=false;begin perform public.record_education_payment(gen_random_uuid(),gen_random_uuid(),f,4,7,100,'2026-01-15','','',null);exception when others then denied:=true;end;if not denied then raise exception 'Archived student accepted payment';end if;
+ perform public.set_education_archive(gen_random_uuid(),s,'student',7,7,false);
+ perform public.set_workspace_member(w,b,'viewer');perform set_config('request.jwt.claim.sub',b::text,true);
+ denied:=false;begin perform public.record_education_payment(request,p,f,1,2,100,'2026-01-15','Synthetic receipt','',expense);exception when others then denied:=true;end;if not denied then raise exception 'Viewer payment replay accepted';end if;
+ if not exists(select 1 from public.education_payment_links where id=p) then raise exception 'Own private expense link unavailable';end if;
+ if (select amount from public.transactions where id=expense)<>100 then raise exception 'Education corrections mutated Finance';end if;
+ denied:=false;begin update public.education_payments set amount=1 where id=p;exception when others then denied:=true;end;if not denied then raise exception 'Direct payment change accepted';end if;
+ reset role;insert into lifeos_education_smoke values('Private student/fee/payment isolation, explicit sharing, private Finance links, household sharing guard, exact retries, partial balances, overpayment denial, reversible payment history, archived parent freeze, creator sharing and viewer denial passed. All synthetic records rolled back; no messages or actual payments sent.');
+end $$;
+select * from lifeos_education_smoke;
+rollback;
