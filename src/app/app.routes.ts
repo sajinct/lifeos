@@ -67,6 +67,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/health/health').then((m) => m.HealthPage),
       },
       {
+        path: 'learning',
+        loadComponent: () => import('./features/learning/learning').then((m) => m.LearningPage),
+      },
+      {
         path: 'career',
         loadComponent: () => import('./features/career/career').then((m) => m.CareerPage),
       },

@@ -139,6 +139,21 @@ export class SearchDialog implements AfterViewInit {
           path: '/health',
         })),
       ...this.store
+        .learningItems()
+        .filter(
+          (i) =>
+            !i.archived &&
+            i.owner_id === this.store.profile()?.id &&
+            i.workspace_id === this.store.workspace()?.id,
+        )
+        .map((i) => ({
+          id: i.id,
+          title: i.title,
+          type: 'Learning',
+          icon: 'goal',
+          path: '/learning',
+        })),
+      ...this.store
         .careerRecords()
         .filter((r) => r.status !== 'archived')
         .map((r) => ({
@@ -239,6 +254,7 @@ export class SearchDialog implements AfterViewInit {
     this.ui.searchOpen.set(false);
     void this.router.navigateByUrl(
       result.path === '/notes' ||
+        result.path === '/learning' ||
         result.path === '/projects' ||
         result.path === '/travel' ||
         result.path === '/cards' ||

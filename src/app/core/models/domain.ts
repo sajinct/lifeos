@@ -936,7 +936,54 @@ export type CareerInput = Pick<
   expires_on: string;
   document_ids: string[];
 };
+export interface LearningItem extends OwnedRecord {
+  kind: 'course' | 'book' | 'resource';
+  title: string;
+  provider: string;
+  url: string;
+  goal: string;
+  due_on: string | null;
+  notes: string;
+  status: 'active' | 'paused' | 'completed';
+  completed_on: string | null;
+  archived: boolean;
+  revision: number;
+}
+export interface LearningUnit extends OwnedRecord {
+  item_id: string;
+  title: string;
+  notes: string;
+  position: number;
+  done: boolean;
+  archived: boolean;
+  revision: number;
+}
+export interface LearningNote extends OwnedRecord {
+  item_id: string;
+  note_id: string;
+}
+export interface LearningDocument extends OwnedRecord {
+  item_id: string;
+  attachment_id: string;
+  purpose: 'reference' | 'certificate';
+}
+export interface LearningInput {
+  kind: LearningItem['kind'];
+  title: string;
+  provider: string;
+  url: string;
+  goal: string;
+  due_on: string;
+  notes: string;
+  note_ids: string[];
+  document_ids: string[];
+  certificate_ids: string[];
+}
 export interface TableRows {
+  learning_items: LearningItem;
+  learning_units: LearningUnit;
+  learning_notes: LearningNote;
+  learning_documents: LearningDocument;
   email_preferences: EmailPreferences;
   email_deliveries: EmailDelivery;
   record_json_links: {
@@ -1034,6 +1081,49 @@ export type Database = {
     Tables: { [K in keyof TableRows]: Table<TableRows[K]> };
     Views: Record<string, never>;
     Functions: {
+      save_learning_item: {
+        Args: {
+          request: string;
+          entry: string;
+          w: string;
+          expected_revision: number | null;
+          item_kind: LearningItem['kind'];
+          item_title: string;
+          provider_name: string;
+          resource_url: string;
+          learning_goal: string;
+          deadline: string | null;
+          item_notes: string;
+          note_ids: string[];
+          document_ids: string[];
+          certificate_ids: string[];
+        };
+        Returns: string;
+      };
+      save_learning_unit: {
+        Args: {
+          request: string;
+          entry: string;
+          parent: string;
+          expected_revision: number | null;
+          expected_parent_revision: number;
+          unit_title: string;
+          unit_notes: string;
+          is_done: boolean;
+          is_archived: boolean;
+        };
+        Returns: string;
+      };
+      set_learning_state: {
+        Args: {
+          request: string;
+          entry: string;
+          expected_revision: number;
+          target: LearningItem['status'];
+          is_archived: boolean;
+        };
+        Returns: undefined;
+      };
       save_note: {
         Args: {
           request: string;

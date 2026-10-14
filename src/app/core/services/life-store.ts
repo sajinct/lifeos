@@ -25,6 +25,10 @@ import {
   Member,
   Note,
   NoteDocument,
+  LearningItem,
+  LearningUnit,
+  LearningNote,
+  LearningDocument,
   Notification,
   ReminderPreferences,
   DEFAULT_REMINDERS,
@@ -98,6 +102,10 @@ export class LifeStore {
   readonly calendarSeries = signal<CalendarSeries[]>([]);
   readonly notes = signal<Note[]>([]);
   readonly noteDocuments = signal<NoteDocument[]>([]);
+  readonly learningItems = signal<LearningItem[]>([]);
+  readonly learningUnits = signal<LearningUnit[]>([]);
+  readonly learningNotes = signal<LearningNote[]>([]);
+  readonly learningDocuments = signal<LearningDocument[]>([]);
   readonly goals = signal<Goal[]>([]);
   readonly creditCards = signal<CreditCard[]>([]);
   readonly cardStatements = signal<CardStatement[]>([]);
@@ -244,6 +252,10 @@ export class LifeStore {
     this.events.set(d.events);
     this.notes.set(d.notes);
     this.noteDocuments.set(d.noteDocuments);
+    this.learningDocuments.set(d.learningDocuments);
+    this.learningNotes.set(d.learningNotes);
+    this.learningUnits.set(d.learningUnits);
+    this.learningItems.set(d.learningItems);
     this.goals.set(d.goals);
     this.creditCards.set(d.creditCards);
     this.cardStatements.set(d.cardStatements);
@@ -305,6 +317,10 @@ export class LifeStore {
     this.calendarSeries.set([]);
     this.notes.set([]);
     this.noteDocuments.set([]);
+    this.learningDocuments.set([]);
+    this.learningNotes.set([]);
+    this.learningUnits.set([]);
+    this.learningItems.set([]);
     this.goals.set([]);
     this.creditCards.set([]);
     this.cardStatements.set([]);
@@ -379,6 +395,10 @@ export class LifeStore {
         calendarSeries: this.calendarSeries(),
         notes: this.notes(),
         noteDocuments: this.noteDocuments(),
+        learningDocuments: this.learningDocuments(),
+        learningNotes: this.learningNotes(),
+        learningUnits: this.learningUnits(),
+        learningItems: this.learningItems(),
         goals: this.goals(),
         creditCards: this.creditCards(),
         cardStatements: this.cardStatements(),
@@ -442,6 +462,10 @@ export class LifeStore {
         this.calendarSeries.set(d.calendarSeries);
         this.notes.set(d.notes);
         this.noteDocuments.set(d.noteDocuments);
+        this.learningDocuments.set(d.learningDocuments);
+        this.learningNotes.set(d.learningNotes);
+        this.learningUnits.set(d.learningUnits);
+        this.learningItems.set(d.learningItems);
         this.goals.set(d.goals);
         this.creditCards.set(d.creditCards);
         this.cardStatements.set(d.cardStatements);
@@ -864,6 +888,36 @@ export class LifeStore {
       if (run !== this.generation) return;
       this.projectMilestones.set(projectMilestoneRows);
       this.projectBudgets.set(projectBudgetRows);
+      const learningItems: LearningItem[] = [],
+        learningUnits: LearningUnit[] = [],
+        learningNotes: LearningNote[] = [],
+        learningDocuments: LearningDocument[] = [];
+      for (const table of [
+        'learning_items',
+        'learning_units',
+        'learning_notes',
+        'learning_documents',
+      ] as const)
+        for (let offset = 0; ; offset += 500) {
+          const page = await c
+            .from(table)
+            .select('*')
+            .eq('workspace_id', w.id)
+            .order('created_at')
+            .order('id')
+            .range(offset, offset + 499);
+          if (page.error) throw page.error;
+          if (run !== this.generation) return;
+          if (table === 'learning_items') learningItems.push(...(page.data as LearningItem[]));
+          else if (table === 'learning_units') learningUnits.push(...(page.data as LearningUnit[]));
+          else if (table === 'learning_notes') learningNotes.push(...(page.data as LearningNote[]));
+          else learningDocuments.push(...(page.data as LearningDocument[]));
+          if (page.data.length < 500) break;
+        }
+      this.learningItems.set(learningItems);
+      this.learningUnits.set(learningUnits);
+      this.learningNotes.set(learningNotes);
+      this.learningDocuments.set(learningDocuments);
       const noteDocuments: NoteDocument[] = [];
       for (let offset = 0; ; offset += 500) {
         const page = await c
@@ -1874,6 +1928,10 @@ export class LifeStore {
       calendarSeries: this.calendarSeries(),
       notes: this.notes(),
       noteDocuments: this.noteDocuments(),
+      learningItems: this.learningItems(),
+      learningUnits: this.learningUnits(),
+      learningNotes: this.learningNotes(),
+      learningDocuments: this.learningDocuments(),
       goals: this.goals(),
       creditCards: this.creditCards(),
       cardStatements: this.cardStatements(),

@@ -1,0 +1,442 @@
+<section class="page-heading">
+  <div>
+    <span class="eyebrow">MAKE ROOM TO GROW</span>
+    <h1>Courses & Learning</h1>
+    <p>Turn courses, books and useful resources into steady progress.</p>
+  </div>
+  <div class="heading-actions">
+    <button class="button subtle" (click)="exportCsv()" [disabled]="!rows().length">
+      Export CSV</button
+    ><button class="button primary" (click)="create()" [disabled]="!canChange()">
+      Add learning
+    </button>
+  </div>
+</section>
+<div class="learning-stats">
+  <div class="panel">
+    <span>In progress</span><strong>{{ counts().active }}</strong>
+  </div>
+  <div class="panel">
+    <span>Paused</span><strong>{{ counts().paused }}</strong>
+  </div>
+  <div class="panel">
+    <span>Completed</span><strong>{{ counts().completed }}</strong>
+  </div>
+  <div class="panel">
+    <span>Past deadline</span><strong>{{ counts().overdue }}</strong>
+  </div>
+</div>
+@if (linked()) {
+  <div class="file-library-note">
+    <span>Showing the linked learning item.</span
+    ><button class="button subtle" (click)="clearLink()">Show all learning</button>
+  </div>
+}
+@if (editing()) {
+  <section class="panel learning-editor">
+    <div class="learning-heading">
+      <h2>{{ previous() ? 'Edit learning' : 'Add learning' }}</h2>
+      <button class="button subtle" (click)="resetDraft()" [disabled]="busy()">Close editor</button>
+    </div>
+    <form [formGroup]="form" (ngSubmit)="save()">
+      <fieldset [disabled]="busy() || !!pending()">
+        <div class="form-row">
+          <label
+            >Learning type<select formControlName="kind">
+              <option value="course">Course</option>
+              <option value="book">Book</option>
+              <option value="resource">Resource</option>
+            </select></label
+          ><label
+            >Title<input
+              formControlName="title"
+              required
+              maxlength="200"
+              placeholder="What would you like to learn?"
+          /></label>
+        </div>
+        <div class="form-row">
+          <label>Provider or author<input formControlName="provider" maxlength="200" /></label
+          ><label
+            >Resource link<input
+              type="url"
+              formControlName="url"
+              maxlength="2000"
+              placeholder="https://…"
+          /></label>
+        </div>
+        <div class="form-row">
+          <label
+            >Learning goal<textarea
+              formControlName="goal"
+              maxlength="1000"
+              rows="2"
+              placeholder="What do you want to achieve?"
+            ></textarea></label
+          ><label
+            >Target date<input
+              type="date"
+              formControlName="due_on"
+              min="1900-01-01"
+              max="2100-12-31"
+          /></label>
+        </div>
+        <label
+          >Learning notes<textarea formControlName="notes" maxlength="4000" rows="4"></textarea>
+        </label>
+        <details class="learning-links">
+          <summary>Link your notes and documents</summary>
+          <p class="muted">
+            Only your own notes and completed file versions in this workspace. All learning records
+            and links are private.
+          </p>
+          <h3>Notes & journals</h3>
+          <div class="learning-picker">
+            @for (note of library.noteChoices(); track note.id) {
+              <label class="learning-check"
+                ><input
+                  type="checkbox"
+                  [checked]="selectedNotes().includes(note.id)"
+                  (change)="toggleNote(note.id, $any($event.target).checked)"
+                />{{ note.title }}{{ note.archived ? ' · archived' : '' }}</label
+              >
+            } @empty {
+              <p class="muted">
+                No notes yet. <a routerLink="/notes">Create a note</a> to link here.
+              </p>
+            }
+          </div>
+          <h3>Reference files & certificates</h3>
+          <p class="muted">
+            Choose one purpose per file. Links keep the selected version and preserve archived
+            files.
+          </p>
+          <div class="learning-picker">
+            @for (file of library.notes.documents(); track file.id) {
+              <div class="learning-file-choice">
+                <span
+                  >{{ file.name }} · v{{ file.version_number }} · {{ fileSize(file.size_bytes)
+                  }}{{ file.status === 'archived' ? ' · archived' : '' }}</span
+                ><label class="learning-check"
+                  ><input
+                    type="checkbox"
+                    [checked]="selectedDocuments().includes(file.id)"
+                    (change)="toggleFile(file.id, 'reference', $any($event.target).checked)"
+                    [attr.aria-label]="'Reference ' + file.name + ' version ' + file.version_number"
+                  />Reference</label
+                ><label class="learning-check"
+                  ><input
+                    type="checkbox"
+                    [checked]="selectedCertificates().includes(file.id)"
+                    (change)="toggleFile(file.id, 'certificate', $any($event.target).checked)"
+                    [attr.aria-label]="
+                      'Certificate ' + file.name + ' version ' + file.version_number
+                    "
+                  />Certificate</label
+                >
+              </div>
+            } @empty {
+              <p class="muted">No completed documents yet.</p>
+            }
+          </div>
+          <p class="muted">
+            Up to 50 notes and 50 files. Unlinking leaves the original note or file in place.
+          </p>
+          <a routerLink="/documents">Upload or manage Documents & receipts</a>
+        </details>
+        <button class="button primary" type="submit">
+          {{ previous() ? 'Save learning changes' : 'Save learning' }}
+        </button>
+      </fieldset>
+    </form>
+  </section>
+}
+@if (error()) {
+  <p class="error-banner" role="alert">{{ error() }}</p>
+}
+@if (pending() && !busy()) {
+  <div class="learning-retry">
+    <button class="button primary" (click)="retry()">Retry the same learning change</button
+    ><button class="button subtle" (click)="resetDraft()">Discard retry</button>
+  </div>
+}
+@if (item(); as selected) {
+  @if (!editing()) {
+    <section class="panel learning-detail">
+      <div class="learning-heading">
+        <div>
+          <span class="eyebrow">{{ selected.kind }} · ONLY YOU</span>
+          <h2>{{ selected.title }}</h2>
+          <p class="muted">
+            {{ selected.provider }} · {{ selected.status
+            }}{{ selected.archived ? ' · archived' : '' }}
+          </p>
+        </div>
+        <button
+          class="button subtle"
+          (click)="selectedId.set(''); clearLink()"
+          [disabled]="busy() || !!pending()"
+        >
+          Close details
+        </button>
+      </div>
+      @if (selected.goal) {
+        <p class="learning-text"><strong>Goal</strong> · {{ selected.goal }}</p>
+      }
+      @if (selected.due_on) {
+        <p class="muted">Target · {{ selected.due_on | date: 'd MMM yyyy' }}</p>
+      }
+      @if (selected.completed_on) {
+        <p class="muted">Completed · {{ selected.completed_on | date: 'd MMM yyyy' }}</p>
+      }
+      @if (selected.notes) {
+        <p class="learning-text">{{ selected.notes }}</p>
+      }
+      @if (safeUrl(selected.url); as url) {
+        <a [href]="url" target="_blank" rel="noopener noreferrer"
+          >Open course, book or resource ↗</a
+        >
+      }
+      <div class="learning-progress">
+        <progress
+          max="100"
+          [value]="library.progress(selected).percent"
+          [attr.aria-label]="'Progress for ' + selected.title"
+        ></progress
+        ><span
+          >{{ library.progress(selected).percent }}% · {{ library.progress(selected).done }} /
+          {{ library.progress(selected).total }} lessons, chapters or steps</span
+        >
+      </div>
+      <div class="heading-actions learning-actions">
+        @if (selected.archived) {
+          <button
+            class="button primary"
+            (click)="changeState(selected, selected.status, false)"
+            [disabled]="!canChange()"
+          >
+            Restore learning
+          </button>
+        } @else {
+          <button class="button subtle" (click)="edit(selected)" [disabled]="!canChange()">
+            Edit learning
+          </button>
+          @if (selected.status === 'active') {
+            <button
+              class="button subtle"
+              (click)="changeState(selected, 'paused')"
+              [disabled]="!canChange()"
+            >
+              Pause learning
+            </button>
+          } @else {
+            <button
+              class="button subtle"
+              (click)="changeState(selected, 'active')"
+              [disabled]="!canChange()"
+            >
+              {{ selected.status === 'paused' ? 'Resume learning' : 'Reopen learning' }}
+            </button>
+          }
+          @if (selected.status !== 'completed') {
+            <button
+              class="button subtle"
+              (click)="changeState(selected, 'completed')"
+              [disabled]="
+                !canChange() || library.progress(selected).done < library.progress(selected).total
+              "
+            >
+              Mark complete
+            </button>
+          }
+          <button
+            class="button subtle"
+            (click)="changeState(selected, selected.status, true)"
+            [disabled]="!canChange()"
+          >
+            Archive learning
+          </button>
+        }
+      </div>
+      @if (selected.archived || selected.status === 'paused') {
+        <p class="muted">
+          {{ selected.archived ? 'Restore this item' : 'Resume this item' }} before changing lesson
+          progress.
+        </p>
+      }
+      <div class="learning-heading learning-lessons-heading">
+        <h3>Lessons, chapters & steps</h3>
+        <div class="heading-actions">
+          <button class="button subtle" (click)="archivedUnits.set(!archivedUnits())">
+            {{ archivedUnits() ? 'Show current lessons' : 'Show archived lessons' }}</button
+          ><button class="button primary" (click)="startUnit()" [disabled]="!canProgress()">
+            Add lesson
+          </button>
+        </div>
+      </div>
+      @if (unitEditor()) {
+        <form class="learning-unit-editor" [formGroup]="unitForm" (ngSubmit)="saveUnit()">
+          <fieldset [disabled]="busy() || !!pending()">
+            <label
+              >Lesson or chapter title<input
+                formControlName="title"
+                maxlength="200"
+                required /></label
+            ><label
+              >Lesson notes<textarea formControlName="notes" maxlength="2000" rows="2"></textarea>
+            </label>
+            <div class="heading-actions">
+              <button class="button primary" type="submit">
+                {{ editingUnit() ? 'Save lesson changes' : 'Save lesson' }}</button
+              ><button class="button subtle" type="button" (click)="closeUnit()">
+                Cancel lesson
+              </button>
+            </div>
+          </fieldset>
+        </form>
+      }
+      <div class="learning-units">
+        @for (unit of library.units(selected); track unit.id) {
+          @if (unit.archived === archivedUnits()) {
+            <article>
+              <label class="learning-check"
+                ><input
+                  type="checkbox"
+                  [checked]="unit.done"
+                  (change)="changeUnit(unit)"
+                  [disabled]="!canProgress() || unit.archived"
+                  [attr.aria-label]="'Complete lesson ' + unit.title"
+                /><strong>{{ unit.title }}</strong></label
+              >
+              @if (unit.notes) {
+                <p class="learning-text muted">{{ unit.notes }}</p>
+              }
+              <div class="heading-actions">
+                <button
+                  class="button subtle"
+                  (click)="startUnit(unit)"
+                  [disabled]="!canProgress() || unit.archived"
+                  [attr.aria-label]="'Edit lesson ' + unit.title"
+                >
+                  Edit</button
+                ><button
+                  class="button subtle"
+                  (click)="changeUnit(unit, true)"
+                  [disabled]="!canProgress()"
+                  [attr.aria-label]="
+                    (unit.archived ? 'Restore lesson ' : 'Archive lesson ') + unit.title
+                  "
+                >
+                  {{ unit.archived ? 'Restore' : 'Archive' }}
+                </button>
+              </div>
+            </article>
+          }
+        }
+      </div>
+      @if (!library.units(selected).length) {
+        <p class="muted">
+          Add a lesson, chapter or step to track progress. With no tracked lessons, you can mark the
+          item complete yourself.
+        </p>
+      }
+      @if (library.linkedNotes(selected).length || library.linkedFiles(selected).length) {
+        <div class="learning-linked">
+          <h3>Your notes & files</h3>
+          @for (note of library.linkedNotes(selected); track note.id) {
+            <a class="button subtle" routerLink="/notes" [queryParams]="{ linked: note.id }"
+              >{{ note.title }}{{ note.archived ? ' · archived' : '' }}</a
+            >
+          }
+          @for (link of library.linkedFiles(selected); track link.file.id) {
+            <button class="button subtle" (click)="download(link.file)">
+              {{ link.purpose === 'certificate' ? 'Certificate' : 'Reference' }} ·
+              {{ link.file.name }} · v{{ link.file.version_number }}
+            </button>
+          }
+        </div>
+      }
+    </section>
+  }
+}
+<div class="learning-toolbar">
+  <input
+    aria-label="Search learning"
+    placeholder="Search learning, goals and notes…"
+    [value]="search()"
+    (input)="search.set($any($event.target).value)"
+  /><select
+    aria-label="Learning view"
+    [value]="view()"
+    (change)="view.set($any($event.target).value)"
+  >
+    <option value="active">Current learning</option>
+    <option value="archived">Archived learning</option></select
+  ><select
+    aria-label="Learning type filter"
+    [value]="kind()"
+    (change)="kind.set($any($event.target).value)"
+  >
+    <option value="all">All types</option>
+    <option value="course">Courses</option>
+    <option value="book">Books</option>
+    <option value="resource">Resources</option></select
+  ><select
+    aria-label="Learning status filter"
+    [value]="status()"
+    (change)="status.set($any($event.target).value)"
+  >
+    <option value="all">All statuses</option>
+    <option value="active">In progress</option>
+    <option value="paused">Paused</option>
+    <option value="completed">Completed</option>
+  </select>
+</div>
+<div class="record-cards learning-cards">
+  @for (item of rows(); track item.id) {
+    <article class="panel record-card">
+      <span class="eyebrow"
+        >{{ item.kind }} · {{ item.status }}{{ item.archived ? ' · archived' : '' }}</span
+      >
+      <h2>{{ item.title }}</h2>
+      <p class="muted">{{ item.provider || 'Personal learning' }}</p>
+      <p class="learning-card-goal">
+        {{ item.goal || 'Choose a goal and start with one small step.' }}
+      </p>
+      <div class="learning-progress">
+        <progress
+          max="100"
+          [value]="library.progress(item).percent"
+          [attr.aria-label]="'Progress for ' + item.title"
+        ></progress
+        ><span
+          >{{ library.progress(item).percent }}% · {{ library.progress(item).done }} /
+          {{ library.progress(item).total }} done</span
+        >
+      </div>
+      @if (item.due_on) {
+        <p class="muted">Target · {{ item.due_on | date: 'd MMM yyyy' }}</p>
+      }
+      <div class="heading-actions">
+        <button
+          class="button subtle"
+          (click)="open(item)"
+          [disabled]="busy() || !!pending()"
+          [attr.aria-label]="'Open learning ' + item.title"
+        >
+          Open learning
+        </button>
+      </div>
+    </article>
+  } @empty {
+    <div class="panel empty-state">
+      {{
+        linked()
+          ? 'This learning item is unavailable in the current workspace.'
+          : view() === 'archived'
+            ? 'No archived learning matches these filters.'
+            : 'Add a course, book or resource to start tracking your learning.'
+      }}
+    </div>
+  }
+</div>

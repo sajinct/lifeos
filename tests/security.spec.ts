@@ -1,4 +1,5 @@
 import { notesSecurityTests } from './notes-security';
+import { learningSecurityTests } from './learning-security';
 import { calendarSecurityTests } from './calendar-security';
 import { wealthSecurityTests } from './wealth-security';
 import { financeImportSecurityTests } from './finance-import-security';
@@ -133,7 +134,7 @@ describe('Actual PostgreSQL RLS and permission boundaries', () => {
         "select tablename,rowsecurity from pg_tables where schemaname='public'",
       )
     ).rows;
-    expect(rows.length).toBe(70);
+    expect(rows.length).toBe(74);
     expect(rows.every((r) => r.rowsecurity)).toBe(true);
   });
   it('denies anonymous reads and workspace creation', async () => {
@@ -1138,3 +1139,4 @@ emailSecurityTests(() => db, asUser);
 calendarSecurityTests(() => db, asUser, A, B, C);
 
 notesSecurityTests(() => db, asUser, A, B, C);
+learningSecurityTests(() => db, asUser, A, B, C);

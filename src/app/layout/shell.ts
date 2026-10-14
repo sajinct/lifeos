@@ -56,6 +56,7 @@ export class Shell implements OnInit {
     { path: '/travel', name: 'Travel & events', icon: 'calendar' },
     { path: '/health', name: 'Health & wellness', icon: 'goal' },
     { path: '/career', name: 'Career', icon: 'project' },
+    { path: '/learning', name: 'Courses & Learning', icon: 'goal' },
     { path: '/assets', name: 'Assets & maintenance', icon: 'project' },
     { path: '/contacts', name: 'Contacts', icon: 'contacts' },
     { path: '/loans', name: 'Loans & repayments', icon: 'wallet' },
