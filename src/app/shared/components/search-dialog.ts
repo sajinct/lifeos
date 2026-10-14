@@ -168,6 +168,16 @@ export class SearchDialog implements AfterViewInit {
         .filter((a) => a.status === 'active')
         .map((a) => ({ id: a.id, title: a.name, type: 'Asset', icon: 'project', path: '/assets' })),
       ...this.store
+        .householdBudgets()
+        .filter((b) => !b.archived && b.workspace_id === this.store.workspace()?.id)
+        .map((b) => ({
+          id: b.id,
+          title: b.category + ' · ' + b.month.slice(0, 7),
+          type: 'Household budget',
+          icon: 'family',
+          path: '/family/budgets',
+        })),
+      ...this.store
         .educationStudents()
         .filter((s) => !s.archived && s.workspace_id === this.store.workspace()?.id)
         .map((s) => ({
@@ -277,6 +287,7 @@ export class SearchDialog implements AfterViewInit {
         result.path === '/learning' ||
         result.path === '/family/shopping' ||
         result.path === '/family/education' ||
+        result.path === '/family/budgets' ||
         result.path === '/projects' ||
         result.path === '/travel' ||
         result.path === '/cards' ||

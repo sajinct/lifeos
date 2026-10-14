@@ -45,9 +45,10 @@ Open http://127.0.0.1:4200 and choose **Explore a demo workspace**. Sample recor
 - Owner-private Progress reports with current task/project/goal/learning snapshots, date-filtered recorded time, monthly figures, learning completion dates and filtered CSV.
 - Calendar daily/weekly/monthly/yearly repeat schedules with timezone-aware previews, 2–120 materialized occurrences, single/future editing, preserved exceptions, pause/resume/cancellation and private-by-default sharing.
 - Calendar JSON imports with explicit timezone validation, UTC previews, private events, accessible-project mapping, duplicate/conflict checks and safe atomic retries.
+- Monthly household category budgets with explicit owned-expense contributions, private Finance links, currency-specific remaining/overspending views, refresh/withdraw controls and CSV/JSON metadata history.
 - Education profiles linked to household members, school/class/year details, installment due dates, per-currency fee balances, partial payments, reversible corrections, private existing-expense links and CSV/JSON metadata history.
 - Grocery and shopping lists with private defaults, explicit workspace sharing, collaborative item editing/checking, decimal quantities/categories, archived history, revision-safe retries and filtered CSV/JSON metadata exports.
-- Private-by-default records, 80 RLS-protected application tables, private Storage policies, typed client access and server-only reminder dispatch.
+- Private-by-default records, 83 RLS-protected application tables, private Storage policies, typed client access and server-only reminder dispatch.
 - Date-filtered Finance reports with separate currency totals, monthly cash flow, category trends, budget comparisons, recorded subscription expenses and loan interest, plus filtered CSV and workspace JSON exports.
 - Currency-aware summaries, linked project records and idempotent transfer requests.
 - Installable PWA manifest/service worker that caches static assets only; offline indication.
@@ -81,3 +82,5 @@ node scripts/verify-build.mjs
 Database tests execute the actual migration in PostgreSQL through PGlite with Supabase platform shims. Cloud Auth and real Storage endpoints still require staging smoke tests. The project includes a compatible local Node runtime so Angular 22 works without replacing your system Node.
 
 See [architecture and milestones](docs/architecture.md), [schema migration](supabase/migrations/202610110001_foundation.sql), [backup/restore procedures](docs/operations.md), and the [local recovery drill and cloud validation checklist](docs/recovery-drill.md). The local drill uses only synthetic records and PGlite platform shims; a real Supabase cloud recovery remains a separate staging exercise.
+
+Angular tests use `vitest.angular.config.ts` to limit JSDOM execution to two workers, keeping memory bounded on machines with many logical CPUs. Security and recovery checks retain their separate configurations.

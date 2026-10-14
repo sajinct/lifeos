@@ -1,0 +1,404 @@
+<section class="page-heading">
+  <div>
+    <span class="eyebrow">FAMILY & HOUSEHOLD</span>
+    <h1>Household budgets</h1>
+    <p>Set monthly limits and choose which spending to include.</p>
+  </div>
+  <div class="heading-actions">
+    <a class="button subtle" routerLink="/family">Back to household</a
+    ><button
+      class="button subtle"
+      (click)="refresh()"
+      [disabled]="busy() || !!pending() || store.loading()"
+    >
+      Refresh budgets</button
+    ><button
+      class="button subtle"
+      (click)="exportCsv()"
+      [disabled]="store.loading() || !!store.error() || !rows().length"
+    >
+      Export budgets CSV</button
+    ><button class="button primary" (click)="create()" [disabled]="!canChange()">New budget</button>
+  </div>
+</section>
+<p class="sharing-note">
+  Private by default. Shared members see limits and explicitly contributed amounts, dates and notes.
+  Expense titles, accounts and Finance links stay private. Editors contribute their own spending;
+  viewers can read. Only the creator changes sharing.
+</p>
+@if (store.error()) {
+  <p class="error" role="alert">{{ store.error() }}</p>
+}
+@if (error()) {
+  <p class="error" role="alert">{{ error() }}</p>
+}
+@if (pending()) {
+  <section class="panel retry">
+    <p>
+      This change is kept for an exact retry. To use newer data, discard, refresh and start again.
+    </p>
+    <button class="button primary" (click)="retry()" [disabled]="busy()">Retry change</button
+    ><button class="button subtle" (click)="resetDraft()" [disabled]="busy()">
+      Discard pending change
+    </button>
+  </section>
+}
+@if (editing()) {
+  <section class="panel">
+    <h2>{{ previous() ? 'Edit budget' : 'New budget' }}</h2>
+    <form [formGroup]="form" (ngSubmit)="save()">
+      <fieldset [disabled]="busy() || !!pending() || !store.writable()">
+        <div class="form-row">
+          <label
+            >Household category<input
+              formControlName="category"
+              maxlength="100"
+              placeholder="Groceries, utilities, transport…"
+              required /></label
+          ><label
+            >Budget month<input
+              type="month"
+              formControlName="month"
+              min="1900-01"
+              max="2100-12"
+              required /></label
+          ><label>Budget currency<input formControlName="currency" maxlength="3" required /></label
+          ><label
+            >Monthly limit<input inputmode="decimal" formControlName="amount" required
+          /></label>
+        </div>
+        <div class="form-row">
+          <label
+            >Budget sharing<select
+              formControlName="visibility"
+              [attr.disabled]="
+                previous() && previous()!.owner_id !== store.profile()?.id ? '' : null
+              "
+            >
+              <option value="private">Private</option>
+              <option value="workspace">Shared with workspace</option>
+            </select></label
+          >
+        </div>
+        <label
+          >Budget notes<textarea formControlName="notes" maxlength="2000" rows="2"></textarea>
+        </label>
+        <p class="form-help">
+          A category, month and currency stay fixed once spending history exists. Sharing exposes
+          all included contribution notes to current and future members.
+        </p>
+        <div class="heading-actions">
+          <button class="button primary" type="submit">Save budget</button
+          ><button class="button subtle" type="button" (click)="resetDraft()">
+            Cancel budget edit
+          </button>
+        </div>
+      </fieldset>
+    </form>
+  </section>
+}
+<section class="panel">
+  <div class="form-row">
+    <label
+      >Find a budget<input
+        [value]="search()"
+        (input)="search.set($any($event.target).value)"
+        placeholder="Search categories and notes" /></label
+    ><label
+      >Filter month<input
+        type="month"
+        [value]="month()"
+        (input)="month.set($any($event.target).value)" /></label
+    ><label
+      >Budget view<select [value]="view()" (change)="view.set($any($event.target).value)">
+        <option value="current">Current budgets</option>
+        <option value="archived">Archived budgets</option>
+      </select></label
+    ><label
+      >Spending status<select [value]="status()" (change)="status.set($any($event.target).value)">
+        <option value="all">All budgets</option>
+        <option value="within">Within limit</option>
+        <option value="over">Over limit</option>
+      </select></label
+    >
+  </div>
+  @if (linked()) {
+    <p>
+      Showing a linked budget.
+      <button class="button subtle" (click)="clearLink()">Show all budgets</button>
+    </p>
+  }
+  <div class="totals">
+    @for (t of totals(); track t.currency) {
+      <article>
+        <span>{{ t.currency }} · CURRENT FILTER</span
+        ><strong>{{ t.spent | number: '1.2-2' }} included spending</strong
+        ><small
+          >{{ t.limit | number: '1.2-2' }} limits · {{ t.remaining | number: '1.2-2' }} remaining ·
+          {{ t.overspent | number: '1.2-2' }} over limits</small
+        >
+      </article>
+    }
+  </div>
+  <p class="form-help">
+    Unused limits and overages are summed per category. Spending uses saved contributions; later
+    Finance changes require an explicit refresh.
+  </p>
+  <div class="budget-grid">
+    @for (b of rows(); track b.id) {
+      <article class="budget-card" [class.selected]="budget()?.id === b.id">
+        <span class="eyebrow"
+          >{{ b.visibility === 'private' ? 'PRIVATE' : 'SHARED'
+          }}{{ b.archived ? ' · ARCHIVED' : '' }}</span
+        >
+        <h3>{{ b.category }}</h3>
+        <p>
+          {{ b.month + 'T00:00:00Z' | date: 'MMM yyyy' : 'UTC' }} · {{ b.currency }}
+          {{ b.amount | number: '1.2-2' }} limit
+        </p>
+        <strong>{{ b.currency }} {{ library.balance(b).spent | number: '1.2-2' }} spent</strong
+        ><small
+          >{{ library.balance(b).overspent ? 'Over limit by ' : 'Remaining '
+          }}{{
+            library.balance(b).overspent || library.balance(b).remaining | number: '1.2-2'
+          }}</small
+        ><progress
+          [value]="library.balance(b).percent"
+          max="100"
+          [attr.aria-label]="b.category + ' budget used'"
+        ></progress
+        ><button
+          class="button subtle"
+          (click)="open(b)"
+          [attr.aria-label]="'Open budget ' + b.category"
+          [disabled]="busy() || !!pending()"
+        >
+          Open budget
+        </button>
+      </article>
+    } @empty {
+      <p class="empty-state">
+        {{ store.loading() ? 'Loading budgets…' : 'No budgets match this view.' }}
+      </p>
+    }
+  </div>
+</section>
+@if (budget(); as b) {
+  <section class="panel">
+    <div class="detail-heading">
+      <div>
+        <span class="eyebrow"
+          >{{ b.visibility === 'private' ? 'PRIVATE' : 'SHARED'
+          }}{{ b.archived ? ' · ARCHIVED' : '' }}</span
+        >
+        <h2>{{ b.category }}</h2>
+        <p>
+          {{ b.month + 'T00:00:00Z' | date: 'MMMM yyyy' : 'UTC' }} · {{ b.currency }}
+          {{ b.amount | number: '1.2-2' }} limit
+        </p>
+      </div>
+      <div class="heading-actions">
+        <button
+          class="button subtle"
+          (click)="exportCsv(true)"
+          [disabled]="store.loading() || !!store.error() || !spending().length"
+        >
+          Export visible spending CSV
+        </button>
+        @if (store.canEdit(b)) {
+          <button class="button subtle" (click)="edit(b)" [disabled]="!canChange() || b.archived">
+            Edit budget</button
+          ><button class="button subtle" (click)="archive(b)" [disabled]="!canChange()">
+            {{ b.archived ? 'Restore budget' : 'Archive budget' }}
+          </button>
+        }
+      </div>
+    </div>
+    @if (b.notes) {
+      <p class="literal">{{ b.notes }}</p>
+    }
+    <div class="balance">
+      <strong
+        >{{ b.currency }} {{ library.balance(b).spent | number: '1.2-2' }} included spending</strong
+      ><span
+        >{{ library.balance(b).overspent ? 'Over limit by ' : 'Remaining '
+        }}{{ library.balance(b).overspent || library.balance(b).remaining | number: '1.2-2' }} ·
+        {{ library.balance(b).percent }}% used</span
+      >
+    </div>
+    <progress
+      [value]="library.balance(b).percent"
+      max="100"
+      aria-label="Selected household budget used"
+    ></progress>
+    <div class="form-row">
+      <label
+        >Contribution view<select
+          [value]="spendingView()"
+          (change)="spendingView.set($any($event.target).value)"
+        >
+          <option value="included">Included contributions</option>
+          <option value="withdrawn">Your withdrawn contributions</option>
+        </select></label
+      ><button class="button primary" (click)="startContribution(b)" [disabled]="!canPublish(b)">
+        Link my spending
+      </button>
+    </div>
+    @if (b.archived) {
+      <p>
+        Restore this budget to link or refresh spending. Contributors may still withdraw their own
+        amounts.
+      </p>
+    }
+    <div class="spending-list">
+      @for (s of spending(); track s.id) {
+        <article class="spending-row">
+          <div>
+            <strong
+              >{{ b.currency }} {{ s.amount | number: '1.2-2' }} ·
+              {{
+                s.owner_id === store.profile()?.id ? 'Your contribution' : 'Workspace contribution'
+              }}</strong
+            ><span
+              >{{ s.booked_on + 'T00:00:00Z' | date: 'mediumDate' : 'UTC'
+              }}{{ s.withdrawn ? ' · Withdrawn' : '' }}</span
+            >
+            @if (s.notes) {
+              <p class="literal">{{ s.notes }}</p>
+            }
+            @if (s.owner_id === store.profile()?.id) {
+              <small>{{ library.sourceStatus(s, b) }}</small>
+            }
+          </div>
+          @if (s.owner_id === store.profile()?.id) {
+            <div class="heading-actions">
+              <button
+                class="button subtle"
+                (click)="startContribution(b, s)"
+                [disabled]="!canPublish(b) || !library.expenseChoices(b, s).length"
+                [attr.aria-label]="
+                  (s.withdrawn ? 'Restore contribution ' : 'Refresh contribution ') + s.booked_on
+                "
+              >
+                {{ s.withdrawn ? 'Restore & refresh' : 'Refresh from Finance' }}
+              </button>
+              @if (!s.withdrawn) {
+                <button
+                  class="button subtle"
+                  (click)="withdraw(s)"
+                  [disabled]="!canChange()"
+                  [attr.aria-label]="'Withdraw contribution ' + s.booked_on"
+                >
+                  Withdraw
+                </button>
+              }
+            </div>
+          }
+        </article>
+      } @empty {
+        <p class="empty-state">
+          No contributions in this view. Only explicitly linked expenses count.
+        </p>
+      }
+    </div>
+  </section>
+}
+@if (contributionEditor() && contributionBudget(); as b) {
+  <section class="panel">
+    <h2>{{ editingContribution() ? 'Refresh or restore my contribution' : 'Link my spending' }}</h2>
+    <form [formGroup]="contributionForm" (ngSubmit)="publish()">
+      <fieldset [disabled]="busy() || !!pending() || !store.writable()">
+        <label
+          >My Finance expense<select formControlName="expense" required>
+            <option value="">Choose an expense</option>
+            @for (t of library.expenseChoices(b, editingContribution()); track t.id) {
+              <option [value]="t.id">
+                {{ t.title }} · {{ b.currency }} {{ t.amount | number: '1.2-2' }} ·
+                {{ t.booked_on }}
+              </option>
+            }
+          </select></label
+        >
+        @if (!library.expenseChoices(b, editingContribution()).length) {
+          <p class="form-help">
+            No eligible expenses in this budget month and currency.
+            <a routerLink="/finance">Review your Finance expenses</a>
+          </p>
+        }
+        <label
+          >Contribution notes<textarea
+            formControlName="notes"
+            maxlength="2000"
+            rows="2"
+            placeholder="Optional notes visible with the contribution"
+          ></textarea>
+        </label>
+        <p class="form-help">
+          {{
+            b.visibility === 'workspace'
+              ? 'This publishes the amount, date and these notes to current and future workspace members.'
+              : 'This includes the amount, date and these notes in your private budget.'
+          }}
+          Expense titles, accounts and Finance IDs stay private. The original expense must match
+          this budget month and currency. Linking or withdrawing changes no Finance transaction.
+        </p>
+        <div class="heading-actions">
+          <button
+            class="button primary"
+            type="submit"
+            [disabled]="!library.expenseChoices(b, editingContribution()).length"
+          >
+            {{ editingContribution() ? 'Save refreshed contribution' : 'Include expense' }}</button
+          ><button class="button subtle" type="button" (click)="closeContribution()">
+            Cancel contribution
+          </button>
+        </div>
+      </fieldset>
+    </form>
+  </section>
+}
+<section class="panel">
+  <details>
+    <summary>Your contribution history · {{ ownHistory().length }} records</summary>
+    <p class="form-help">
+      Your included and withdrawn snapshots for the selected month. If a budget is no longer shared
+      with you, its details stay hidden and you can still withdraw your own amount while you have
+      workspace write access.
+    </p>
+    @for (s of ownHistory(); track s.id) {
+      <article class="spending-row">
+        <div>
+          <strong
+            >{{ budgetFor(s)?.category || 'Budget no longer shared with you' }} · {{ s.currency }}
+            {{ s.amount | number: '1.2-2' }}</strong
+          ><span
+            >{{ s.booked_on + 'T00:00:00Z' | date: 'mediumDate' : 'UTC' }} ·
+            {{ s.withdrawn ? 'Withdrawn' : 'Included' }}</span
+          >
+          @if (s.notes) {
+            <p class="literal">{{ s.notes }}</p>
+          }
+          <small>{{ library.sourceStatus(s, budgetFor(s)) }}</small>
+        </div>
+        <div class="heading-actions">
+          @if (budgetFor(s); as b) {
+            <button
+              class="button subtle"
+              (click)="startContribution(b, s)"
+              [disabled]="!canPublish(b) || !library.expenseChoices(b, s).length"
+            >
+              {{ s.withdrawn ? 'Restore & refresh' : 'Refresh from Finance' }}
+            </button>
+          }
+          @if (!s.withdrawn) {
+            <button class="button subtle" (click)="withdraw(s)" [disabled]="!canChange()">
+              Withdraw
+            </button>
+          }
+        </div>
+      </article>
+    } @empty {
+      <p class="empty-state">You have no contribution history in this month.</p>
+    }
+  </details>
+</section>

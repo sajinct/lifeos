@@ -304,6 +304,31 @@ async function seed(db) {
     "select public.record_education_payment($1,$2,$3,1,2,100,'2026-01-15','Synthetic receipt','',null)",
     [educationRequest, educationPayment, educationFee],
   );
+  const householdBudget = randomUUID(),
+    householdSpending = randomUUID(),
+    householdRequest = randomUUID();
+  const householdAccount = (
+    await db.query(
+      "insert into public.accounts(workspace_id,name,currency,opening_balance) values($1,'Synthetic household cash','INR',200) returning id",
+      [w],
+    )
+  ).rows[0].id;
+  const householdExpense = (
+    await db.query(
+      "select public.record_transaction($1,$2,'Synthetic household expense',25,'expense','Food','2026-01-15') id",
+      [w, householdAccount],
+    )
+  ).rows[0].id;
+  await user(db, a);
+  await db.query(
+    "select public.save_household_budget($1,$2,$3,null,'Recovery groceries','2026-01-01','INR',100,'','workspace')",
+    [randomUUID(), householdBudget, w],
+  );
+  await user(db, b);
+  await db.query(
+    "select public.save_household_spending($1,$2,$3,null,1,$4,'Explicit shared amount')",
+    [householdRequest, householdSpending, householdBudget, householdExpense],
+  );
   await db.exec('reset role');
   return {
     a,
@@ -316,6 +341,10 @@ async function seed(db) {
     transfer,
     note,
     noteRequest,
+    householdBudget,
+    householdSpending,
+    householdRequest,
+    householdExpense,
     educationStudent,
     educationFee,
     educationPayment,
@@ -528,6 +557,35 @@ export async function runLocalRecoveryDrill({ output } = {}) {
     );
     checks.push(
       'Private education fees and payment history retain exact retries, revisions and reversible corrections',
+    );
+    await restored.query(
+      "select public.save_household_spending($1,$2,$3,null,1,$4,'Explicit shared amount')",
+      [
+        fixture.householdRequest,
+        fixture.householdSpending,
+        fixture.householdBudget,
+        fixture.householdExpense,
+      ],
+    );
+    await restored.query('select public.withdraw_household_spending($1,$2,1)', [
+      randomUUID(),
+      fixture.householdSpending,
+    ]);
+    await restored.query(
+      "select public.save_household_spending($1,$2,$3,2,3,$4,'Explicit shared amount')",
+      [randomUUID(), fixture.householdSpending, fixture.householdBudget, fixture.householdExpense],
+    );
+    assert(
+      (
+        await restored.query(
+          'select amount::text,withdrawn,revision,currency from public.household_spending where id=$1',
+          [fixture.householdSpending],
+        )
+      ).rows[0]?.amount === '25.00',
+      'Restored household spending snapshot differs.',
+    );
+    checks.push(
+      'Household budget snapshots and private source links retain exact retries, contribution revisions and withdraw/restore behavior',
     );
     const old = (
       await restored.query('select status,version_number from public.attachments where id=$1', [

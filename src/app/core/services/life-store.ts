@@ -25,6 +25,9 @@ import {
   Member,
   Note,
   NoteDocument,
+  HouseholdBudget,
+  HouseholdSpending,
+  HouseholdSpendingLink,
   EducationStudent,
   EducationFee,
   EducationPayment,
@@ -108,6 +111,9 @@ export class LifeStore {
   readonly calendarSeries = signal<CalendarSeries[]>([]);
   readonly notes = signal<Note[]>([]);
   readonly noteDocuments = signal<NoteDocument[]>([]);
+  readonly householdBudgets = signal<HouseholdBudget[]>([]);
+  readonly householdSpending = signal<HouseholdSpending[]>([]);
+  readonly householdSpendingLinks = signal<HouseholdSpendingLink[]>([]);
   readonly educationStudents = signal<EducationStudent[]>([]);
   readonly educationFees = signal<EducationFee[]>([]);
   readonly educationPayments = signal<EducationPayment[]>([]);
@@ -267,6 +273,9 @@ export class LifeStore {
     this.learningDocuments.set(d.learningDocuments);
     this.learningNotes.set(d.learningNotes);
     this.learningUnits.set(d.learningUnits);
+    this.householdBudgets.set(d.householdBudgets);
+    this.householdSpending.set(d.householdSpending);
+    this.householdSpendingLinks.set(d.householdSpendingLinks);
     this.educationStudents.set(d.educationStudents);
     this.educationFees.set(d.educationFees);
     this.educationPayments.set(d.educationPayments);
@@ -338,6 +347,9 @@ export class LifeStore {
     this.learningDocuments.set([]);
     this.learningNotes.set([]);
     this.learningUnits.set([]);
+    this.householdBudgets.set([]);
+    this.householdSpending.set([]);
+    this.householdSpendingLinks.set([]);
     this.educationStudents.set([]);
     this.educationFees.set([]);
     this.educationPayments.set([]);
@@ -422,6 +434,9 @@ export class LifeStore {
         learningDocuments: this.learningDocuments(),
         learningNotes: this.learningNotes(),
         learningUnits: this.learningUnits(),
+        householdBudgets: this.householdBudgets(),
+        householdSpending: this.householdSpending(),
+        householdSpendingLinks: this.householdSpendingLinks(),
         educationStudents: this.educationStudents(),
         educationFees: this.educationFees(),
         educationPayments: this.educationPayments(),
@@ -495,6 +510,9 @@ export class LifeStore {
         this.learningDocuments.set(d.learningDocuments);
         this.learningNotes.set(d.learningNotes);
         this.learningUnits.set(d.learningUnits);
+        this.householdBudgets.set(d.householdBudgets);
+        this.householdSpending.set(d.householdSpending);
+        this.householdSpendingLinks.set(d.householdSpendingLinks);
         this.educationStudents.set(d.educationStudents);
         this.educationFees.set(d.educationFees);
         this.educationPayments.set(d.educationPayments);
@@ -924,6 +942,51 @@ export class LifeStore {
       if (run !== this.generation) return;
       this.projectMilestones.set(projectMilestoneRows);
       this.projectBudgets.set(projectBudgetRows);
+      const householdBudgets: HouseholdBudget[] = [];
+      for (let offset = 0; ; offset += 500) {
+        const page = await c
+          .from('household_budgets')
+          .select('*')
+          .eq('workspace_id', w.id)
+          .order('created_at')
+          .order('id')
+          .range(offset, offset + 499);
+        if (page.error) throw page.error;
+        if (run !== this.generation) return;
+        householdBudgets.push(...(page.data as HouseholdBudget[]));
+        if (page.data.length < 500) break;
+      }
+      this.householdBudgets.set(householdBudgets);
+      const householdSpending: HouseholdSpending[] = [];
+      for (let offset = 0; ; offset += 500) {
+        const page = await c
+          .from('household_spending')
+          .select('*')
+          .eq('workspace_id', w.id)
+          .order('created_at')
+          .order('id')
+          .range(offset, offset + 499);
+        if (page.error) throw page.error;
+        if (run !== this.generation) return;
+        householdSpending.push(...(page.data as HouseholdSpending[]));
+        if (page.data.length < 500) break;
+      }
+      this.householdSpending.set(householdSpending);
+      const householdSpendingLinks: HouseholdSpendingLink[] = [];
+      for (let offset = 0; ; offset += 500) {
+        const page = await c
+          .from('household_spending_links')
+          .select('*')
+          .eq('workspace_id', w.id)
+          .order('created_at')
+          .order('id')
+          .range(offset, offset + 499);
+        if (page.error) throw page.error;
+        if (run !== this.generation) return;
+        householdSpendingLinks.push(...(page.data as HouseholdSpendingLink[]));
+        if (page.data.length < 500) break;
+      }
+      this.householdSpendingLinks.set(householdSpendingLinks);
       const educationStudents: EducationStudent[] = [];
       for (let offset = 0; ; offset += 500) {
         const page = await c
@@ -2043,6 +2106,9 @@ export class LifeStore {
       calendarSeries: this.calendarSeries(),
       notes: this.notes(),
       noteDocuments: this.noteDocuments(),
+      householdBudgets: this.householdBudgets(),
+      householdSpending: this.householdSpending(),
+      householdSpendingLinks: this.householdSpendingLinks(),
       educationStudents: this.educationStudents(),
       educationFees: this.educationFees(),
       educationPayments: this.educationPayments(),

@@ -1070,7 +1070,41 @@ export interface EducationPaymentInput {
   notes: string;
   expense: string;
 }
+export interface HouseholdBudget extends OwnedRecord {
+  category: string;
+  month: string;
+  currency: string;
+  amount: number;
+  notes: string;
+  archived: boolean;
+  revision: number;
+}
+export interface HouseholdSpending extends Omit<OwnedRecord, 'visibility'> {
+  budget_id: string;
+  currency: string;
+  amount: number;
+  booked_on: string;
+  notes: string;
+  withdrawn: boolean;
+  revision: number;
+}
+export interface HouseholdSpendingLink extends Omit<OwnedRecord, 'visibility'> {
+  transaction_id: string | null;
+  active: boolean;
+}
+export interface HouseholdBudgetInput {
+  category: string;
+  month: string;
+  currency: string;
+  amount: string;
+  notes: string;
+  visibility: Visibility;
+}
 export interface TableRows {
+  household_budgets: HouseholdBudget;
+  household_spending: HouseholdSpending;
+  household_spending_links: HouseholdSpendingLink;
+
   education_students: EducationStudent;
   education_fees: EducationFee;
   education_payments: EducationPayment;
@@ -1179,6 +1213,42 @@ export type Database = {
     Tables: { [K in keyof TableRows]: Table<TableRows[K]> };
     Views: Record<string, never>;
     Functions: {
+      save_household_budget: {
+        Args: {
+          request: string;
+          entry: string;
+          w: string;
+          expected_revision: number | null;
+          budget_category: string;
+          budget_month: string;
+          budget_currency: string;
+          budget_amount: number;
+          budget_notes: string;
+          sharing: Visibility;
+        };
+        Returns: string;
+      };
+      set_household_budget_archive: {
+        Args: { request: string; entry: string; expected_revision: number; is_archived: boolean };
+        Returns: undefined;
+      };
+      save_household_spending: {
+        Args: {
+          request: string;
+          entry: string;
+          parent: string;
+          expected_revision: number | null;
+          expected_parent_revision: number;
+          expense: string;
+          spending_notes: string;
+        };
+        Returns: string;
+      };
+      withdraw_household_spending: {
+        Args: { request: string; entry: string; expected_revision: number };
+        Returns: undefined;
+      };
+
       save_education_student: {
         Args: {
           request: string;
