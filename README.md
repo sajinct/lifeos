@@ -50,6 +50,7 @@ Open http://127.0.0.1:4200 and choose **Explore a demo workspace**. Sample recor
 - Currency-aware summaries, linked project records and idempotent transfer requests.
 - Installable PWA manifest/service worker that caches static assets only; offline indication.
 - GitHub Actions checks and Pages deployment supporting repository paths and custom domains.
+- Isolated local recovery drills that restore database snapshots, compare all row/security hashes, reconcile a separate synthetic file bundle and recheck privacy, ledger balances, revisions and saved request identities.
 
 The foundation is complete, and all fifteen original module areas now have working features across Phases 2–4. The full ERP scope still has pending features: deeper Finance, Family, Calendar, Notes and Learning functionality, broader reports, JSON imports for other modules and AI. The app does not expose empty routes for unimplemented features.
 
@@ -69,6 +70,7 @@ Never include a secret/service-role key in a frontend build. Environment values 
 npm run lint
 npm test
 npm run test:security
+npm run test:recovery
 npm run format:check
 npm run build
 node scripts/verify-build.mjs
@@ -76,4 +78,4 @@ node scripts/verify-build.mjs
 
 Database tests execute the actual migration in PostgreSQL through PGlite with Supabase platform shims. Cloud Auth and real Storage endpoints still require staging smoke tests. The project includes a compatible local Node runtime so Angular 22 works without replacing your system Node.
 
-See [architecture and milestones](docs/architecture.md), [schema migration](supabase/migrations/202610110001_foundation.sql), and [backup/restore procedures](docs/operations.md).
+See [architecture and milestones](docs/architecture.md), [schema migration](supabase/migrations/202610110001_foundation.sql), [backup/restore procedures](docs/operations.md), and the [local recovery drill and cloud validation checklist](docs/recovery-drill.md). The local drill uses only synthetic records and PGlite platform shims; a real Supabase cloud recovery remains a separate staging exercise.

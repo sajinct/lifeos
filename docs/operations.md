@@ -287,6 +287,8 @@ Apply `202610130001_project_planning.sql` and run `supabase db query --linked --
 
 ## Export, backup and restore
 
+Run `npm run test:recovery` for the isolated synthetic local snapshot and file-bundle drill. The [recovery validation guide](recovery-drill.md) describes its evidence and the separate cloud staging checks. Local success does not mean a production backup or hosted recovery has been completed.
+
 The UI exports the complete visible ledger to CSV and loaded workspace records to JSON. CSV cells are escaped and formula prefixes are neutralized. Calendar, notes, projects, tasks and their organization/checklists use full pagination; activity and notifications have smaller limits. Goals, milestones, habits and their histories use full pagination, as do the newer record modules described above. These user exports are convenient snapshots, not full infrastructure backups. Financial ledger pagination fetches all visible entries for accurate balances; large-ledger server aggregation is a future performance milestone. Monetary writes validate two decimal places and PostgreSQL uses NUMERIC(14,2). UI calculations use integer cents; displayed summary cards round to whole currency units while transaction tables preserve cents.
 
 1. **Database:** periodically use `supabase db dump --linked` for schema and data according to the official CLI backup procedure. Store encrypted snapshots outside Supabase and GitHub. Include roles, migrations, auth identities and workspace memberships in the recovery plan; Supabase-managed Auth objects require the provider's documented migration procedure rather than a blind application-only dump.

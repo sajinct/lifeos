@@ -8,6 +8,7 @@
     "watch": "ng build --watch --configuration development",
     "test": "node scripts/run.mjs ng test --watch=false",
     "test:security": "node scripts/run.mjs vitest run --config vitest.security.config.ts",
+    "test:recovery": "node scripts/run.mjs recovery",
     "lint": "eslint src scripts tests supabase/functions && tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p supabase/functions/tsconfig.json",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

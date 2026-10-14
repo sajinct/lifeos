@@ -12,7 +12,8 @@ import { cardSecurityTests } from './card-security';
 import { travelSecurityTests } from './travel-security';
 import { healthTrackingSecurityTests } from './health-tracking-security';
 import { PGlite } from '@electric-sql/pglite';
-import { readFileSync, readdirSync } from 'node:fs';
+import { createTestDatabase } from '../scripts/lib/test-database.mjs';
+import { restoreDatabaseSnapshot } from '../scripts/lib/recovery.mjs';
 import { beforeAll, afterAll, describe, it, expect } from 'vitest';
 import { contactSecurityTests } from './contact-security';
 import { householdSecurityTests } from './household-security';
@@ -57,24 +58,7 @@ async function insert(table: string, cols: string, values: unknown[]) {
   ).rows[0].id;
 }
 beforeAll(async () => {
-  db = new PGlite();
-  // Supabase platform shims only. The application's SQL migration runs unchanged.
-  await db.exec(`create role anon;create role authenticated;create role service_role bypassrls;
-    create schema auth;grant usage on schema auth to authenticated,anon,service_role;
-    create table auth.users(id uuid primary key,raw_user_meta_data jsonb default '{}',email text,email_confirmed_at timestamptz);
-    create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
-    grant execute on function auth.uid() to public;
-    create schema storage;grant usage on schema storage to authenticated,anon;
-    create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
-    create table storage.objects(id uuid default gen_random_uuid() primary key,bucket_id text,name text,metadata jsonb default '{}',unique(bucket_id,name));
-    alter table storage.objects enable row level security;grant select,insert,delete on storage.objects to authenticated;
-    create function storage.foldername(text) returns text[] language sql immutable as $$ select (string_to_array($1,'/'))[1:array_length(string_to_array($1,'/'),1)-1] $$;
-    grant execute on function storage.foldername(text) to public;
-    create function public.platform_probe() returns integer language sql as $$ select 1 $$;`);
-  for (const file of readdirSync('supabase/migrations')
-    .filter((f) => f.endsWith('.sql'))
-    .sort())
-    await db.exec(readFileSync(`supabase/migrations/${file}`, 'utf8'));
+  db = (await createTestDatabase()).db;
   await db.query('insert into auth.users(id) values($1),($2),($3)', [A, B, C]);
   await asUser(A);
   workspace = (
@@ -1142,3 +1126,27 @@ calendarSecurityTests(() => db, asUser, A, B, C);
 notesSecurityTests(() => db, asUser, A, B, C);
 learningSecurityTests(() => db, asUser, A, B, C);
 learningImportSecurityTests(() => db, asUser, A, B, C);
+
+describe('Full security-fixture database snapshot recovery', () => {
+  it('restores every fixture row, permission and schema definition in a separate database', async () => {
+    const result = await restoreDatabaseSnapshot(db);
+    try {
+      expect(result.database.publicTables).toBe(74);
+      expect(result.database.rows).toBeGreaterThan(100);
+      expect(result.inventory.records.some((r) => r.schema === 'private' && r.rows > 0)).toBe(true);
+      expect(result.inventory.records.some((r) => r.schema === 'auth' && r.rows > 0)).toBe(true);
+      expect(
+        result.inventory.records.some((r) => r.schema === 'supabase_migrations' && r.rows > 0),
+      ).toBe(true);
+      await result.restored.exec('reset role;set role anon');
+      await expect(result.restored.query('select * from public.learning_items')).rejects.toThrow(
+        /permission denied/,
+      );
+      await expect(
+        result.restored.query('select * from private.learning_import_sources'),
+      ).rejects.toThrow(/permission denied/);
+    } finally {
+      await result.restored.close();
+    }
+  }, 60000);
+});
