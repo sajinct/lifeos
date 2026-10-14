@@ -42,10 +42,14 @@ export const routes: Routes = [
         path: '',
         loadComponent: () => import('./features/dashboard/dashboard').then((m) => m.Dashboard),
       },
-      ...['inbox', 'tasks', 'calendar', 'finance', 'notes'].map((path) => ({
+      ...['inbox', 'tasks', 'calendar', 'finance'].map((path) => ({
         path,
         loadComponent: () => import('./features/records/records').then((m) => m.Records),
       })),
+      {
+        path: 'notes',
+        loadComponent: () => import('./features/notes/notes').then((m) => m.NotesPage),
+      },
       {
         path: 'projects',
         loadComponent: () => import('./features/projects/projects').then((m) => m.ProjectsPage),

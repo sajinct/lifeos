@@ -19,7 +19,7 @@ begin
  denied:=false;begin perform public.import_record_json(gen_random_uuid(),w,jsonb_set(payload,'{rows,1,body}','"Changed source content"'));exception when others then denied:=true;end;if not denied then raise exception 'Changed source ID accepted';end if;
  denied:=false;begin perform public.import_record_json(gen_random_uuid(),w,'{"projects":[],"rows":[{"kind":"note","source_id":"rollback-first","project_source":null,"title":"Rollback candidate","status":null,"priority":null,"due_date":null,"body":"Synthetic"},{"kind":"task","source_id":"bad-date","project_source":null,"title":"Invalid date","status":"todo","priority":"low","due_date":"2024-02-30","body":null}]}');exception when others then denied:=true;end;
  if not denied or exists(select 1 from public.notes where workspace_id=w and title='Rollback candidate') then raise exception 'Invalid batch left partial records';end if;
- perform public.set_task_status(task,1,'done');delete from public.notes where id=note;
+ perform public.set_task_status(task,1,'done');reset role;delete from public.notes where id=note;set local role authenticated;
  if (public.import_record_json(gen_random_uuid(),w,payload)->>'skipped')::integer<>2 or exists(select 1 from public.notes where id=note) then raise exception 'Reupload overwrote edits or resurrected deletion';end if;
  perform set_config('request.jwt.claim.sub',a::text,true);
  if exists(select 1 from public.tasks where id=task) or exists(select 1 from public.record_json_links where workspace_id=w) or exists(select 1 from public.record_json_batches where workspace_id=w) then raise exception 'Shared project owner read private imported records';end if;

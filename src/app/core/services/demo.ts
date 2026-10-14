@@ -347,6 +347,7 @@ export function demoData() {
     calendarSeries: [] as import('../models/domain').CalendarSeries[],
     goals,
     notes,
+    noteDocuments: [] as import('../models/domain').NoteDocument[],
     accounts,
     transactions,
     activity,

@@ -137,7 +137,13 @@ export function recordJsonSecurityTests(
     });
     it('keeps destination edits and deletions on unchanged source reupload', async () => {
       await db.query("select public.set_task_status($1,1,'done')", [task]);
+      await expect(db.query('delete from public.notes where id=$1', [note])).rejects.toThrow(
+        /permission denied/,
+      );
+      // Administrative purges must still preserve import source identity.
+      await db.exec('reset role');
       await db.query('delete from public.notes where id=$1', [note]);
+      await asUser(B);
       expect(
         (await run(payload([row('task', 'portable-task'), row('note', 'portable-note')]))).rows[0]
           .result.skipped,

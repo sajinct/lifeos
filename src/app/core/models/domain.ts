@@ -166,9 +166,26 @@ export interface CalendarInput {
   visibility: Visibility;
 }
 export interface Note extends OwnedRecord {
+  revision?: number;
+  tags?: string[];
+  journal_on?: string | null;
+  archived?: boolean;
   title: string;
   body: string;
   project_id: string | null;
+}
+export interface NoteDocument extends OwnedRecord {
+  note_id: string;
+  attachment_id: string;
+}
+export interface NoteInput {
+  title: string;
+  body: string;
+  project: string;
+  tags: string[];
+  journal_on: string;
+  visibility: Visibility;
+  documents: string[] | null;
 }
 export interface Goal extends OwnedRecord {
   title: string;
@@ -983,6 +1000,7 @@ export interface TableRows {
   calendar_events: CalendarEvent;
   calendar_series: CalendarSeries;
   notes: Note;
+  note_documents: NoteDocument;
   goals: Goal;
   accounts: Account;
   transactions: Transaction;
@@ -1016,6 +1034,26 @@ export type Database = {
     Tables: { [K in keyof TableRows]: Table<TableRows[K]> };
     Views: Record<string, never>;
     Functions: {
+      save_note: {
+        Args: {
+          request: string;
+          entry: string;
+          w: string;
+          expected_revision: number | null;
+          note_title: string;
+          note_body: string;
+          linked_project: string | null;
+          note_tags: string[];
+          journal_date: string | null;
+          sharing: Visibility;
+          documents: string[] | null;
+        };
+        Returns: string;
+      };
+      set_note_archived: {
+        Args: { request: string; entry: string; expected_revision: number; is_archived: boolean };
+        Returns: undefined;
+      };
       create_calendar_series: {
         Args: {
           entry: string;

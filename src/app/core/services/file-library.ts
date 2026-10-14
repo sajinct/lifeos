@@ -106,6 +106,7 @@ export class FileLibrary {
       );
     this.publish(saved);
     await this.retryUpload(saved, file, false);
+    return saved.id;
   }
   async retryUpload(row: Attachment, file: File, checkExisting = true) {
     this.assertOwned(row);

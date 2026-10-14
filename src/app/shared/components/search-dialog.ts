@@ -208,6 +208,7 @@ export class SearchDialog implements AfterViewInit {
       })),
       ...this.store
         .notes()
+        .filter((n) => !n.archived)
         .map((n) => ({ id: n.id, title: n.title, type: 'Note', icon: 'note', path: '/notes' })),
       ...this.store.events().map((e) => ({
         id: e.id,
@@ -237,7 +238,8 @@ export class SearchDialog implements AfterViewInit {
   navigate(result: { id: string; path: string; bucket?: string }) {
     this.ui.searchOpen.set(false);
     void this.router.navigateByUrl(
-      result.path === '/projects' ||
+      result.path === '/notes' ||
+        result.path === '/projects' ||
         result.path === '/travel' ||
         result.path === '/cards' ||
         result.path === '/wealth'

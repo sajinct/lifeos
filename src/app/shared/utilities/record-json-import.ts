@@ -1,4 +1,4 @@
-import { CalendarEvent, Note, Project, Task } from '../../core/models/domain';
+import { CalendarEvent, Note, NoteDocument, Project, Task } from '../../core/models/domain';
 import { validLoanDate } from './loans';
 export const recordJsonMaxBytes = 5 * 1024 * 1024;
 export interface RecordImportRow {
@@ -235,6 +235,16 @@ export function parseRecordJson(text: string, calendar = false): RecordImportSou
               'Imported as a single event; recurrence, guests and task/expense links are not restored.',
             );
         }
+        if (
+          kind === 'note' &&
+          (v['journal_on'] ||
+            v['archived'] ||
+            (Array.isArray(v['tags']) && v['tags'].length > 0) ||
+            (Array.isArray(v['document_ids']) && v['document_ids'].length > 0))
+        )
+          candidate.warnings.push(
+            'Imported as an active plain note; journals, tags, archive state and file links are not restored.',
+          );
         validateRecordRow(row);
         candidate.row = row;
         if (v['visibility'] === 'workspace')
@@ -302,8 +312,17 @@ export function matchesTask(t: Task, row: RecordImportRow, project: string | nul
     t.project_id === project
   );
 }
-export function matchesNote(n: Note, row: RecordImportRow, project: string | null) {
+export function matchesNote(
+  n: Note,
+  row: RecordImportRow,
+  project: string | null,
+  links: NoteDocument[] = [],
+) {
   return (
+    !n.archived &&
+    !n.journal_on &&
+    !n.tags?.length &&
+    !links.some((l) => l.note_id === n.id) &&
     n.visibility === 'private' &&
     n.title.trim() === row.title &&
     n.body === row.body &&
@@ -333,6 +352,7 @@ export function reviewRecordJson(
   workspace: string,
   user: string,
   events: CalendarEvent[] = [],
+  noteDocuments: NoteDocument[] = [],
 ): RecordReview[] {
   const seen = new Set<string>();
   return source.rows.map((candidate): RecordReview => {
@@ -397,7 +417,7 @@ export function reviewRecordJson(
       !(r.kind === 'task'
         ? matchesTask(original as Task, r, project)
         : r.kind === 'note'
-          ? matchesNote(original as Note, r, project)
+          ? matchesNote(original as Note, r, project, noteDocuments)
           : matchesEvent(original as CalendarEvent, r, project))
     )
       return {
@@ -411,7 +431,7 @@ export function reviewRecordJson(
       (r.kind === 'task'
         ? ownedTasks.some((t) => matchesTask(t, r, project))
         : r.kind === 'note'
-          ? ownedNotes.some((n) => matchesNote(n, r, project))
+          ? ownedNotes.some((n) => matchesNote(n, r, project, noteDocuments))
           : ownedEvents.some((e) => matchesEvent(e, r, project)));
     seen.add(key);
     return {

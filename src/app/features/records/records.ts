@@ -282,7 +282,7 @@ export class Records {
       .filter((p) => (this.linkedId() ? p.id === this.linkedId() : this.matches(p.title))),
   );
   readonly notes = computed(() =>
-    this.store.notes().filter((n) => this.matches(n.title + ' ' + n.body)),
+    this.store.notes().filter((n) => !n.archived && this.matches(n.title + ' ' + n.body)),
   );
   readonly goals = computed(() => this.store.goals().filter((g) => this.matches(g.title)));
   readonly showInactiveEvents = signal(false);
@@ -373,7 +373,7 @@ export class Records {
   async delete(note: Note) {
     try {
       await this.store.deleteNote(note);
-      this.ui.notify('Note deleted');
+      this.ui.notify('Note archived');
     } catch (e) {
       this.ui.notify(this.store.message(e));
     }

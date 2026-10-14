@@ -39,9 +39,10 @@ Open http://127.0.0.1:4200 and choose **Explore a demo workspace**. Sample recor
 - Additive Finance JSON imports with explicit new/existing account mapping, supported-row previews, immutable source bindings and atomic retry-safe batches.
 - Tasks and Notes JSON imports with private standalone task records, literal note content, explicit accessible-project mappings, source-ID conflicts and safe atomic retries.
 - Opt-in reminder emails, daily/weekly planning digests and weekly/monthly financial summaries through a private Resend outbox, verified account recipients, bounded retries and delivery history.
+- Notes editing with revision-safe saves, private dated journals, bounded tags/content search, reversible archives and owner-private document-version links/uploads that do not inherit note sharing.
 - Calendar daily/weekly/monthly/yearly repeat schedules with timezone-aware previews, 2–120 materialized occurrences, single/future editing, preserved exceptions, pause/resume/cancellation and private-by-default sharing.
 - Calendar JSON imports with explicit timezone validation, UTC previews, private events, accessible-project mapping, duplicate/conflict checks and safe atomic retries.
-- Private-by-default records, 69 RLS-protected application tables, private Storage policies, typed client access and server-only reminder dispatch.
+- Private-by-default records, 70 RLS-protected application tables, private Storage policies, typed client access and server-only reminder dispatch.
 - Date-filtered Finance reports with separate currency totals, monthly cash flow, category trends, budget comparisons, recorded subscription expenses and loan interest, plus filtered CSV and workspace JSON exports.
 - Currency-aware summaries, linked project records and idempotent transfer requests.
 - Installable PWA manifest/service worker that caches static assets only; offline indication.

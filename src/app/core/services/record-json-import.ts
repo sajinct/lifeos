@@ -114,6 +114,7 @@ export class RecordJsonImporter {
       c.workspace,
       c.user,
       this.store.events(),
+      this.store.noteDocuments(),
     );
   }
   prepare(
@@ -268,9 +269,9 @@ export class RecordJsonImporter {
               n.visibility === 'private',
           ),
           original = owned.find((n) => n.id === r.source_id);
-        if (original && !matchesNote(original, r, project))
+        if (original && !matchesNote(original, r, project, this.store.noteDocuments()))
           throw new Error('Existing note source ID identifies different content.');
-        const match = owned.find((n) => matchesNote(n, r, project));
+        const match = owned.find((n) => matchesNote(n, r, project, this.store.noteDocuments()));
         if (match) {
           destination = match.id;
           result.skipped++;

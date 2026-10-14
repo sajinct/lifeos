@@ -24,6 +24,7 @@ import {
   Goal,
   Member,
   Note,
+  NoteDocument,
   Notification,
   ReminderPreferences,
   DEFAULT_REMINDERS,
@@ -96,6 +97,7 @@ export class LifeStore {
   readonly events = signal<CalendarEvent[]>([]);
   readonly calendarSeries = signal<CalendarSeries[]>([]);
   readonly notes = signal<Note[]>([]);
+  readonly noteDocuments = signal<NoteDocument[]>([]);
   readonly goals = signal<Goal[]>([]);
   readonly creditCards = signal<CreditCard[]>([]);
   readonly cardStatements = signal<CardStatement[]>([]);
@@ -241,6 +243,7 @@ export class LifeStore {
     this.projects.set(d.projects);
     this.events.set(d.events);
     this.notes.set(d.notes);
+    this.noteDocuments.set(d.noteDocuments);
     this.goals.set(d.goals);
     this.creditCards.set(d.creditCards);
     this.cardStatements.set(d.cardStatements);
@@ -301,6 +304,7 @@ export class LifeStore {
     this.events.set([]);
     this.calendarSeries.set([]);
     this.notes.set([]);
+    this.noteDocuments.set([]);
     this.goals.set([]);
     this.creditCards.set([]);
     this.cardStatements.set([]);
@@ -374,6 +378,7 @@ export class LifeStore {
         events: this.events(),
         calendarSeries: this.calendarSeries(),
         notes: this.notes(),
+        noteDocuments: this.noteDocuments(),
         goals: this.goals(),
         creditCards: this.creditCards(),
         cardStatements: this.cardStatements(),
@@ -436,6 +441,7 @@ export class LifeStore {
         this.events.set(d.events);
         this.calendarSeries.set(d.calendarSeries);
         this.notes.set(d.notes);
+        this.noteDocuments.set(d.noteDocuments);
         this.goals.set(d.goals);
         this.creditCards.set(d.creditCards);
         this.cardStatements.set(d.cardStatements);
@@ -858,6 +864,21 @@ export class LifeStore {
       if (run !== this.generation) return;
       this.projectMilestones.set(projectMilestoneRows);
       this.projectBudgets.set(projectBudgetRows);
+      const noteDocuments: NoteDocument[] = [];
+      for (let offset = 0; ; offset += 500) {
+        const page = await c
+          .from('note_documents')
+          .select('*')
+          .eq('workspace_id', w.id)
+          .order('created_at')
+          .order('id')
+          .range(offset, offset + 499);
+        if (page.error) throw page.error;
+        if (run !== this.generation) return;
+        noteDocuments.push(...page.data);
+        if (page.data.length < 500) break;
+      }
+      this.noteDocuments.set(noteDocuments);
       const calendarSeries: CalendarSeries[] = [];
       for (let offset = 0; ; offset += 500) {
         const page = await c
@@ -1311,12 +1332,37 @@ export class LifeStore {
     );
   }
   async deleteNote(note: Note) {
-    if (!this.canEdit(note)) throw new Error('You cannot delete this note.');
+    if (!this.canEdit(note)) throw new Error('You cannot archive this note.');
+    const w = this.workspace()?.id,
+      session = this.fileSession(),
+      current = this.notes().find((n) => n.id === note.id);
+    if (!current || current.workspace_id !== w) throw new Error('Note is inaccessible.');
     if (!this.auth.demo()) {
-      const { error } = await this.backend.requireClient().from('notes').delete().eq('id', note.id);
+      const { error } = await this.backend.requireClient().rpc('set_note_archived', {
+        request: crypto.randomUUID(),
+        entry: note.id,
+        expected_revision: note.revision ?? 1,
+        is_archived: true,
+      });
       if (error) throw error;
+      if (w === this.workspace()?.id && session === this.fileSession())
+        await this.switchWorkspace(this.workspace()!);
+      return;
     }
-    this.notes.update((list) => list.filter((n) => n.id !== note.id));
+    if ((current.revision ?? 1) !== (note.revision ?? 1))
+      throw new Error('Note changed; refresh and try again.');
+    this.notes.update((list) =>
+      list.map((n) =>
+        n.id === note.id
+          ? {
+              ...n,
+              archived: true,
+              revision: (n.revision ?? 1) + 1,
+              updated_at: new Date().toISOString(),
+            }
+          : n,
+      ),
+    );
   }
   private base(): OwnedRecord {
     if (!this.workspace() || !this.writable())
@@ -1827,6 +1873,7 @@ export class LifeStore {
       events: this.events(),
       calendarSeries: this.calendarSeries(),
       notes: this.notes(),
+      noteDocuments: this.noteDocuments(),
       goals: this.goals(),
       creditCards: this.creditCards(),
       cardStatements: this.cardStatements(),

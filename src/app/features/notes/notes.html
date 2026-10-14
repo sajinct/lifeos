@@ -1,0 +1,295 @@
+<section class="page-heading">
+  <div>
+    <span class="eyebrow">YOUR PERSONAL WORKSPACE</span>
+    <h1>Notes & knowledge</h1>
+    <p>A home for ideas, daily reflections and the files that give them context.</p>
+  </div>
+  <div class="heading-actions">
+    <a class="button subtle" routerLink="/imports/tasks-notes">Import Tasks & Notes JSON</a
+    ><button
+      class="button subtle"
+      (click)="create(true)"
+      [disabled]="!store.writable() || busy() || !!pending()"
+    >
+      Write journal</button
+    ><button
+      class="button primary"
+      (click)="create()"
+      [disabled]="!store.writable() || busy() || !!pending()"
+    >
+      Add note
+    </button>
+  </div>
+</section>
+@if (linked()) {
+  <div class="file-library-note">
+    <span>Showing the linked note.</span
+    ><button class="button subtle" (click)="clearLink()">Show all notes</button>
+  </div>
+}
+@if (editing()) {
+  <section class="panel notes-editor">
+    <div class="notes-editor-heading">
+      <h2>
+        {{
+          previous()
+            ? readOnly()
+              ? 'View note'
+              : 'Edit note'
+            : formValues().kind === 'journal'
+              ? 'Write journal'
+              : 'Create note'
+        }}
+      </h2>
+      <button class="button subtle" (click)="close()" [disabled]="busy()">Close editor</button>
+    </div>
+    @if (readOnly()) {
+      <h3>{{ previous()?.title }}</h3>
+      <p class="notes-full-body">{{ previous()?.body }}</p>
+      @if (previous()?.journal_on) {
+        <p>Journal · {{ previous()?.journal_on }}</p>
+      }
+      @if (previous()?.archived) {
+        <p>This note is archived. Restore it before editing.</p>
+        <button
+          class="button primary"
+          (click)="archive(previous()!)"
+          [disabled]="!store.canEdit(previous()!) || busy() || !!pending()"
+        >
+          Restore note
+        </button>
+      }
+    } @else {
+      <form [formGroup]="form" (ngSubmit)="save()">
+        <fieldset [disabled]="busy() || !!pending()">
+          <label>Note title<input formControlName="title" maxlength="200" required /></label>
+          <label
+            >Note content<textarea
+              formControlName="body"
+              maxlength="100000"
+              rows="10"
+              placeholder="Write something you want to keep…"
+            ></textarea>
+          </label>
+          <div class="form-row">
+            <label
+              >Entry type<select formControlName="kind" (change)="changeKind()">
+                <option value="note">Note</option>
+                <option value="journal">Journal</option>
+              </select></label
+            >
+            @if (formValues().kind === 'journal') {
+              <label
+                >Journal date<input
+                  type="date"
+                  formControlName="journal_on"
+                  min="1900-01-01"
+                  max="2100-12-31"
+                  required
+              /></label>
+            } @else {
+              @if (canLink()) {
+                <label
+                  >Who can see this<select formControlName="visibility">
+                    <option value="private">Only me</option>
+                    <option value="workspace">Workspace members</option>
+                  </select></label
+                >
+              } @else {
+                <p>Shared with workspace members. Only the creator can change sharing.</p>
+              }
+            }
+            <label
+              >Project<select formControlName="project">
+                <option value="">Personal</option>
+                @for (project of store.projects(); track project.id) {
+                  <option [value]="project.id">{{ project.title }}</option>
+                }
+              </select></label
+            >
+          </div>
+          @if (formValues().kind === 'journal') {
+            <p class="muted">
+              Journals are always private. You can keep one entry per date in each workspace,
+              including archived entries.
+            </p>
+          }
+          <label
+            >Tags<input
+              formControlName="tags"
+              maxlength="320"
+              placeholder="planning, ideas, family"
+          /></label>
+          <p class="muted">
+            Up to ten comma-separated tags, 30 characters each. Tags are saved in lowercase.
+          </p>
+          @if (canLink()) {
+            <div class="notes-documents">
+              <h3>Private documents & attachments</h3>
+              <p class="muted">
+                File links are visible only to you, even when the note is shared. Links keep the
+                selected file version.
+              </p>
+              <div class="notes-file-picker">
+                @for (file of library.documents(); track file.id) {
+                  <label class="notes-check"
+                    ><input
+                      type="checkbox"
+                      [checked]="selectedDocuments().includes(file.id)"
+                      (change)="selectDocument(file.id, $any($event.target).checked)"
+                    />{{ file.name }} · v{{ file.version_number }} · {{ fileSize(file.size_bytes)
+                    }}{{ file.status === 'archived' ? ' · archived' : '' }}</label
+                  >
+                } @empty {
+                  <p class="muted">No completed documents in this workspace.</p>
+                }
+              </div>
+              <label
+                >Attach a file<input
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,.txt"
+                  (change)="choose($event)"
+                  [disabled]="uploadFailed()"
+              /></label>
+              @if (file(); as selected) {
+                <p>{{ selected.name }} · {{ fileSize(selected.size) }}</p>
+                <button
+                  class="button subtle"
+                  type="button"
+                  (click)="upload()"
+                  [disabled]="uploadFailed()"
+                >
+                  Upload and select file
+                </button>
+              }
+              <p class="muted">
+                PDF, JPG, PNG or TXT, up to 10 MiB. Uploaded files stay in Documents even if you
+                close this draft. Save the note to keep its links.
+              </p>
+              <a routerLink="/documents">Manage Documents & receipts</a>
+            </div>
+          }
+          <div class="heading-actions">
+            <button class="button primary" type="submit">
+              {{ previous() ? 'Save note changes' : 'Save note' }}
+            </button>
+          </div>
+        </fieldset>
+      </form>
+    }
+    @if (selectedFiles().length) {
+      <div class="notes-linked-files">
+        <h3>Your linked files</h3>
+        @for (file of selectedFiles(); track file.id) {
+          <button class="button subtle" (click)="download(file)">
+            Download {{ file.name }} · v{{ file.version_number }}
+          </button>
+        }
+      </div>
+    }
+    @if (existingJournal(); as journal) {
+      <p class="form-error">
+        A journal for this date already exists{{ journal.archived ? ' in the archive' : '' }}.
+      </p>
+      <button class="button subtle" (click)="close(); open(journal)" [disabled]="busy()">
+        Open existing journal
+      </button>
+    }
+  </section>
+}
+@if (error()) {
+  <p class="error-banner" role="alert">{{ error() }}</p>
+}
+@if (pending() && !busy()) {
+  <div class="notes-retry">
+    <button class="button primary" (click)="retry()">Retry the same note change</button
+    ><button class="button subtle" (click)="close()">Discard retry</button>
+  </div>
+}
+<div class="notes-toolbar">
+  <input
+    aria-label="Search notes, content and tags"
+    placeholder="Search notes, content and tags…"
+    [value]="search()"
+    (input)="search.set($any($event.target).value)"
+  />
+  <select
+    aria-label="Notes view"
+    [value]="view()"
+    (change)="view.set($any($event.target).value); tag.set('all')"
+  >
+    <option value="active">Active notes</option>
+    <option value="archived">Archived notes</option>
+  </select>
+  <select
+    aria-label="Entry type filter"
+    [value]="kind()"
+    (change)="kind.set($any($event.target).value)"
+  >
+    <option value="all">Notes & journals</option>
+    <option value="note">Notes only</option>
+    <option value="journal">Journals only</option>
+  </select>
+  <select aria-label="Tag filter" (change)="tag.set($any($event.target).value)">
+    <option value="all" [selected]="tag() === 'all'">All tags</option>
+    @for (name of tags(); track name) {
+      <option [value]="name" [selected]="tag() === name">{{ name }}</option>
+    }
+  </select>
+  <span class="muted">{{ rows().length }} {{ rows().length === 1 ? 'entry' : 'entries' }}</span>
+</div>
+<div class="record-cards notes-cards">
+  @for (note of rows(); track note.id) {
+    <article class="panel record-card note-card">
+      <span class="eyebrow">{{
+        note.journal_on ? 'JOURNAL · ' + note.journal_on : store.projectTitle(note.project_id)
+      }}</span>
+      <h2>{{ note.title }}</h2>
+      <p class="notes-preview">{{ note.body }}</p>
+      <div class="notes-tags">
+        @for (name of note.tags ?? []; track name) {
+          <button (click)="tag.set(name)">{{ name }}</button>
+        }
+      </div>
+      <p class="muted">
+        {{ note.visibility === 'private' ? 'Only you' : 'Workspace members' }} ·
+        {{ note.updated_at | date: 'd MMM yyyy' }}{{ note.archived ? ' · Archived' : '' }}
+      </p>
+      @if (library.links(note).length) {
+        <p class="muted">{{ library.links(note).length }} private file links</p>
+      }
+      <div class="heading-actions">
+        <button
+          class="button subtle"
+          (click)="open(note)"
+          [disabled]="busy() || !!pending()"
+          [attr.aria-label]="
+            (store.canEdit(note) && !note.archived ? 'Edit ' : 'View ') + note.title
+          "
+        >
+          {{ store.canEdit(note) && !note.archived ? 'Edit note' : 'View note' }}
+        </button>
+        @if (store.canEdit(note)) {
+          <button
+            class="button subtle"
+            (click)="archive(note)"
+            [disabled]="busy() || !!pending()"
+            [attr.aria-label]="(note.archived ? 'Restore ' : 'Archive ') + note.title"
+          >
+            {{ note.archived ? 'Restore' : 'Archive' }}
+          </button>
+        }
+      </div>
+    </article>
+  } @empty {
+    <div class="empty-state panel">
+      {{
+        linked()
+          ? 'This note is unavailable in the current workspace.'
+          : view() === 'archived'
+            ? 'No archived notes match these filters.'
+            : 'Capture an idea or write a journal entry.'
+      }}
+    </div>
+  }
+</div>
