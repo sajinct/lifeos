@@ -15,6 +15,8 @@ import {
 } from '../../core/models/domain';
 import { TaskLibrary } from '../../core/services/tasks';
 import { TaskWork } from '../../core/services/task-work';
+import { CalendarPanel } from './calendar-panel';
+import { scheduledEvent } from '../../shared/utilities/calendar';
 import { TaskTimePanel } from './task-time-panel';
 import { Icon } from '../../shared/components/icon';
 import { accountBalance, localDate, csv } from '../../shared/utilities/finance';
@@ -31,6 +33,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
     FinancePlanning,
     RouterLink,
     TaskTimePanel,
+    CalendarPanel,
   ],
   templateUrl: './records.html',
 })
@@ -282,11 +285,20 @@ export class Records {
     this.store.notes().filter((n) => this.matches(n.title + ' ' + n.body)),
   );
   readonly goals = computed(() => this.store.goals().filter((g) => this.matches(g.title)));
+  readonly showInactiveEvents = signal(false);
+  calendarJump(day: string) {
+    this.selectedDate.set(day);
+    const date = new Date(day + 'T12:00:00');
+    this.month.set(new Date(date.getFullYear(), date.getMonth(), 1));
+  }
   readonly events = computed(() =>
     this.store
       .events()
       .filter(
-        (e) => localDate(new Date(e.starts_at)) === this.selectedDate() && this.matches(e.title),
+        (e) =>
+          localDate(new Date(e.starts_at)) === this.selectedDate() &&
+          this.matches(e.title) &&
+          (this.showInactiveEvents() || scheduledEvent(e)),
       ),
   );
   readonly transactions = computed(() =>
@@ -306,7 +318,9 @@ export class Records {
         day: d.getDate(),
         current: d.getMonth() === m.getMonth(),
         today: key === localDate(),
-        events: this.store.events().filter((e) => localDate(new Date(e.starts_at)) === key).length,
+        events: this.store
+          .events()
+          .filter((e) => scheduledEvent(e) && localDate(new Date(e.starts_at)) === key).length,
       };
     });
   });

@@ -218,6 +218,10 @@ export function parseRecordJson(text: string, calendar = false): RecordImportSou
           body: kind === 'note' ? (v['body'] as string) : null,
         };
         if (kind === 'event') {
+          if (v['event_state'] && v['event_state'] !== 'scheduled')
+            candidate.warnings.push(
+              'Imported as scheduled; paused/cancelled state is not restored.',
+            );
           row.starts_at = eventImportTime(v['starts_at']);
           row.ends_at = eventImportTime(v['ends_at']);
           row.location = v['location'] === undefined ? '' : (v['location'] as string);
@@ -308,6 +312,8 @@ export function matchesNote(n: Note, row: RecordImportRow, project: string | nul
 }
 export function matchesEvent(e: CalendarEvent, row: RecordImportRow, project: string | null) {
   return (
+    !e.series_id &&
+    (!e.event_state || e.event_state === 'scheduled') &&
     e.visibility === 'private' &&
     e.title.trim() === row.title &&
     new Date(e.starts_at).toISOString() === row.starts_at &&

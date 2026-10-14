@@ -129,12 +129,41 @@ export interface ProjectInput {
   visibility: Visibility;
 }
 export interface CalendarEvent extends OwnedRecord {
+  revision?: number;
+  series_id?: string | null;
+  occurrence_index?: number | null;
+  is_exception?: boolean;
+  event_state?: 'scheduled' | 'paused' | 'cancelled';
   title: string;
   starts_at: string;
   ends_at: string;
   location: string;
   project_id: string | null;
   color: string;
+}
+export interface CalendarSeries extends OwnedRecord {
+  frequency: Frequency;
+  anchor_on: string;
+  anchor_index: number;
+  start_clock: string;
+  duration_seconds: number;
+  time_zone: string;
+  occurrences: number;
+  state: 'active' | 'paused' | 'cancelled';
+  revision: number;
+}
+export interface CalendarInput {
+  title: string;
+  date: string;
+  time: string;
+  duration: number;
+  timezone: string;
+  frequency: Frequency;
+  count: number;
+  location: string;
+  color: string;
+  project: string;
+  visibility: Visibility;
 }
 export interface Note extends OwnedRecord {
   title: string;
@@ -952,6 +981,7 @@ export interface TableRows {
   tasks: Task;
   projects: Project;
   calendar_events: CalendarEvent;
+  calendar_series: CalendarSeries;
   notes: Note;
   goals: Goal;
   accounts: Account;
@@ -986,6 +1016,51 @@ export type Database = {
     Tables: { [K in keyof TableRows]: Table<TableRows[K]> };
     Views: Record<string, never>;
     Functions: {
+      create_calendar_series: {
+        Args: {
+          entry: string;
+          w: string;
+          event_title: string;
+          anchor: string;
+          start_time: string;
+          duration: number;
+          timezone: string;
+          repeat_frequency: Frequency;
+          event_count: number;
+          place: string;
+          event_color: string;
+          linked_project: string | null;
+          sharing: Visibility;
+        };
+        Returns: string;
+      };
+      edit_calendar_event: {
+        Args: {
+          request: string;
+          entry: string;
+          expected_revision: number;
+          expected_series_revision: number | null;
+          edit_scope: 'one' | 'future';
+          event_title: string;
+          event_start: string;
+          event_end: string;
+          place: string;
+          event_color: string;
+          linked_project: string | null;
+        };
+        Returns: undefined;
+      };
+      set_calendar_state: {
+        Args: {
+          request: string;
+          entry: string;
+          expected_revision: number;
+          expected_series_revision: number | null;
+          edit_scope: 'one' | 'series';
+          target: CalendarSeries['state'];
+        };
+        Returns: undefined;
+      };
       email_delivery_available: { Args: Record<string, never>; Returns: boolean };
       save_email_preferences: {
         Args: {

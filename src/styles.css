@@ -1893,6 +1893,76 @@ td:last-child {
   overflow: auto;
   margin: auto;
 }
+
+.calendar-repeat-panel {
+  margin-bottom: 20px;
+}
+.calendar-repeat-form {
+  padding: 16px 0;
+}
+.calendar-repeat-form fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 14px;
+}
+.calendar-repeat-form label {
+  display: grid;
+  gap: 6px;
+}
+.calendar-repeat-preview {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.calendar-repeat-preview ol {
+  padding-left: 24px;
+  line-height: 1.8;
+}
+.calendar-repeat-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 12px 0;
+}
+.calendar-repeat-controls p {
+  width: 100%;
+}
+.calendar-repeat-list > div {
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 0;
+  border-top: 1px solid var(--border);
+}
+.calendar-repeat-list p,
+.calendar-repeat-panel .muted,
+.calendar-repeat-panel .panel-heading p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.calendar-inactive-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 20px;
+}
+.calendar-inactive-toggle input {
+  width: auto;
+}
+.agenda-event .button {
+  margin-top: 8px;
+}
+@media (max-width: 640px) {
+  .calendar-repeat-panel .panel-heading,
+  .calendar-repeat-list > div {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
 .modal::backdrop {
   background: #25223965;
   backdrop-filter: blur(4px);

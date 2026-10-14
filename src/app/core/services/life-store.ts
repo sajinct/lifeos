@@ -19,6 +19,7 @@ import {
   Activity,
   ALL_WIDGETS,
   CalendarEvent,
+  CalendarSeries,
   Capture,
   Goal,
   Member,
@@ -93,6 +94,7 @@ export class LifeStore {
   readonly projectBudgets = signal<ProjectBudget[]>([]);
   readonly projects = signal<Project[]>([]);
   readonly events = signal<CalendarEvent[]>([]);
+  readonly calendarSeries = signal<CalendarSeries[]>([]);
   readonly notes = signal<Note[]>([]);
   readonly goals = signal<Goal[]>([]);
   readonly creditCards = signal<CreditCard[]>([]);
@@ -268,6 +270,7 @@ export class LifeStore {
     ]);
     this.taskLists.set(d.taskLists);
     this.taskSeries.set(d.taskSeries);
+    this.calendarSeries.set(d.calendarSeries);
     this.taskChecklist.set(d.taskChecklist);
     this.goalMilestones.set(d.goalMilestones);
     this.travelPlans.set(d.travelPlans);
@@ -296,6 +299,7 @@ export class LifeStore {
     this.tasks.set([]);
     this.projects.set([]);
     this.events.set([]);
+    this.calendarSeries.set([]);
     this.notes.set([]);
     this.goals.set([]);
     this.creditCards.set([]);
@@ -368,6 +372,7 @@ export class LifeStore {
         tasks: this.tasks(),
         projects: this.projects(),
         events: this.events(),
+        calendarSeries: this.calendarSeries(),
         notes: this.notes(),
         goals: this.goals(),
         creditCards: this.creditCards(),
@@ -429,6 +434,7 @@ export class LifeStore {
         this.tasks.set(d.tasks);
         this.projects.set(d.projects);
         this.events.set(d.events);
+        this.calendarSeries.set(d.calendarSeries);
         this.notes.set(d.notes);
         this.goals.set(d.goals);
         this.creditCards.set(d.creditCards);
@@ -852,6 +858,21 @@ export class LifeStore {
       if (run !== this.generation) return;
       this.projectMilestones.set(projectMilestoneRows);
       this.projectBudgets.set(projectBudgetRows);
+      const calendarSeries: CalendarSeries[] = [];
+      for (let offset = 0; ; offset += 500) {
+        const page = await c
+          .from('calendar_series')
+          .select('*')
+          .eq('workspace_id', w.id)
+          .order('created_at')
+          .order('id')
+          .range(offset, offset + 499);
+        if (page.error) throw page.error;
+        if (run !== this.generation) return;
+        calendarSeries.push(...page.data);
+        if (page.data.length < 500) break;
+      }
+      this.calendarSeries.set(calendarSeries);
       const taskLists: TaskList[] = [],
         taskSeries: TaskSeries[] = [],
         taskChecklist: TaskChecklist[] = [];
@@ -1804,6 +1825,7 @@ export class LifeStore {
       tasks: this.tasks(),
       projects: this.projects(),
       events: this.events(),
+      calendarSeries: this.calendarSeries(),
       notes: this.notes(),
       goals: this.goals(),
       creditCards: this.creditCards(),

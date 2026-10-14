@@ -159,11 +159,11 @@ import { EmailSettings } from './email-settings';
       <section class="panel settings-panel">
         <h2>What’s next</h2>
         <p>
-          Core modules, imports and opt-in email automation are ready. The remaining roadmap deepens
-          your everyday tools.
+          Core modules, Calendar repeats, imports and opt-in email automation are ready. The
+          remaining roadmap deepens your everyday tools.
         </p>
         <div class="roadmap-list">
-          <span>Next: Calendar, Notes & Learning enhancements</span
+          <span>Next: Notes & Learning enhancements</span
           ><span>Then: Broader imports, reports & restore drills</span
           ><span>Later: AI & integrations</span>
         </div>

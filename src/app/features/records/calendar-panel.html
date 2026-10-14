@@ -1,0 +1,227 @@
+<section class="panel calendar-repeat-panel">
+  <div class="panel-heading">
+    <div>
+      <h2>Repeating events</h2>
+      <p>Keep regular plans on the calendar, with a clear end to each schedule.</p>
+    </div>
+    <button
+      class="button subtle"
+      (click)="create()"
+      [disabled]="!store.writable() || busy() || !!pending()"
+    >
+      Add repeating event
+    </button>
+  </div>
+  @if (open()) {
+    <form class="calendar-repeat-form" [formGroup]="form" (ngSubmit)="save()">
+      <h3>{{ previous() ? 'Edit Calendar event' : 'Create a repeating event' }}</h3>
+      <fieldset [disabled]="busy() || !!pending()">
+        <label>Event title<input formControlName="title" maxlength="200" required /></label>
+        <div class="form-row">
+          <label
+            >Start date<input
+              type="date"
+              formControlName="date"
+              min="1900-01-01"
+              max="2100-12-31"
+              required
+          /></label>
+          <label>Start time<input type="time" step="1" formControlName="time" required /></label>
+          <label
+            >Duration in minutes<input
+              type="number"
+              formControlName="duration"
+              min="1"
+              max="10080"
+              required
+          /></label>
+        </div>
+        <label
+          >Time zone<input
+            formControlName="timezone"
+            [readOnly]="!!previous()"
+            placeholder="Asia/Kolkata"
+            required
+        /></label>
+        <p class="muted">
+          Times stay in this zone. Missing or ambiguous clock-change times need a different start
+          time. The agenda displays your device's local time.
+        </p>
+        @if (!previous()) {
+          <div class="form-row">
+            <label
+              >Repeat<select formControlName="frequency">
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
+              </select></label
+            >
+            <label
+              >Total occurrences<input
+                type="number"
+                formControlName="count"
+                min="2"
+                max="120"
+                required
+            /></label>
+            <label
+              >Who can see this<select formControlName="visibility">
+                <option value="private">Only me</option>
+                <option value="workspace">Workspace members</option>
+              </select></label
+            >
+          </div>
+        } @else if (previousSeries(); as series) {
+          <label
+            >Apply changes to<select formControlName="scope">
+              <option value="one">Only this occurrence</option>
+              <option value="future">This and future occurrences</option>
+            </select></label
+          >
+          <p class="muted">
+            {{ series.frequency }} · {{ series.occurrences }} occurrences · {{ series.state }}.
+            Future edits keep other individually edited or cancelled occurrences and all past
+            events.
+          </p>
+        }
+        <div class="form-row">
+          <label>Location<input formControlName="location" maxlength="2000" /></label>
+          <label
+            >Color<select formControlName="color">
+              <option value="purple">Purple</option>
+              <option value="green">Green</option>
+              <option value="orange">Orange</option>
+              <option value="blue">Blue</option>
+            </select></label
+          >
+          <label
+            >Project<select formControlName="project">
+              <option value="">Personal</option>
+              @for (project of store.projects(); track project.id) {
+                <option [value]="project.id">{{ project.title }}</option>
+              }
+            </select></label
+          >
+        </div>
+        @if (!previous()) {
+          <button class="button subtle" type="button" (click)="previewDates()">
+            Preview occurrences
+          </button>
+        }
+        @if (preview().length) {
+          <div class="calendar-repeat-preview">
+            <strong>{{ preview().length }} events · last date {{ preview().at(-1)?.date }}</strong>
+            <ol>
+              @for (date of preview().slice(0, 6); track date.index) {
+                <li>
+                  {{ date.date }} · {{ form.controls.time.value }}
+                  {{ form.controls.timezone.value }}
+                </li>
+              }
+            </ol>
+            @if (preview().length > 6) {
+              <p>{{ preview().length - 6 }} more dates will be created.</p>
+            }
+          </div>
+        }
+        <div class="heading-actions">
+          <button
+            class="button primary"
+            type="submit"
+            [disabled]="!previous() && !preview().length"
+          >
+            {{ previous() ? 'Save event changes' : 'Create recurring events' }}
+          </button>
+        </div>
+      </fieldset>
+    </form>
+    @if (previous(); as event) {
+      <div class="calendar-repeat-controls">
+        <p>
+          <strong>{{ event.event_state ?? 'scheduled' }}</strong
+          >{{ event.is_exception ? ' · Individually edited occurrence' : '' }} ·
+          {{ event.visibility === 'private' ? 'Only you' : 'Workspace members' }}
+        </p>
+        @if (store.canEdit(event)) {
+          @if (event.event_state === 'cancelled') {
+            <button
+              class="button subtle"
+              (click)="changeState('one', 'active')"
+              [disabled]="
+                busy() ||
+                !!pending() ||
+                (!!previousSeries() && previousSeries()?.state !== 'active')
+              "
+            >
+              Restore this occurrence
+            </button>
+          } @else {
+            <button
+              class="button subtle"
+              (click)="changeState('one', 'cancelled')"
+              [disabled]="busy() || !!pending()"
+            >
+              Cancel this occurrence
+            </button>
+          }
+          @if (previousSeries(); as series) {
+            @if (series.state !== 'cancelled') {
+              <button
+                class="button subtle"
+                (click)="changeState('series', series.state === 'active' ? 'paused' : 'active')"
+                [disabled]="busy() || !!pending()"
+              >
+                {{ series.state === 'active' ? 'Pause future events' : 'Resume future events' }}
+              </button>
+              <button
+                class="button subtle"
+                (click)="changeState('series', 'cancelled')"
+                [disabled]="busy() || !!pending()"
+              >
+                Cancel all future events
+              </button>
+              <p class="muted">
+                Pausing is reversible. Cancelling a repeat keeps its history and permanently stops
+                its future events.
+              </p>
+            }
+          }
+        }
+      </div>
+    }
+    @if (error()) {
+      <p class="form-error" role="alert">{{ error() }}</p>
+    }
+    @if (pending() && !busy()) {
+      <button class="button subtle" (click)="retry()">Retry the same change</button>
+    }
+    <button class="button subtle" (click)="reset()" [disabled]="busy()">Close editor</button>
+  }
+  <div class="calendar-repeat-list">
+    @for (series of repeats(); track series.id) {
+      <div>
+        <div>
+          <strong>{{ label(series) }}</strong>
+          <p>
+            {{ series.frequency }} · {{ series.occurrences }} events · {{ series.time_zone }} ·
+            {{ series.state }} ·
+            {{ series.visibility === 'private' ? 'Only you' : 'Workspace members' }}
+          </p>
+        </div>
+        <button
+          class="button subtle"
+          (click)="editSeries(series)"
+          [disabled]="!store.canEdit(series) || busy() || !!pending()"
+        >
+          Manage repeat
+        </button>
+      </div>
+    } @empty {
+      <p class="muted">
+        No repeats yet. Monthly dates keep their original day where possible, including month-end
+        and leap-year dates.
+      </p>
+    }
+  </div>
+</section>

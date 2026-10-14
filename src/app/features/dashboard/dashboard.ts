@@ -1,3 +1,4 @@
+import { scheduledEvent } from '../../shared/utilities/calendar';
 import { Component, computed, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
@@ -33,6 +34,7 @@ export class Dashboard {
   readonly dayEvents = computed(() =>
     this.store
       .events()
+      .filter(scheduledEvent)
       .filter((e) => localDate(new Date(e.starts_at)) === this.today)
       .slice(0, 3),
   );

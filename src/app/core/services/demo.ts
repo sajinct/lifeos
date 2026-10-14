@@ -344,6 +344,7 @@ export function demoData() {
     projects,
     tasks,
     events,
+    calendarSeries: [] as import('../models/domain').CalendarSeries[],
     goals,
     notes,
     accounts,

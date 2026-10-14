@@ -481,6 +481,15 @@
     </div>
   }
   @case ('calendar') {
+    <app-calendar-panel #calendarPanel (eventDate)="calendarJump($event)" />
+    <label class="calendar-inactive-toggle"
+      ><input
+        type="checkbox"
+        [checked]="showInactiveEvents()"
+        (change)="showInactiveEvents.set($any($event.target).checked)"
+      />
+      Show paused and cancelled events</label
+    >
     <div class="calendar-layout">
       <section class="panel full-calendar">
         <div class="panel-heading">
@@ -523,6 +532,17 @@
             <small>{{ e.starts_at | date: 'h:mm a' }} – {{ e.ends_at | date: 'h:mm a' }}</small>
             <h3>{{ e.title }}</h3>
             <p>{{ e.location }}</p>
+            @if (e.series_id) {
+              <small>Recurring{{ e.is_exception ? ' · Individually edited' : '' }}</small>
+            }
+            @if (e.event_state && e.event_state !== 'scheduled') {
+              <small>{{ e.event_state }}</small>
+            }
+            @if (store.canEdit(e)) {
+              <button class="button subtle" (click)="calendarPanel.edit(e)">
+                Edit {{ e.title }}
+              </button>
+            }
           </div>
         } @empty {
           <p class="empty-state">Nothing on the calendar. Make it a good day.</p>
