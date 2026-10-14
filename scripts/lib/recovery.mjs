@@ -329,8 +329,19 @@ async function seed(db) {
     "select public.save_household_spending($1,$2,$3,null,1,$4,'Explicit shared amount')",
     [householdRequest, householdSpending, householdBudget, householdExpense],
   );
+  const documentShare = randomUUID(),
+    documentRequest = randomUUID();
+  await db.query('select public.set_document_share($1,$2,$3,$4,$5,null,false)', [
+    documentRequest,
+    documentShare,
+    w,
+    first,
+    a,
+  ]);
   await db.exec('reset role');
   return {
+    documentShare,
+    documentRequest,
     a,
     b,
     outsider,
@@ -586,6 +597,55 @@ export async function runLocalRecoveryDrill({ output } = {}) {
     );
     checks.push(
       'Household budget snapshots and private source links retain exact retries, contribution revisions and withdraw/restore behavior',
+    );
+    await user(restored, fixture.a);
+    assert(
+      (
+        await restored.query('select * from public.document_share_download($1)', [
+          fixture.documentShare,
+        ])
+      ).rows.length === 1,
+      'Restored document share cannot download selected version.',
+    );
+    assert(
+      (await restored.query('select * from public.attachments where id=$1', [fixture.first])).rows
+        .length === 0,
+      'Sharing leaked full private file metadata.',
+    );
+    await user(restored, fixture.b);
+    await restored.query('select public.set_document_share($1,$2,$3,$4,$5,null,false)', [
+      fixture.documentRequest,
+      fixture.documentShare,
+      fixture.w,
+      fixture.first,
+      fixture.a,
+    ]);
+    await restored.query('select public.set_document_share($1,$2,$3,$4,$5,1,true)', [
+      randomUUID(),
+      fixture.documentShare,
+      fixture.w,
+      fixture.first,
+      fixture.a,
+    ]);
+    await user(restored, fixture.a);
+    assert(
+      (
+        await restored.query('select * from public.document_share_download($1)', [
+          fixture.documentShare,
+        ])
+      ).rows.length === 0,
+      'Restored share revocation failed.',
+    );
+    await user(restored, fixture.b);
+    await restored.query('select public.set_document_share($1,$2,$3,$4,$5,2,false)', [
+      randomUUID(),
+      fixture.documentShare,
+      fixture.w,
+      fixture.first,
+      fixture.a,
+    ]);
+    checks.push(
+      'Selected document version grants preserve exact retries, metadata privacy and revoke/restore behavior',
     );
     const old = (
       await restored.query('select status,version_number from public.attachments where id=$1', [

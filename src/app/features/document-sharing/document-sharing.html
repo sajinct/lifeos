@@ -1,0 +1,150 @@
+<section class="page-heading">
+  <div>
+    <span class="eyebrow">CHOOSE WHO CAN READ</span>
+    <h1>Document sharing</h1>
+    <p>Share one document version with a specific workspace member.</p>
+  </div>
+  <div class="heading-actions">
+    <a class="button secondary" routerLink="/documents">My private library</a
+    ><button class="button subtle" (click)="refresh()" [disabled]="busy() || library.loading()">
+      Refresh access
+    </button>
+  </div>
+</section>
+<div class="file-library-note">
+  <span
+    >Recipients can download the selected version. New versions need a new share. Revoking access or
+    removing either member ends future downloads. Copies already saved cannot be recalled. Other
+    documents, receipts, and Finance links remain private.</span
+  >
+</div>
+@if (store.auth.demo()) {
+  <p class="muted">Demo sharing is simulated and sends no invitations or messages.</p>
+}
+@if (error() || library.error()) {
+  <p class="form-error" role="alert">{{ error() || library.error() }}</p>
+}
+@if (message()) {
+  <p role="status">{{ message() }}</p>
+}
+<section class="panel">
+  <h2>Share a version</h2>
+  @if (store.writable()) {
+    @if (library.choices().length && library.recipients().length) {
+      <form class="form-grid" (ngSubmit)="share()">
+        <label
+          >Document version<select
+            name="document"
+            [ngModel]="source()"
+            (ngModelChange)="source.set($event); resetDraft()"
+            [disabled]="busy()"
+          >
+            <option value="">Choose a completed version</option>
+            @for (a of library.choices(); track a.id) {
+              <option [value]="a.id">{{ library.label(a) }}</option>
+            }
+          </select></label
+        >
+        <label
+          >Recipient<select
+            name="recipient"
+            [ngModel]="recipient()"
+            (ngModelChange)="recipient.set($event); resetDraft()"
+            [disabled]="busy()"
+          >
+            <option value="">Choose a workspace member</option>
+            @for (m of library.recipients(); track m.user_id) {
+              <option [value]="m.user_id">{{ m.display_name }} · {{ m.role }}</option>
+            }
+          </select></label
+        >
+        <div class="form-actions">
+          <button
+            class="button primary"
+            type="submit"
+            [disabled]="busy() || library.loading() || !source() || !recipient()"
+          >
+            Share selected version
+          </button>
+        </div>
+      </form>
+    } @else {
+      <p class="muted">Upload a document and add a workspace member to start sharing.</p>
+      <div class="heading-actions">
+        <a class="button secondary" routerLink="/documents">Upload a document</a
+        ><a class="button subtle" routerLink="/settings">Manage workspace members</a>
+        @if (store.auth.demo() && !library.choices().length) {
+          <button class="button secondary" (click)="sample()" [disabled]="busy()">
+            Add sample document
+          </button>
+        }
+      </div>
+    }
+  } @else {
+    <p class="muted">
+      You have read access. You can download versions shared with you and revoke shares you
+      previously created.
+    </p>
+  }
+</section>
+<section class="panel">
+  <h2>Shared with me</h2>
+  @if (library.loading()) {
+    <p role="status">Checking access…</p>
+  }
+  @for (row of received(); track row.id) {
+    <article class="share-row">
+      <div>
+        <strong>{{ row.name }}</strong>
+        <p class="muted">
+          Version {{ row.version_number }} · {{ size(row.size_bytes) }} · From
+          {{ row.sender_name || 'Workspace member' }}
+        </p>
+      </div>
+      <button class="button secondary" (click)="download(row)" [disabled]="busy()">Download</button>
+    </article>
+  } @empty {
+    @if (!library.loading()) {
+      <p class="muted">No document versions are currently shared with you.</p>
+    }
+  }
+</section>
+<section class="panel">
+  <div class="heading-actions share-heading">
+    <h2>Shared by me</h2>
+    <label
+      >Show shares<select [ngModel]="filter()" (ngModelChange)="filter.set($event)">
+        <option value="active">Active</option>
+        <option value="all">Including revoked</option>
+      </select></label
+    >
+  </div>
+  @for (row of sent(); track row.id) {
+    <article class="share-row">
+      <div>
+        <strong>{{ row.name }}</strong>
+        <p class="muted">
+          Version {{ row.version_number }} · {{ size(row.size_bytes) }} · To
+          {{ row.recipient_name || 'Former member' }} ·
+          {{ row.revoked ? 'Revoked' : 'Read & download' }}
+        </p>
+      </div>
+      <div class="heading-actions">
+        @if (!row.revoked) {
+          <button class="button subtle" (click)="download(row)" [disabled]="busy()">
+            Download
+          </button>
+        }
+        <button
+          class="button secondary"
+          (click)="change(row)"
+          [disabled]="busy() || (row.revoked && (!store.writable() || !canRestore(row)))"
+        >
+          {{ row.revoked ? 'Restore access' : 'Revoke access' }}
+        </button>
+      </div>
+    </article>
+  } @empty {
+    <p class="muted">No {{ filter() === 'all' ? '' : 'active ' }}document shares created by you.</p>
+  }
+</section>

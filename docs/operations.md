@@ -480,3 +480,7 @@ Use Link my spending to explicitly include an owned expense in the same workspac
 Withdraw removes spending from the budget and hides it from others, preserves your private history, releases the active expense reservation and changes no Finance entry. Restore & refresh includes the current original expense again if accessible and not reserved elsewhere. Your contribution history remains available if a budget stops being shared with you; editors can still withdraw there. Viewer downgrades/removal revoke write access. Archived budgets freeze additions/refreshes while allowing contributor withdrawals. Category/month/currency cannot change after any history; use a new monthly budget instead.
 
 Filters and exports use the current workspace/month/status. Remaining and over-limit totals are computed per category and grouped by currency, without offsetting one category's overage against another's unused limit. CSV excludes private source identities. JSON exports include readable budgets, included snapshots and only the caller's private withdrawn/source metadata. Frontend imports and reminders do not support this module yet. The synthetic hosted smoke script rolls everything back and sends no real payment or message.
+
+## Controlled document sharing
+
+See [document sharing](document-sharing.md) for the recipient workflow, migration, Edge Function deployment and revocation limits. Existing attachment/Storage RLS remains private. Deploy the authenticated byte proxy before releasing the sharing frontend. No invitation emails are sent.

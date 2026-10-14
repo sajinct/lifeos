@@ -116,6 +116,11 @@ export const routes: Routes = [
         loadComponent: () => import('./features/reports/reports').then((m) => m.ReportsPage),
       },
       {
+        path: 'documents/sharing',
+        loadComponent: () =>
+          import('./features/document-sharing/document-sharing').then((m) => m.DocumentSharingPage),
+      },
+      {
         path: 'documents',
         loadComponent: () => import('./features/documents/documents').then((m) => m.DocumentsPage),
       },

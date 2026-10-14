@@ -693,7 +693,8 @@ export class LifeStore {
           .from('attachments')
           .select('*')
           .eq('workspace_id', w.id)
-          .order('created_at', { ascending: false })
+          .order('created_at')
+          .order('id')
           .limit(500),
         c
           .from('subscriptions')
@@ -1386,7 +1387,22 @@ export class LifeStore {
       this.bills.set(bills.data ?? []);
       this.recurring.set(recurring.data ?? []);
       this.subscriptions.set(subscriptionRows);
-      this.attachments.set(attachments.data ?? []);
+      const allAttachments = [...(attachments.data ?? [])];
+      if (allAttachments.length === 500)
+        for (let offset = 500; ; offset += 500) {
+          const page = await c
+            .from('attachments')
+            .select('*')
+            .eq('workspace_id', w.id)
+            .order('created_at')
+            .order('id')
+            .range(offset, offset + 499);
+          if (page.error) throw page.error;
+          if (run !== this.generation) return;
+          allAttachments.push(...(page.data ?? []));
+          if (!page.data || page.data.length < 500) break;
+        }
+      this.attachments.set(allAttachments);
       this.activity.set(l.data ?? []);
       this.members.set(m.data ?? []);
       this.notifications.set(notifications.data ?? []);

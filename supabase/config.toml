@@ -25,3 +25,7 @@ file_size_limit = "10MiB"
 [functions.email-dispatch]
 # This scheduler-only endpoint independently verifies its private dispatch header.
 verify_jwt = false
+
+[functions.document-download]
+# Verifies the user with Auth and checks grants on every download.
+verify_jwt = false

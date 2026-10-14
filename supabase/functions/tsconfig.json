@@ -10,5 +10,5 @@
     "skipLibCheck": true,
     "types": []
   },
-  "include": ["email-dispatch/**/*.ts"]
+  "include": ["email-dispatch/**/*.ts", "document-download/**/*.ts"]
 }

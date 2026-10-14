@@ -4,9 +4,13 @@
     <h1>Documents & receipts</h1>
     <p>Keep important files close, with a little more peace of mind.</p>
   </div>
-  <button class="button primary" (click)="add()" [disabled]="!store.writable() || busy()">
-    <app-icon name="plus" />Upload {{ bucket() === 'financial-receipts' ? 'receipt' : 'document' }}
-  </button>
+  <div class="heading-actions">
+    <a class="button secondary" routerLink="/documents/sharing">Document sharing</a>
+    <button class="button primary" (click)="add()" [disabled]="!store.writable() || busy()">
+      <app-icon name="plus" />Upload
+      {{ bucket() === 'financial-receipts' ? 'receipt' : 'document' }}
+    </button>
+  </div>
 </section>
 @if (reminderId()) {
   <div class="file-library-note">
@@ -16,8 +20,8 @@
 }
 <div class="file-library-note">
   <app-icon name="lock" /><span
-    >Only you can access these files. Archived files and older versions remain available to
-    you.</span
+    >Files stay private unless you share a selected document version in Document sharing. Receipts
+    remain private. Archived files and older versions remain available to you.</span
   >
 </div>
 <div class="records-toolbar">

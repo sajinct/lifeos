@@ -692,6 +692,21 @@ export interface Attachment extends OwnedRecord {
   previous_version_id: string | null;
   version_number: number;
 }
+export interface DocumentShare {
+  id: string;
+  workspace_id: string;
+  owner_id: string;
+  recipient_id: string;
+  attachment_id: string;
+  revoked: boolean;
+  revision: number;
+  name: string;
+  mime_type: string;
+  size_bytes: number;
+  version_number: number;
+  sender_name: string;
+  recipient_name: string;
+}
 export interface FileDetails {
   category: string;
   expires_on: string;
@@ -1213,6 +1228,22 @@ export type Database = {
     Tables: { [K in keyof TableRows]: Table<TableRows[K]> };
     Views: Record<string, never>;
     Functions: {
+      document_share_catalog: {
+        Args: { w: string; after_id?: string | null };
+        Returns: DocumentShare[];
+      };
+      set_document_share: {
+        Args: {
+          req: string;
+          entry: string;
+          w: string;
+          source: string;
+          recipient: string;
+          expected_revision: number | null;
+          is_revoked: boolean;
+        };
+        Returns: undefined;
+      };
       save_household_budget: {
         Args: {
           request: string;
