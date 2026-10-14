@@ -168,6 +168,16 @@ export class SearchDialog implements AfterViewInit {
         .filter((a) => a.status === 'active')
         .map((a) => ({ id: a.id, title: a.name, type: 'Asset', icon: 'project', path: '/assets' })),
       ...this.store
+        .shoppingLists()
+        .filter((l) => !l.archived && l.workspace_id === this.store.workspace()?.id)
+        .map((l) => ({
+          id: l.id,
+          title: l.title,
+          type: 'Shopping list',
+          icon: 'family',
+          path: '/family/shopping',
+        })),
+      ...this.store
         .householdMembers()
         .filter((m) => m.status === 'active')
         .map((m) => ({
@@ -255,6 +265,7 @@ export class SearchDialog implements AfterViewInit {
     void this.router.navigateByUrl(
       result.path === '/notes' ||
         result.path === '/learning' ||
+        result.path === '/family/shopping' ||
         result.path === '/projects' ||
         result.path === '/travel' ||
         result.path === '/cards' ||

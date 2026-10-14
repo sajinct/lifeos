@@ -25,6 +25,8 @@ import {
   Member,
   Note,
   NoteDocument,
+  ShoppingList,
+  ShoppingItem,
   LearningItem,
   LearningUnit,
   LearningNote,
@@ -102,6 +104,8 @@ export class LifeStore {
   readonly calendarSeries = signal<CalendarSeries[]>([]);
   readonly notes = signal<Note[]>([]);
   readonly noteDocuments = signal<NoteDocument[]>([]);
+  readonly shoppingLists = signal<ShoppingList[]>([]);
+  readonly shoppingItems = signal<ShoppingItem[]>([]);
   readonly learningItems = signal<LearningItem[]>([]);
   readonly learningUnits = signal<LearningUnit[]>([]);
   readonly learningNotes = signal<LearningNote[]>([]);
@@ -255,6 +259,8 @@ export class LifeStore {
     this.learningDocuments.set(d.learningDocuments);
     this.learningNotes.set(d.learningNotes);
     this.learningUnits.set(d.learningUnits);
+    this.shoppingLists.set(d.shoppingLists);
+    this.shoppingItems.set(d.shoppingItems);
     this.learningItems.set(d.learningItems);
     this.goals.set(d.goals);
     this.creditCards.set(d.creditCards);
@@ -320,6 +326,8 @@ export class LifeStore {
     this.learningDocuments.set([]);
     this.learningNotes.set([]);
     this.learningUnits.set([]);
+    this.shoppingLists.set([]);
+    this.shoppingItems.set([]);
     this.learningItems.set([]);
     this.goals.set([]);
     this.creditCards.set([]);
@@ -398,6 +406,8 @@ export class LifeStore {
         learningDocuments: this.learningDocuments(),
         learningNotes: this.learningNotes(),
         learningUnits: this.learningUnits(),
+        shoppingLists: this.shoppingLists(),
+        shoppingItems: this.shoppingItems(),
         learningItems: this.learningItems(),
         goals: this.goals(),
         creditCards: this.creditCards(),
@@ -465,6 +475,8 @@ export class LifeStore {
         this.learningDocuments.set(d.learningDocuments);
         this.learningNotes.set(d.learningNotes);
         this.learningUnits.set(d.learningUnits);
+        this.shoppingLists.set(d.shoppingLists);
+        this.shoppingItems.set(d.shoppingItems);
         this.learningItems.set(d.learningItems);
         this.goals.set(d.goals);
         this.creditCards.set(d.creditCards);
@@ -888,6 +900,25 @@ export class LifeStore {
       if (run !== this.generation) return;
       this.projectMilestones.set(projectMilestoneRows);
       this.projectBudgets.set(projectBudgetRows);
+      const shoppingLists: ShoppingList[] = [],
+        shoppingItems: ShoppingItem[] = [];
+      for (const table of ['shopping_lists', 'shopping_items'] as const)
+        for (let offset = 0; ; offset += 500) {
+          const page = await c
+            .from(table)
+            .select('*')
+            .eq('workspace_id', w.id)
+            .order('created_at')
+            .order('id')
+            .range(offset, offset + 499);
+          if (page.error) throw page.error;
+          if (run !== this.generation) return;
+          if (table === 'shopping_lists') shoppingLists.push(...(page.data as ShoppingList[]));
+          else shoppingItems.push(...(page.data as ShoppingItem[]));
+          if (page.data.length < 500) break;
+        }
+      this.shoppingLists.set(shoppingLists);
+      this.shoppingItems.set(shoppingItems);
       const learningItems: LearningItem[] = [],
         learningUnits: LearningUnit[] = [],
         learningNotes: LearningNote[] = [],
@@ -1928,6 +1959,8 @@ export class LifeStore {
       calendarSeries: this.calendarSeries(),
       notes: this.notes(),
       noteDocuments: this.noteDocuments(),
+      shoppingLists: this.shoppingLists(),
+      shoppingItems: this.shoppingItems(),
       learningItems: this.learningItems(),
       learningUnits: this.learningUnits(),
       learningNotes: this.learningNotes(),

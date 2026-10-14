@@ -1,0 +1,284 @@
+<section class="page-heading">
+  <div>
+    <span class="eyebrow">FAMILY & HOUSEHOLD</span>
+    <h1>Grocery & shopping lists</h1>
+    <p>Plan what you need, and check it off together.</p>
+  </div>
+  <div class="heading-actions">
+    <a class="button subtle" routerLink="/family">Back to household</a
+    ><button
+      class="button subtle"
+      (click)="refresh()"
+      [disabled]="busy() || !!pending() || store.loading()"
+    >
+      Refresh lists</button
+    ><button class="button primary" (click)="create()" [disabled]="!canChange()">New list</button>
+  </div>
+</section>
+<p class="sharing-note">
+  Private by default. Shared lists and every item are visible to current and future workspace
+  members. Editors can change items; viewers can read. Only the creator changes sharing.
+</p>
+@if (store.error()) {
+  <p class="error" role="alert">{{ store.error() }}</p>
+}
+@if (error()) {
+  <p class="error" role="alert">{{ error() }}</p>
+}
+@if (pending()) {
+  <section class="panel retry">
+    <p>
+      This change is kept for an exact retry. After discarding it, refresh before making another
+      change.
+    </p>
+    <button class="button primary" (click)="retry()" [disabled]="busy()">Retry change</button
+    ><button class="button subtle" (click)="resetDraft()" [disabled]="busy()">
+      Discard pending change
+    </button>
+  </section>
+}
+@if (editing()) {
+  <section class="panel">
+    <h2>{{ previous() ? 'Edit list' : 'New list' }}</h2>
+    <form [formGroup]="form" (ngSubmit)="save()">
+      <fieldset [disabled]="busy() || !!pending() || !store.writable()">
+        <div class="form-row">
+          <label>List title<input formControlName="title" maxlength="200" required /></label
+          ><label
+            >List type<select formControlName="kind" [attr.disabled]="previous() ? '' : null">
+              <option value="grocery">Grocery</option>
+              <option value="shopping">Shopping</option>
+            </select></label
+          ><label
+            >List sharing<select
+              formControlName="visibility"
+              [attr.disabled]="
+                previous() && previous()!.owner_id !== store.profile()?.id ? '' : null
+              "
+            >
+              <option value="private">Private</option>
+              <option value="workspace">Shared with workspace</option>
+            </select></label
+          >
+        </div>
+        <label
+          >List notes<textarea formControlName="notes" maxlength="2000" rows="2"></textarea>
+        </label>
+        <div class="heading-actions">
+          <button class="button primary" type="submit">Save list</button
+          ><button class="button subtle" type="button" (click)="resetDraft()">
+            Cancel list edit
+          </button>
+        </div>
+      </fieldset>
+    </form>
+  </section>
+}
+<section class="panel">
+  <div class="form-row">
+    <label
+      >Find a list<input
+        [value]="search()"
+        (input)="search.set($any($event.target).value)"
+        placeholder="Search titles and notes" /></label
+    ><label
+      >List view<select [value]="view()" (change)="view.set($any($event.target).value)">
+        <option value="current">Current lists</option>
+        <option value="archived">Archived lists</option>
+      </select></label
+    ><label
+      >Filter list type<select [value]="kind()" (change)="kind.set($any($event.target).value)">
+        <option value="all">All types</option>
+        <option value="grocery">Grocery</option>
+        <option value="shopping">Shopping</option>
+      </select></label
+    >
+  </div>
+  @if (linked()) {
+    <p>
+      Showing a linked list.
+      <button class="button subtle" (click)="clearLink()">Show all lists</button>
+    </p>
+  }
+  <div class="list-grid">
+    @for (l of rows(); track l.id) {
+      <article class="list-card" [class.selected]="list()?.id === l.id">
+        <span class="eyebrow"
+          >{{ l.kind === 'grocery' ? 'GROCERY' : 'SHOPPING' }} ·
+          {{ l.visibility === 'private' ? 'PRIVATE' : 'SHARED'
+          }}{{ l.archived ? ' · ARCHIVED' : '' }}</span
+        >
+        <h3>{{ l.title }}</h3>
+        <p>
+          {{ library.progress(l).remaining }} remaining · {{ library.progress(l).checked }} checked
+        </p>
+        <button
+          class="button subtle"
+          (click)="open(l)"
+          [attr.aria-label]="'Open list ' + l.title"
+          [disabled]="busy() || !!pending()"
+        >
+          Open list
+        </button>
+      </article>
+    } @empty {
+      <p class="empty-state">
+        {{ store.loading() ? 'Loading lists…' : 'No lists match this view.' }}
+      </p>
+    }
+  </div>
+</section>
+@if (list(); as l) {
+  <section class="panel list-detail">
+    <div class="detail-heading">
+      <div>
+        <span class="eyebrow"
+          >{{ l.archived ? 'ARCHIVED LIST' : 'YOUR LIST' }} ·
+          {{ l.visibility === 'private' ? 'PRIVATE' : 'SHARED' }}</span
+        >
+        <h2>{{ l.title }}</h2>
+      </div>
+      <div class="heading-actions">
+        <button
+          class="button subtle"
+          (click)="exportCsv()"
+          [disabled]="store.loading() || !!store.error() || !items().length"
+        >
+          Export visible items CSV
+        </button>
+        @if (store.canEdit(l)) {
+          <button class="button subtle" (click)="edit(l)" [disabled]="!canChange() || l.archived">
+            Edit list</button
+          ><button class="button subtle" (click)="archive(l)" [disabled]="!canChange()">
+            {{ l.archived ? 'Restore list' : 'Archive list' }}
+          </button>
+        }
+      </div>
+    </div>
+    @if (l.notes) {
+      <p class="literal">{{ l.notes }}</p>
+    }
+    <div class="progress-heading">
+      <strong>{{ progress().checked }} of {{ progress().total }} checked</strong
+      ><span>{{ progress().remaining }} remaining</span>
+    </div>
+    <progress
+      [value]="progress().percent"
+      max="100"
+      aria-label="Shopping list completion"
+    ></progress>
+    @if (l.archived) {
+      <p>Restore this list to change its items. Checked history is kept.</p>
+    }
+    <div class="form-row">
+      <label
+        >Item view<select [value]="itemView()" (change)="itemView.set($any($event.target).value)">
+          <option value="all">All current items</option>
+          <option value="remaining">Remaining items</option>
+          <option value="checked">Checked items</option>
+          <option value="archived">Archived items</option>
+        </select></label
+      ><label
+        >Item category<select
+          [value]="category()"
+          (change)="category.set($any($event.target).value)"
+          [disabled]="itemView() === 'archived'"
+        >
+          <option value="all">All categories</option>
+          @for (c of categories(); track c) {
+            <option [value]="c">{{ c }}</option>
+          }
+        </select></label
+      ><button class="button primary" (click)="startItem()" [disabled]="!canItems()">
+        Add item
+      </button>
+    </div>
+    @if (itemEditor()) {
+      <form class="item-editor" [formGroup]="itemForm" (ngSubmit)="saveItem()">
+        <h3>{{ editingItem() ? 'Edit item' : 'Add item' }}</h3>
+        <fieldset [disabled]="busy() || !!pending() || !store.writable()">
+          <div class="form-row">
+            <label>Item name<input formControlName="name" maxlength="200" required /></label
+            ><label
+              >Category<input
+                formControlName="category"
+                list="shopping-categories"
+                maxlength="60"
+                required /></label
+            ><datalist id="shopping-categories">
+              <option value="Produce"></option>
+              <option value="Dairy"></option>
+              <option value="Bakery"></option>
+              <option value="Pantry"></option>
+              <option value="Frozen"></option>
+              <option value="Household"></option>
+              <option value="Personal"></option>
+              <option value="Other"></option></datalist
+            ><label>Quantity<input formControlName="quantity" inputmode="decimal" required /></label
+            ><label
+              >Unit<input
+                formControlName="unit"
+                maxlength="30"
+                placeholder="items, kg, packs…"
+                required
+            /></label>
+          </div>
+          <label
+            >Item notes<textarea formControlName="notes" maxlength="2000" rows="2"></textarea>
+          </label>
+          <div class="heading-actions">
+            <button class="button primary" type="submit">Save item</button
+            ><button class="button subtle" type="button" (click)="closeItem()">
+              Cancel item edit
+            </button>
+          </div>
+        </fieldset>
+      </form>
+    }
+    <div class="item-list">
+      @for (i of items(); track i.id) {
+        <article class="shopping-item">
+          <div class="item-main">
+            <label class="check"
+              ><input
+                type="checkbox"
+                [checked]="i.checked"
+                [disabled]="!canItems() || i.archived"
+                (change)="toggleChecked(i, $event)"
+                [attr.aria-label]="'Check ' + i.name"
+              /><strong [class.checked]="i.checked">{{ i.name }}</strong></label
+            ><span>{{ i.quantity | number: '1.0-3' }} {{ i.unit }} · {{ i.category }}</span>
+            @if (i.notes) {
+              <p class="literal">{{ i.notes }}</p>
+            }
+            @if (i.checked_at) {
+              <small>Checked {{ i.checked_at | date: 'medium' }}</small>
+            }
+          </div>
+          <div class="heading-actions">
+            @if (!i.archived) {
+              <button
+                class="button subtle"
+                (click)="startItem(i)"
+                [disabled]="!canItems()"
+                [attr.aria-label]="'Edit item ' + i.name"
+              >
+                Edit
+              </button>
+            }
+            <button
+              class="button subtle"
+              (click)="changeItem(i)"
+              [disabled]="!canItems()"
+              [attr.aria-label]="(i.archived ? 'Restore item ' : 'Archive item ') + i.name"
+            >
+              {{ i.archived ? 'Restore' : 'Archive' }}
+            </button>
+          </div>
+        </article>
+      } @empty {
+        <p class="empty-state">No items in this view. Add what you need or change the filter.</p>
+      }
+    </div>
+  </section>
+}

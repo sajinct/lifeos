@@ -979,7 +979,45 @@ export interface LearningInput {
   document_ids: string[];
   certificate_ids: string[];
 }
+export interface ShoppingList extends OwnedRecord {
+  title: string;
+  kind: 'grocery' | 'shopping';
+  notes: string;
+  archived: boolean;
+  revision: number;
+}
+export interface ShoppingItem extends Omit<OwnedRecord, 'visibility'> {
+  list_id: string;
+  name: string;
+  category: string;
+  quantity: number;
+  unit: string;
+  notes: string;
+  position: number;
+  checked: boolean;
+  checked_by: string | null;
+  checked_at: string | null;
+  archived: boolean;
+  revision: number;
+}
+export interface ShoppingListInput {
+  title: string;
+  kind: ShoppingList['kind'];
+  notes: string;
+  visibility: Visibility;
+}
+export interface ShoppingItemInput {
+  name: string;
+  category: string;
+  quantity: string;
+  unit: string;
+  notes: string;
+  checked: boolean;
+  archived: boolean;
+}
 export interface TableRows {
+  shopping_lists: ShoppingList;
+  shopping_items: ShoppingItem;
   learning_items: LearningItem;
   learning_units: LearningUnit;
   learning_notes: LearningNote;
@@ -1081,6 +1119,41 @@ export type Database = {
     Tables: { [K in keyof TableRows]: Table<TableRows[K]> };
     Views: Record<string, never>;
     Functions: {
+      save_shopping_list: {
+        Args: {
+          request: string;
+          entry: string;
+          w: string;
+          expected_revision: number | null;
+          list_title: string;
+          list_kind: ShoppingList['kind'];
+          list_notes: string;
+          sharing: Visibility;
+        };
+        Returns: string;
+      };
+      save_shopping_item: {
+        Args: {
+          request: string;
+          entry: string;
+          parent: string;
+          expected_revision: number | null;
+          expected_parent_revision: number;
+          item_name: string;
+          item_category: string;
+          item_quantity: number;
+          item_unit: string;
+          item_notes: string;
+          is_checked: boolean;
+          is_archived: boolean;
+        };
+        Returns: string;
+      };
+      set_shopping_archived: {
+        Args: { request: string; entry: string; expected_revision: number; is_archived: boolean };
+        Returns: undefined;
+      };
+
       preview_learning_import: {
         Args: { w: string; payload: { [key: string]: unknown }[] };
         Returns: { source_id: string; state: 'ready' | 'duplicate' | 'invalid'; message: string }[];

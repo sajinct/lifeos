@@ -45,7 +45,8 @@ Open http://127.0.0.1:4200 and choose **Explore a demo workspace**. Sample recor
 - Owner-private Progress reports with current task/project/goal/learning snapshots, date-filtered recorded time, monthly figures, learning completion dates and filtered CSV.
 - Calendar daily/weekly/monthly/yearly repeat schedules with timezone-aware previews, 2–120 materialized occurrences, single/future editing, preserved exceptions, pause/resume/cancellation and private-by-default sharing.
 - Calendar JSON imports with explicit timezone validation, UTC previews, private events, accessible-project mapping, duplicate/conflict checks and safe atomic retries.
-- Private-by-default records, 74 RLS-protected application tables, private Storage policies, typed client access and server-only reminder dispatch.
+- Grocery and shopping lists with private defaults, explicit workspace sharing, collaborative item editing/checking, decimal quantities/categories, archived history, revision-safe retries and filtered CSV/JSON metadata exports.
+- Private-by-default records, 76 RLS-protected application tables, private Storage policies, typed client access and server-only reminder dispatch.
 - Date-filtered Finance reports with separate currency totals, monthly cash flow, category trends, budget comparisons, recorded subscription expenses and loan interest, plus filtered CSV and workspace JSON exports.
 - Currency-aware summaries, linked project records and idempotent transfer requests.
 - Installable PWA manifest/service worker that caches static assets only; offline indication.

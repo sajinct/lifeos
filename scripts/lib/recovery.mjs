@@ -271,6 +271,23 @@ async function seed(db) {
     randomUUID(),
     item,
   ]);
+  const shoppingList = randomUUID(),
+    shoppingItem = randomUUID(),
+    shoppingRequest = randomUUID();
+  await db.query(
+    "select public.save_shopping_list($1,$2,$3,null,'Recovered groceries','grocery','','workspace')",
+    [randomUUID(), shoppingList, w],
+  );
+  await user(db, a);
+  await db.query(
+    "select public.save_shopping_item($1,$2,$3,null,1,'Milk','Dairy',1.5,'litres','',false,false)",
+    [randomUUID(), shoppingItem, shoppingList],
+  );
+  await user(db, b);
+  await db.query(
+    "select public.save_shopping_item($1,$2,$3,1,2,'Milk','Dairy',1.5,'litres','',true,false)",
+    [shoppingRequest, shoppingItem, shoppingList],
+  );
   await db.exec('reset role');
   return {
     a,
@@ -283,6 +300,9 @@ async function seed(db) {
     transfer,
     note,
     noteRequest,
+    shoppingList,
+    shoppingItem,
+    shoppingRequest,
     learningBatch,
     learningPayload,
     item,
@@ -424,6 +444,26 @@ export async function runLocalRecoveryDrill({ output } = {}) {
         .length === 0,
       'Member read owner financial records.',
     );
+    await restored.query(
+      "select public.save_shopping_item($1,$2,$3,1,2,'Milk','Dairy',1.5,'litres','',true,false)",
+      [fixture.shoppingRequest, fixture.shoppingItem, fixture.shoppingList],
+    );
+    const checkedShopping = (
+      await restored.query(
+        'select owner_id,checked_by,checked_at,revision from public.shopping_items where id=$1',
+        [fixture.shoppingItem],
+      )
+    ).rows[0];
+    assert(
+      checkedShopping?.owner_id === fixture.a &&
+        checkedShopping.checked_by === fixture.b &&
+        checkedShopping.checked_at &&
+        checkedShopping.revision === 2,
+      'Restored shopping collaboration or exact replay failed.',
+    );
+    checks.push(
+      'Shared shopping items preserve their creator, check actor/time, parent revision and exact request replay',
+    );
     const old = (
       await restored.query('select status,version_number from public.attachments where id=$1', [
         fixture.first,
@@ -510,6 +550,14 @@ export async function runLocalRecoveryDrill({ output } = {}) {
       (await restored.query('select id from public.learning_items where id=$1', [fixture.item]))
         .rows.length === 1,
       'Viewer lost own read access.',
+    );
+    await denied(
+      () =>
+        restored.query(
+          "select public.save_shopping_item($1,$2,$3,1,2,'Milk','Dairy',1.5,'litres','',true,false)",
+          [fixture.shoppingRequest, fixture.shoppingItem, fixture.shoppingList],
+        ),
+      'Viewer replay changed shopping items.',
     );
     await denied(
       () =>

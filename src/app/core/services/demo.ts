@@ -348,6 +348,8 @@ export function demoData() {
     goals,
     notes,
     noteDocuments: [] as import('../models/domain').NoteDocument[],
+    shoppingLists: [] as import('../models/domain').ShoppingList[],
+    shoppingItems: [] as import('../models/domain').ShoppingItem[],
     learningItems: [] as import('../models/domain').LearningItem[],
     learningUnits: [] as import('../models/domain').LearningUnit[],
     learningNotes: [] as import('../models/domain').LearningNote[],
