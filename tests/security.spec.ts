@@ -1,5 +1,6 @@
 import { notesSecurityTests } from './notes-security';
 import { learningSecurityTests } from './learning-security';
+import { learningImportSecurityTests } from './learning-import-security';
 import { calendarSecurityTests } from './calendar-security';
 import { wealthSecurityTests } from './wealth-security';
 import { financeImportSecurityTests } from './finance-import-security';
@@ -1140,3 +1141,4 @@ calendarSecurityTests(() => db, asUser, A, B, C);
 
 notesSecurityTests(() => db, asUser, A, B, C);
 learningSecurityTests(() => db, asUser, A, B, C);
+learningImportSecurityTests(() => db, asUser, A, B, C);

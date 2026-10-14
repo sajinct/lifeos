@@ -5,6 +5,7 @@
     <p>Turn courses, books and useful resources into steady progress.</p>
   </div>
   <div class="heading-actions">
+    <a class="button subtle" routerLink="/learning/import-json">Import Learning JSON</a>
     <button class="button subtle" (click)="exportCsv()" [disabled]="!rows().length">
       Export CSV</button
     ><button class="button primary" (click)="create()" [disabled]="!canChange()">

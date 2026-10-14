@@ -1,0 +1,269 @@
+<section class="page-heading">
+  <div>
+    <span class="eyebrow">SEE THE PROGRESS IN YOUR EVERYDAY</span>
+    <h1>Progress report</h1>
+    <p>Your tasks, projects, goals and learning, brought into one view.</p>
+  </div>
+  <div class="heading-actions">
+    <a class="button subtle" routerLink="/reports">Finance reports</a
+    ><button
+      class="button primary"
+      (click)="exportCsv()"
+      [disabled]="!result().report || store.loading() || !!store.error()"
+    >
+      Export progress CSV
+    </button>
+  </div>
+</section>
+<div class="file-library-note">
+  Only records you own in the current workspace. Shared records created by other members are
+  excluded from current counts. Your private time logs can include work on shared tasks.
+</div>
+<section class="panel report-filters">
+  <div class="form-grid">
+    <label
+      >Progress from date<input
+        type="date"
+        [value]="from()"
+        (input)="from.set($any($event.target).value)" /></label
+    ><label
+      >Progress to date<input
+        type="date"
+        [value]="to()"
+        (input)="to.set($any($event.target).value)"
+    /></label>
+  </div>
+  <div class="heading-actions report-presets">
+    <button class="button subtle" (click)="preset(1)">This month</button
+    ><button class="button subtle" (click)="preset(6)">Last 6 months</button
+    ><button class="button subtle" (click)="preset(12)">Last 12 months</button>
+  </div>
+  <p class="form-hint">
+    Dates include both endpoints, up to 120 calendar months. They apply to recorded time and current
+    learning completion dates. Snapshot counts below show the present state, regardless of the
+    selected dates.
+  </p>
+</section>
+@if (store.loading()) {
+  <p role="status">Loading your complete workspace records…</p>
+}
+@if (store.error()) {
+  <p class="error-banner" role="alert">{{ store.error() }}</p>
+}
+@if (result().error) {
+  <p class="error-banner" role="alert">{{ result().error }}</p>
+}
+@if (!store.loading() && !store.error()) {
+  @if (result().report; as r) {
+    <h2 class="progress-section-title">Current snapshot</h2>
+    <div class="progress-stats">
+      <section class="panel report-stat">
+        <span>Open tasks</span><strong>{{ r.snapshot.open }}</strong
+        ><small>{{ r.snapshot.overdue }} past due · {{ r.snapshot.done }} currently done</small>
+      </section>
+      <section class="panel report-stat">
+        <span>Active projects</span><strong>{{ r.snapshot.projects }}</strong
+        ><small>Your projects currently in motion</small>
+      </section>
+      <section class="panel report-stat">
+        <span>Learning in progress</span><strong>{{ r.snapshot.learning }}</strong
+        ><small>{{ r.snapshot.paused }} paused · archives excluded</small>
+      </section>
+    </div>
+    <h2 class="progress-section-title">
+      Selected period · {{ from() | date: 'd MMM yyyy' }} – {{ to() | date: 'd MMM yyyy' }}
+    </h2>
+    <div class="progress-period">
+      <section class="panel report-stat">
+        <span>Recorded time</span
+        ><strong>{{ r.period.seconds / 3600 | number: '1.0-2' }} hours</strong
+        ><small>{{ r.period.entries }} time entries · running/discarded excluded</small>
+      </section>
+      <section class="panel report-stat">
+        <span>Learning completed</span><strong>{{ r.period.completed }}</strong
+        ><small>Currently completed items, including archives</small>
+      </section>
+    </div>
+    <section class="panel report-panel">
+      <div class="panel-heading">
+        <div>
+          <h3>Monthly progress</h3>
+          <p class="muted">Recorded work time and learning completion dates.</p>
+        </div>
+      </div>
+      <div class="progress-chart" aria-hidden="true">
+        @for (m of r.months; track m.month) {
+          <div>
+            <i [style.height.%]="(m.seconds / maxTime()) * 100"></i
+            ><span>{{ m.month + '-01T00:00:00Z' | date: 'MMM yy' : 'UTC' }}</span>
+          </div>
+        }
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th>Recorded hours</th>
+              <th>Learning completed</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (m of r.months; track m.month) {
+              <tr>
+                <td>{{ m.month }}</td>
+                <td>{{ m.seconds / 3600 | number: '1.0-2' }}</td>
+                <td>{{ m.completed }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="progress-note muted">
+        These are current completion dates, not an immutable completion history. Reopening learning
+        removes it from the completion count. Task completion dates are not inferred from edit
+        timestamps.
+      </p>
+    </section>
+    <div class="progress-grid">
+      <section class="panel report-panel">
+        <div class="panel-heading">
+          <h3>Project task progress</h3>
+          <a routerLink="/projects">View projects</a>
+        </div>
+        <p class="progress-note muted">
+          Active and paused projects; only tasks you created contribute.
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Project</th>
+                <th>Status</th>
+                <th>Tasks done</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (p of r.projects; track p.id) {
+                <tr>
+                  <td>
+                    <a routerLink="/projects" [queryParams]="{ linked: p.id }">{{ p.title }}</a>
+                  </td>
+                  <td>{{ p.status }}</td>
+                  <td>{{ p.done }} / {{ p.total }}</td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="3">No current projects.</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <section class="panel report-panel">
+        <div class="panel-heading">
+          <h3>Time by project</h3>
+          <a routerLink="/tasks">View time logs</a>
+        </div>
+        <p class="progress-note muted">
+          Selected dates; project names come from your private time records.
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Project</th>
+                <th>Recorded hours</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (p of r.timeGroups; track p.id) {
+                <tr>
+                  <td>{{ p.title }}</td>
+                  <td>{{ p.seconds / 3600 | number: '1.0-2' }}</td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="2">No recorded time in this period.</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+    <section class="panel report-panel">
+      <div class="panel-heading">
+        <h3>Goal progress</h3>
+        <a routerLink="/goals">View goals</a>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Goal</th>
+              <th>Status</th>
+              <th>Progress</th>
+              <th>Percent</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (g of r.goals; track g.id) {
+              <tr>
+                <td>{{ g.title }}</td>
+                <td>{{ g.status }}</td>
+                <td>
+                  {{ g.current | number: '1.0-2' }} / {{ g.target | number: '1.0-2' }} {{ g.unit }}
+                </td>
+                <td>{{ g.percent }}%</td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="4">No current goals.</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="progress-note muted">
+        Targets keep their own units; quantities and currencies are not combined.
+      </p>
+    </section>
+    <section class="panel report-panel">
+      <div class="panel-heading">
+        <h3>Learning progress</h3>
+        <a routerLink="/learning">View Learning</a>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Learning item</th>
+              <th>Status</th>
+              <th>Lessons done</th>
+              <th>Progress</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (i of r.learning; track i.id) {
+              <tr>
+                <td>
+                  <a routerLink="/learning" [queryParams]="{ linked: i.id }">{{ i.title }}</a
+                  ><small>{{ i.kind }}</small>
+                </td>
+                <td>{{ i.status }}</td>
+                <td>{{ i.progress.done }} / {{ i.progress.total }}</td>
+                <td>{{ i.progress.percent }}%</td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="4">No current learning items.</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  }
+}

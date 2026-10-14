@@ -1081,6 +1081,14 @@ export type Database = {
     Tables: { [K in keyof TableRows]: Table<TableRows[K]> };
     Views: Record<string, never>;
     Functions: {
+      preview_learning_import: {
+        Args: { w: string; payload: { [key: string]: unknown }[] };
+        Returns: { source_id: string; state: 'ready' | 'duplicate' | 'invalid'; message: string }[];
+      };
+      import_learning_json: {
+        Args: { entry: string; w: string; payload: { [key: string]: unknown }[] };
+        Returns: { items_imported: number; lessons_imported: number; skipped: number };
+      };
       save_learning_item: {
         Args: {
           request: string;

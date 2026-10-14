@@ -41,6 +41,8 @@ Open http://127.0.0.1:4200 and choose **Explore a demo workspace**. Sample recor
 - Opt-in reminder emails, daily/weekly planning digests and weekly/monthly financial summaries through a private Resend outbox, verified account recipients, bounded retries and delivery history.
 - Notes editing with revision-safe saves, private dated journals, bounded tags/content search, reversible archives and owner-private document-version links/uploads that do not inherit note sharing.
 - Private Courses & Learning for courses, books and resources, goals/deadlines, up to 200 lessons or chapters, automatic completion/reopening, pause/archive history, owned note links, certificate/document versions and filtered CSV/workspace JSON exports.
+- Additive Learning JSON imports with preview/selection, preserved lesson and completion/archive history, fresh private destination IDs, immutable source bindings and atomic safe retries.
+- Owner-private Progress reports with current task/project/goal/learning snapshots, date-filtered recorded time, monthly figures, learning completion dates and filtered CSV.
 - Calendar daily/weekly/monthly/yearly repeat schedules with timezone-aware previews, 2–120 materialized occurrences, single/future editing, preserved exceptions, pause/resume/cancellation and private-by-default sharing.
 - Calendar JSON imports with explicit timezone validation, UTC previews, private events, accessible-project mapping, duplicate/conflict checks and safe atomic retries.
 - Private-by-default records, 74 RLS-protected application tables, private Storage policies, typed client access and server-only reminder dispatch.

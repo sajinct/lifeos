@@ -1,0 +1,134 @@
+<section class="page-heading">
+  <div>
+    <span class="eyebrow">LEARNING · YOUR PRIVATE WORKSPACE</span>
+    <h1>Import Learning</h1>
+    <p>Bring courses, books and lesson progress into this workspace after review.</p>
+  </div>
+  <div class="heading-actions">
+    <button class="button subtle" (click)="template()">Download Learning JSON template</button
+    ><a class="button subtle" routerLink="/learning">View Learning</a>
+  </div>
+</section>
+<section class="panel import-setup" [formGroup]="form">
+  <h2>1. Load your Learning JSON</h2>
+  <p class="muted">
+    A LifeOS workspace export or the template, up to 200 learning items, 500 lessons total and 5
+    MiB. Each item supports up to 200 lessons, including archives.
+  </p>
+  <label
+    >Learning JSON file<input
+      type="file"
+      accept=".json,application/json"
+      (change)="file($event)"
+      [disabled]="busy() || !!pending()" /></label
+  ><label class="import-text"
+    >Or paste Learning JSON<textarea
+      formControlName="text"
+      rows="6"
+      spellcheck="false"
+      [attr.disabled]="busy() || pending() ? '' : null"
+    ></textarea>
+  </label>
+  <p class="form-hint">
+    Only selected items and their lessons are saved, privately for your signed-in user. Goals,
+    deadlines, completion dates and archives are preserved. Note/document/certificate links,
+    ownership, sharing, reminders and other modules are omitted. Original files remain in Documents.
+    This is an additive import; existing learning is not overwritten. Keep source IDs stable on
+    reupload. A new source ID creates a new record even when its title matches another. Remove
+    template examples before importing.
+  </p>
+  <button
+    class="button primary"
+    (click)="preview()"
+    [disabled]="busy() || !!pending() || !store.writable()"
+  >
+    Preview Learning JSON
+  </button>
+</section>
+@if (error()) {
+  <p class="form-error" role="alert">{{ error() }}</p>
+}
+@if (result(); as r) {
+  <section class="panel import-success" role="status">
+    <h2>Import complete</h2>
+    <p>
+      {{ r.items_imported }} learning items and {{ r.lessons_imported }} lessons added ·
+      {{ r.skipped }} previously imported items skipped.
+    </p>
+    <a class="button primary" routerLink="/learning">View Learning</a>
+  </section>
+}
+@if (source(); as s) {
+  <section class="panel import-preview">
+    <h2>2. Review learning and lesson progress</h2>
+    <p class="form-hint">
+      {{ ready() }} ready items. Unchanged reuploads preserve later destination edits and archives.
+      Changed source contents are conflicts.
+      @if (s.omitted.length) {
+        Other sections omitted: {{ s.omitted.join(', ') }}.
+      }
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Import</th>
+            <th>Learning item</th>
+            <th>Progress & history</th>
+            <th>Review</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (candidate of s.rows; track candidate.index) {
+            <tr>
+              <td>
+                <input
+                  type="checkbox"
+                  [checked]="selected().has(candidate.index)"
+                  (change)="toggle(candidate.index)"
+                  [disabled]="
+                    busy() ||
+                    !!pending() ||
+                    !candidate.row ||
+                    state(candidate.row.source_id) !== 'ready'
+                  "
+                  [attr.aria-label]="'Import ' + candidate.title"
+                />
+              </td>
+              <td>
+                <strong>{{ candidate.title }}</strong
+                ><small>{{ candidate.row?.source_id }}</small>
+              </td>
+              <td>
+                @if (candidate.row; as row) {
+                  {{ row.kind }} · {{ row.status }}{{ row.archived ? ' · archived' : ''
+                  }}<small
+                    >{{ row.units.length }} lessons · deadline {{ row.due_on || 'none' }} ·
+                    completed {{ row.completed_on || 'none' }}</small
+                  >
+                }
+              </td>
+              <td>
+                {{
+                  candidate.error ||
+                    (candidate.row ? message(candidate.row.source_id) : 'Invalid item')
+                }}
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <div class="heading-actions">
+      <button
+        class="button primary"
+        (click)="save()"
+        [disabled]="busy() || (!pending() && !selected().size)"
+      >
+        {{ pending() ? 'Retry the same Learning import' : 'Import selected learning' }}</button
+      ><button class="button subtle" (click)="discard()" [disabled]="busy()">
+        Discard preview
+      </button>
+    </div>
+  </section>
+}

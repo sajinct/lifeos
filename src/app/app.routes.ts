@@ -12,6 +12,16 @@ export const routes: Routes = [
     loadComponent: () => import('./layout/shell').then((m) => m.Shell),
     children: [
       {
+        path: 'reports/progress',
+        loadComponent: () =>
+          import('./features/reports/progress').then((m) => m.ProgressReportsPage),
+      },
+      {
+        path: 'learning/import-json',
+        loadComponent: () =>
+          import('./features/learning-import/learning-import').then((m) => m.LearningImportPage),
+      },
+      {
         path: 'calendar/import-json',
         data: { calendarImport: true },
         loadComponent: () =>
