@@ -5,6 +5,8 @@ import { LifeStore } from './life-store';
 import { EmailDeliveryService, defaultEmailPreferences } from './email-delivery';
 import { EmailSettings } from '../../features/settings/email-settings';
 import { UiService } from './ui';
+import { createClient } from '@supabase/supabase-js';
+import { Database } from '../models/domain';
 describe('Email preferences and session isolation', () => {
   let store: LifeStore, email: EmailDeliveryService;
   beforeEach(async () => {
@@ -99,5 +101,39 @@ describe('Email preferences and session isolation', () => {
     expect(
       fixture.nativeElement.querySelector('input[formcontrolname="daily_digest"]').checked,
     ).toBe(true);
+  });
+  it('requests one cloud preference row and preserves the saved state when history refresh fails', async () => {
+    const auth = TestBed.inject(AuthService);
+    auth.demo.set(false);
+    auth.user.set({ id: 'demo-user' } as never);
+    const prefs = {
+      ...defaultEmailPreferences(),
+      owner_id: 'demo-user',
+      daily_digest: true,
+      revision: 1,
+    };
+    const transport = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+      const single =
+        new Headers(init?.headers).get('Accept') === 'application/vnd.pgrst.object+json';
+      return new Response(JSON.stringify(single ? prefs : [prefs]), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    });
+    vi.spyOn(TestBed.inject(Backend), 'requireClient').mockReturnValue(
+      createClient<Database>('https://example.test', 'public-test-key', {
+        global: { fetch: transport },
+      }),
+    );
+    vi.spyOn(email, 'load').mockImplementation(async () => {
+      email.error.set('History offline');
+    });
+    await email.save({ ...defaultEmailPreferences(), owner_id: 'forged-user', daily_digest: true });
+    expect(email.preferences()).toEqual(prefs);
+    expect(email.error()).toBe('History offline');
+    expect(new Headers(transport.mock.calls[0][1]?.headers).get('Accept')).toBe(
+      'application/vnd.pgrst.object+json',
+    );
+    expect(JSON.parse(String(transport.mock.calls[0][1]?.body))).not.toHaveProperty('owner_id');
   });
 });

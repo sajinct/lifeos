@@ -130,17 +130,22 @@ export class EmailDeliveryService {
       });
       return;
     }
-    const { data, error } = await this.backend.requireClient().rpc('save_email_preferences', {
-      expected_revision: input.revision,
-      reminders_enabled: input.reminder_emails,
-      daily_enabled: input.daily_digest,
-      weekly_enabled: input.weekly_digest,
-      finance_schedule: input.finance_frequency,
-      hour: input.delivery_hour,
-      weekday: input.weekly_day,
-      timezone: input.delivery_timezone.trim(),
-    });
+    const { data, error } = await this.backend
+      .requireClient()
+      .rpc('save_email_preferences', {
+        expected_revision: input.revision,
+        reminders_enabled: input.reminder_emails,
+        daily_enabled: input.daily_digest,
+        weekly_enabled: input.weekly_digest,
+        finance_schedule: input.finance_frequency,
+        hour: input.delivery_hour,
+        weekday: input.weekly_day,
+        timezone: input.delivery_timezone.trim(),
+      })
+      .single();
     if (error) throw error;
+    if (!data)
+      throw new Error('Email preferences saved, but response unavailable. Refresh email status.');
     if (this.current(c)) {
       this.preferences.set(data);
       await this.load();

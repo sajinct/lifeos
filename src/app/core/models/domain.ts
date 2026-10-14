@@ -998,7 +998,7 @@ export type Database = {
           weekday: number;
           timezone: string;
         };
-        Returns: EmailPreferences;
+        Returns: EmailPreferences[];
       };
       import_record_json: {
         Args: {
