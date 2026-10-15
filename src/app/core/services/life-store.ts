@@ -62,6 +62,8 @@ import {
   CareerDocument,
   Asset,
   AssetDocument,
+  AssetInsurance,
+  AssetInsuranceDocument,
   MaintenancePlan,
   MaintenanceLog,
   HouseholdEntry,
@@ -155,6 +157,8 @@ export class LifeStore {
   readonly healthDocuments = signal<HealthDocument[]>([]);
   readonly careerRecords = signal<CareerRecord[]>([]);
   readonly careerDocuments = signal<CareerDocument[]>([]);
+  readonly assetInsurance = signal<AssetInsurance[]>([]);
+  readonly assetInsuranceDocuments = signal<AssetInsuranceDocument[]>([]);
   readonly assets = signal<Asset[]>([]);
   readonly assetDocuments = signal<AssetDocument[]>([]);
   readonly maintenancePlans = signal<MaintenancePlan[]>([]);
@@ -326,6 +330,8 @@ export class LifeStore {
     this.healthDocuments.set(d.healthDocuments);
     this.careerRecords.set(d.careerRecords);
     this.careerDocuments.set(d.careerDocuments);
+    this.assetInsurance.set(d.assetInsurance);
+    this.assetInsuranceDocuments.set(d.assetInsuranceDocuments);
     this.assets.set(d.assets);
     this.assetDocuments.set(d.assetDocuments);
     this.maintenancePlans.set(d.maintenancePlans);
@@ -397,6 +403,8 @@ export class LifeStore {
     this.healthDocuments.set([]);
     this.careerRecords.set([]);
     this.careerDocuments.set([]);
+    this.assetInsurance.set([]);
+    this.assetInsuranceDocuments.set([]);
     this.assets.set([]);
     this.assetDocuments.set([]);
     this.maintenancePlans.set([]);
@@ -483,6 +491,8 @@ export class LifeStore {
         healthDocuments: this.healthDocuments(),
         careerRecords: this.careerRecords(),
         careerDocuments: this.careerDocuments(),
+        assetInsurance: this.assetInsurance(),
+        assetInsuranceDocuments: this.assetInsuranceDocuments(),
         assets: this.assets(),
         assetDocuments: this.assetDocuments(),
         maintenancePlans: this.maintenancePlans(),
@@ -566,6 +576,8 @@ export class LifeStore {
         this.healthDocuments.set(d.healthDocuments);
         this.careerRecords.set(d.careerRecords);
         this.careerDocuments.set(d.careerDocuments);
+        this.assetInsurance.set(d.assetInsurance);
+        this.assetInsuranceDocuments.set(d.assetInsuranceDocuments);
         this.assets.set(d.assets);
         this.assetDocuments.set(d.assetDocuments);
         this.maintenancePlans.set(d.maintenancePlans);
@@ -1358,6 +1370,26 @@ export class LifeStore {
           if (page.data.length < 500) break;
         }
       if (run !== this.generation) return;
+      const insuranceRows: AssetInsurance[] = [],
+        insuranceDocuments: AssetInsuranceDocument[] = [];
+      for (const table of ['asset_insurance', 'asset_insurance_documents'] as const) {
+        for (let offset = 0; ; offset += 500) {
+          const page = await c
+            .from(table)
+            .select('*')
+            .eq('workspace_id', w.id)
+            .order('created_at')
+            .order('id')
+            .range(offset, offset + 499);
+          if (page.error) throw page.error;
+          if (run !== this.generation) return;
+          if (table === 'asset_insurance') insuranceRows.push(...(page.data as AssetInsurance[]));
+          else insuranceDocuments.push(...(page.data as AssetInsuranceDocument[]));
+          if (page.data.length < 500) break;
+        }
+      }
+      this.assetInsurance.set(insuranceRows);
+      this.assetInsuranceDocuments.set(insuranceDocuments);
       this.assets.set(allAssets);
       this.assetDocuments.set(allAssetDocuments);
       this.maintenancePlans.set(allMaintenance);
@@ -2174,6 +2206,8 @@ export class LifeStore {
       healthDocuments: this.healthDocuments(),
       careerRecords: this.careerRecords(),
       careerDocuments: this.careerDocuments(),
+      assetInsurance: this.assetInsurance(),
+      assetInsuranceDocuments: this.assetInsuranceDocuments(),
       assets: this.assets(),
       assetDocuments: this.assetDocuments(),
       maintenancePlans: this.maintenancePlans(),

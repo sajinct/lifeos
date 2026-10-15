@@ -20,6 +20,9 @@
     </button>
   </div>
 </section>
+<nav class="heading-actions" aria-label="Asset tools" style="margin-bottom: 20px">
+  <a class="button subtle" routerLink="/assets/insurance">Insurance policies</a>
+</nav>
 <div class="file-library-note">
   <app-icon name="lock" /><span
     >Asset details, linked documents and service history stay private to you.</span
@@ -230,6 +233,9 @@
           }
         </div>
         <div class="heading-actions">
+          <a class="button subtle" routerLink="/assets/insurance" [queryParams]="{ asset: a.id }"
+            >Insurance policies</a
+          >
           <button class="button primary" (click)="manage(a)" [disabled]="busy()">
             Maintenance & history
           </button>

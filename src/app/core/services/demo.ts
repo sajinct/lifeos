@@ -401,6 +401,8 @@ export function demoData() {
     careerRecords: [] as import('../models/domain').CareerRecord[],
     careerDocuments: [] as import('../models/domain').CareerDocument[],
     assets: [] as import('../models/domain').Asset[],
+    assetInsurance: [] as import('../models/domain').AssetInsurance[],
+    assetInsuranceDocuments: [] as import('../models/domain').AssetInsuranceDocument[],
     assetDocuments: [] as import('../models/domain').AssetDocument[],
     maintenancePlans: [] as import('../models/domain').MaintenancePlan[],
     maintenanceLogs: [] as import('../models/domain').MaintenanceLog[],

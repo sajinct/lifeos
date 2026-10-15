@@ -1,0 +1,301 @@
+<section class="page-heading">
+  <div>
+    <span class="eyebrow">ASSETS · YOUR PRIVATE RECORDS</span>
+    <h1>Asset insurance</h1>
+    <p>Keep policy details and renewal history with the asset they belong to.</p>
+  </div>
+  <div class="heading-actions">
+    <a class="button subtle" routerLink="/assets">Back to assets</a
+    ><button
+      class="button subtle"
+      (click)="export()"
+      [disabled]="!rows().length || store.loading() || !!store.error()"
+    >
+      Export policies CSV</button
+    ><button
+      class="button primary"
+      (click)="add()"
+      [disabled]="!writable() || busy() || !!pending() || !hasActiveAssets()"
+    >
+      Add policy
+    </button>
+  </div>
+</section>
+<p class="sharing-note">
+  Policy details and links stay private to you. Premiums are reference amounts and create no Finance
+  entry or payment schedule. Marking a record cancelled does not contact the insurer. Date labels
+  follow your recorded policy period.
+</p>
+<p class="form-hint">Policy dates across this workspace</p>
+<div class="insurance-stats">
+  <section class="panel">
+    <span>Within recorded dates</span><strong>{{ counts().current }}</strong>
+  </section>
+  <section class="panel">
+    <span>Ending within 30 days</span><strong>{{ counts().ending }}</strong>
+  </section>
+  <section class="panel">
+    <span>Recorded end date passed</span><strong>{{ counts().ended }}</strong>
+  </section>
+</div>
+@if (error() || store.error()) {
+  <p class="error-banner" role="alert">{{ error() || store.error() }}</p>
+}
+@if (pending()) {
+  <section class="panel retry">
+    <h2>Pending insurance change</h2>
+    <p>
+      The saved request is frozen. Retry it unchanged after a connection or refresh failure. For a
+      conflict, discard it, refresh and reopen the latest record.
+    </p>
+    <div class="heading-actions">
+      <button class="button primary" (click)="retry()" [disabled]="busy()">
+        Retry the same change</button
+      ><button class="button subtle" (click)="discard()" [disabled]="busy()">
+        Discard pending change
+      </button>
+    </div>
+  </section>
+}
+@if (opened()) {
+  <section class="panel editor">
+    <h2>{{ editing() ? 'Edit policy record' : 'Add policy record' }}</h2>
+    <form [formGroup]="form" (ngSubmit)="save()">
+      <fieldset [disabled]="busy() || !!pending()">
+        <div class="form-grid">
+          <label
+            >Asset<select formControlName="asset_id" [attr.disabled]="editing() ? '' : null">
+              <option value="">Choose your active asset</option>
+              @for (a of library.choices(); track a.id) {
+                @if (a.status === 'active' || a.id === form.controls.asset_id.value) {
+                  <option [value]="a.id">
+                    {{ a.name }}{{ a.status !== 'active' ? ' · ' + a.status : '' }}
+                  </option>
+                }
+              }
+            </select></label
+          >
+          <label
+            >Policy title<input
+              formControlName="title"
+              maxlength="200"
+              required
+              placeholder="Vehicle insurance, home cover…"
+          /></label>
+          <label
+            >Insurance provider<input formControlName="provider" maxlength="200" required /></label
+          ><label
+            >Policy number (optional)<input formControlName="policy_number" maxlength="200"
+          /></label>
+          <label
+            >Policy starts on<input
+              formControlName="starts_on"
+              type="date"
+              min="1900-01-01"
+              max="2100-12-31"
+              required /></label
+          ><label
+            >Policy ends on<input
+              formControlName="ends_on"
+              type="date"
+              min="1900-01-01"
+              max="2100-12-31"
+              required
+          /></label>
+          <label
+            >Coverage amount (optional)<input
+              formControlName="coverage_amount"
+              inputmode="decimal"
+              placeholder="0.00" /></label
+          ><label
+            >Recorded premium (optional)<input
+              formControlName="premium_amount"
+              inputmode="decimal"
+              placeholder="0.00"
+          /></label>
+          <label>Currency<input formControlName="currency" maxlength="3" required /></label
+          ><label
+            >Premium basis<select formControlName="premium_frequency">
+              <option value="once">One-time premium</option>
+              <option value="monthly">Per month</option>
+              <option value="quarterly">Per quarter</option>
+              <option value="yearly">Per year</option>
+            </select></label
+          >
+        </div>
+        <label
+          >Policy notes<textarea formControlName="notes" rows="3" maxlength="4000"></textarea>
+        </label>
+        <fieldset class="document-picker">
+          <legend>Link policy documents or receipts</legend>
+          <p class="form-hint">
+            Choose up to 50 of your completed file versions. A link keeps the file's existing access
+            rules; it does not share the policy. A renewal starts a new policy record and lets you
+            select its documents separately.
+          </p>
+          @for (f of documents(); track f.id) {
+            <label class="document-option"
+              ><input
+                type="checkbox"
+                [checked]="form.controls.document_ids.value.includes(f.id)"
+                (change)="selectDocument(f.id, $any($event.target).checked)"
+              />{{ f.name }} · version {{ f.version_number
+              }}{{ f.status === 'archived' ? ' · archived version' : '' }}</label
+            >
+          } @empty {
+            <p class="form-hint">
+              No completed files yet. <a routerLink="/documents">Upload a document</a>.
+            </p>
+          }
+        </fieldset>
+        <div class="heading-actions">
+          <button class="button primary" type="submit" [disabled]="!writable() || busy()">
+            Save policy</button
+          ><button class="button subtle" type="button" (click)="close()">Cancel</button>
+        </div>
+      </fieldset>
+    </form>
+  </section>
+}
+@if (linked()) {
+  <p class="file-library-note">
+    Showing the selected policy. <a routerLink="/assets/insurance">Show all policies</a>
+  </p>
+}
+<section class="panel filters">
+  <label
+    >Find policies<input
+      [value]="search()"
+      (input)="search.set($any($event.target).value)"
+      placeholder="Provider, policy number, asset or notes…" /></label
+  ><label
+    >Filter asset<select
+      [value]="assetFilter()"
+      (change)="assetFilter.set($any($event.target).value)"
+    >
+      <option value="all">All assets</option>
+      @for (a of library.choices(); track a.id) {
+        <option [value]="a.id">{{ a.name }} · {{ a.status }}</option>
+      }
+    </select></label
+  ><label
+    >Policy view<select [value]="view()" (change)="view.set($any($event.target).value)">
+      <option value="current">Unarchived records</option>
+      <option value="ending">Ending within 30 days</option>
+      <option value="ended">End date passed</option>
+      <option value="upcoming">Upcoming</option>
+      <option value="cancelled">Marked cancelled</option>
+      <option value="archived">Archived</option>
+      <option value="all">All history</option>
+    </select></label
+  ><button
+    class="button subtle"
+    (click)="refresh()"
+    [disabled]="busy() || !!pending() || store.loading()"
+  >
+    Refresh policies
+  </button>
+</section>
+<div class="policy-grid">
+  @for (p of rows(); track p.id) {
+    <article class="panel policy-card">
+      <div class="detail-heading">
+        <div>
+          <span class="eyebrow">{{ assetName(p.asset_id) }}</span>
+          <h2>{{ p.title }}</h2>
+          <p>{{ p.provider }}</p>
+        </div>
+        <span class="priority">Private</span>
+      </div>
+      <p class="policy-status">{{ status(p) }}</p>
+      <dl>
+        <div>
+          <dt>Policy period</dt>
+          <dd>
+            {{ p.starts_on + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }} –
+            {{ p.ends_on + 'T00:00:00Z' | date: 'd MMM y' : 'UTC' }}
+          </dd>
+        </div>
+        @if (p.policy_number) {
+          <div>
+            <dt>Policy number</dt>
+            <dd>{{ p.policy_number }}</dd>
+          </div>
+        }
+        <div>
+          <dt>Coverage amount</dt>
+          <dd>
+            {{
+              p.coverage_amount === null
+                ? 'Not recorded'
+                : (p.coverage_amount | currency: p.currency : 'symbol' : '1.2-2')
+            }}
+          </dd>
+        </div>
+        <div>
+          <dt>Recorded premium</dt>
+          <dd>
+            {{
+              p.premium_amount === null
+                ? 'Not recorded'
+                : (p.premium_amount | currency: p.currency : 'symbol' : '1.2-2')
+            }}
+            · {{ premiumLabel(p.premium_frequency) }}
+          </dd>
+        </div>
+      </dl>
+      @if (p.notes) {
+        <p class="literal">{{ p.notes }}</p>
+      }
+      @if (!active(p.asset_id)) {
+        <p class="form-hint">
+          This asset is inactive. Its insurance history is retained; restore the asset before
+          editing details or adding a renewal.
+        </p>
+      }
+      <div class="document-links">
+        @for (l of library.documents(p); track l.id) {
+          <a
+            class="button subtle"
+            routerLink="/documents"
+            [queryParams]="{ linked: l.attachment_id }"
+            >{{ docName(l.attachment_id) }} ↗</a
+          >
+        }
+      </div>
+      <div class="heading-actions">
+        @if (writable()) {
+          @if (!p.archived && !p.cancelled && active(p.asset_id)) {
+            <button class="button subtle" (click)="add(p)" [disabled]="busy() || !!pending()">
+              Edit policy
+            </button>
+          }
+          @if (active(p.asset_id)) {
+            <button class="button subtle" (click)="add(p, true)" [disabled]="busy() || !!pending()">
+              Record renewal
+            </button>
+          }
+          <button
+            class="button subtle"
+            (click)="state(p, !p.cancelled, p.archived)"
+            [disabled]="busy() || !!pending()"
+          >
+            {{ p.cancelled ? 'Undo cancellation' : 'Mark cancelled' }}</button
+          ><button
+            class="button subtle"
+            (click)="state(p, p.cancelled, !p.archived)"
+            [disabled]="busy() || !!pending()"
+          >
+            {{ p.archived ? 'Restore policy record' : 'Archive policy record' }}
+          </button>
+        }
+      </div>
+    </article>
+  } @empty {
+    <section class="panel empty-state">
+      <h2>No matching policy records</h2>
+      <p>Add a policy for one of your active assets, or change the filters to review history.</p>
+      <a class="button subtle" routerLink="/assets">Manage assets</a>
+    </section>
+  }
+</div>

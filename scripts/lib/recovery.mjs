@@ -365,8 +365,39 @@ async function seed(db) {
     w,
     JSON.stringify(shoppingPayload),
   ]);
+  const insuranceAsset = randomUUID(),
+    insurance = randomUUID(),
+    insuranceRequest = randomUUID();
+  const insuranceDetails = {
+    title: 'Recovery policy',
+    provider: 'Synthetic insurer',
+    policy_number: 'SYNTHETIC-1',
+    starts_on: '2026-01-01',
+    ends_on: '2026-12-31',
+    coverage_amount: 10000,
+    premium_amount: 25,
+    currency: 'INR',
+    premium_frequency: 'yearly',
+    notes: 'Synthetic private policy',
+  };
+  await db.query(
+    "select public.save_asset($1,$2,null,'Recovery vehicle','Vehicle','','','','',null,null,'INR',null,'','{}')",
+    [insuranceAsset, w],
+  );
+  await db.query('select public.save_asset_insurance($1,$2,$3,null,$4,$5,$6)', [
+    insuranceRequest,
+    insurance,
+    w,
+    insuranceAsset,
+    JSON.stringify(insuranceDetails),
+    [first],
+  ]);
   await db.exec('reset role');
   return {
+    insuranceAsset,
+    insurance,
+    insuranceRequest,
+    insuranceDetails,
     shoppingImport,
     shoppingPayload,
     documentShare,
@@ -716,6 +747,68 @@ export async function runLocalRecoveryDrill({ output } = {}) {
     );
     checks.push(
       'Shopping import source bindings and batch receipts survive restore without duplicating lists or undoing later edits',
+    );
+    await restored.query('select public.save_asset_insurance($1,$2,$3,null,$4,$5,$6)', [
+      fixture.insuranceRequest,
+      fixture.insurance,
+      fixture.w,
+      fixture.insuranceAsset,
+      JSON.stringify(fixture.insuranceDetails),
+      [fixture.first],
+    ]);
+    await restored.query('select public.set_asset_insurance_state($1,$2,1,true,true)', [
+      randomUUID(),
+      fixture.insurance,
+    ]);
+    await restored.query('select public.save_asset_insurance($1,$2,$3,null,$4,$5,$6)', [
+      fixture.insuranceRequest,
+      fixture.insurance,
+      fixture.w,
+      fixture.insuranceAsset,
+      JSON.stringify(fixture.insuranceDetails),
+      [fixture.first],
+    ]);
+    const restoredPolicy = (
+      await restored.query(
+        'select revision,cancelled,archived from public.asset_insurance where id=$1',
+        [fixture.insurance],
+      )
+    ).rows[0];
+    assert(
+      restoredPolicy.revision === 2 && restoredPolicy.cancelled && restoredPolicy.archived,
+      'Insurance request replay undid later policy state.',
+    );
+    assert(
+      (
+        await restored.query(
+          'select attachment_id from public.asset_insurance_documents where insurance_id=$1',
+          [fixture.insurance],
+        )
+      ).rows[0]?.attachment_id === fixture.first,
+      'Selected insurance document version changed.',
+    );
+    await user(restored, fixture.a);
+    assert(
+      (
+        await restored.query('select id from public.asset_insurance where id=$1', [
+          fixture.insurance,
+        ])
+      ).rows.length === 0 &&
+        (
+          await restored.query(
+            'select id from public.asset_insurance_documents where insurance_id=$1',
+            [fixture.insurance],
+          )
+        ).rows.length === 0,
+      'Member-private insurance leaked to workspace owner.',
+    );
+    await user(restored, fixture.b);
+    await restored.query('select public.set_asset_insurance_state($1,$2,2,false,false)', [
+      randomUUID(),
+      fixture.insurance,
+    ]);
+    checks.push(
+      'Private asset insurance and exact document versions retain stable retries and reversible state history',
     );
     const old = (
       await restored.query('select status,version_number from public.attachments where id=$1', [

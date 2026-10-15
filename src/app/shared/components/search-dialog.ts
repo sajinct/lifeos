@@ -164,6 +164,22 @@ export class SearchDialog implements AfterViewInit {
           path: '/career',
         })),
       ...this.store
+        .assetInsurance()
+        .filter(
+          (p) =>
+            !p.archived &&
+            !p.cancelled &&
+            p.workspace_id === this.store.workspace()?.id &&
+            p.owner_id === this.store.profile()?.id,
+        )
+        .map((p) => ({
+          id: p.id,
+          title: p.title + ' · ' + p.provider,
+          type: 'Asset insurance',
+          icon: 'project',
+          path: '/assets/insurance',
+        })),
+      ...this.store
         .assets()
         .filter((a) => a.status === 'active')
         .map((a) => ({ id: a.id, title: a.name, type: 'Asset', icon: 'project', path: '/assets' })),
@@ -283,7 +299,8 @@ export class SearchDialog implements AfterViewInit {
   navigate(result: { id: string; path: string; bucket?: string }) {
     this.ui.searchOpen.set(false);
     void this.router.navigateByUrl(
-      result.path === '/notes' ||
+      result.path === '/assets/insurance' ||
+        result.path === '/notes' ||
         result.path === '/learning' ||
         result.path === '/family/shopping' ||
         result.path === '/family/education' ||

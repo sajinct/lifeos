@@ -728,6 +728,38 @@ export interface Asset extends OwnedRecord {
   status: 'active' | 'sold' | 'retired' | 'archived';
   revision: number;
 }
+export interface AssetInsurance extends OwnedRecord {
+  asset_id: string;
+  title: string;
+  provider: string;
+  policy_number: string;
+  starts_on: string;
+  ends_on: string;
+  coverage_amount: number | null;
+  premium_amount: number | null;
+  currency: string;
+  premium_frequency: 'once' | 'monthly' | 'quarterly' | 'yearly';
+  notes: string;
+  cancelled: boolean;
+  archived: boolean;
+  revision: number;
+}
+export interface AssetInsuranceDocument extends OwnedRecord {
+  insurance_id: string;
+  attachment_id: string;
+}
+export type AssetInsuranceInput = Pick<
+  AssetInsurance,
+  | 'asset_id'
+  | 'title'
+  | 'provider'
+  | 'policy_number'
+  | 'starts_on'
+  | 'ends_on'
+  | 'currency'
+  | 'premium_frequency'
+  | 'notes'
+> & { coverage_amount: string; premium_amount: string; document_ids: string[] };
 export interface AssetDocument extends OwnedRecord {
   asset_id: string;
   attachment_id: string;
@@ -1212,6 +1244,8 @@ export interface TableRows {
   household_members: HouseholdMember;
   household_entries: HouseholdEntry;
   assets: Asset;
+  asset_insurance: AssetInsurance;
+  asset_insurance_documents: AssetInsuranceDocument;
   asset_documents: AssetDocument;
   maintenance_plans: MaintenancePlan;
   maintenance_logs: MaintenanceLog;
@@ -1228,6 +1262,29 @@ export type Database = {
     Tables: { [K in keyof TableRows]: Table<TableRows[K]> };
     Views: Record<string, never>;
     Functions: {
+      save_asset_insurance: {
+        Args: {
+          request: string;
+          entry: string;
+          w: string;
+          expected_revision: number | null;
+          asset: string;
+          details: { [key: string]: unknown };
+          documents: string[];
+        };
+        Returns: string;
+      };
+      set_asset_insurance_state: {
+        Args: {
+          request: string;
+          entry: string;
+          expected_revision: number;
+          is_cancelled: boolean;
+          is_archived: boolean;
+        };
+        Returns: undefined;
+      };
+
       preview_shopping_import: {
         Args: { w: string; payload: { [key: string]: unknown }[] };
         Returns: import('../../shared/utilities/shopping-import').ShoppingImportReview[];
